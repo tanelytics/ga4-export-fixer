@@ -3,6 +3,15 @@
 Helpers and table definitions for processing GA4 (Google Analytics 4) BigQuery export data in **Dataform**.
 
 ## Installation
+
+### Bash
+
+```bash
+npm install ga4-export-fixer
+```
+
+### In Google Cloud Dataform
+
 Include the package in the package.json file in your Dataform repository.
 
 ```json
@@ -14,7 +23,9 @@ Include the package in the package.json file in your Dataform repository.
   }
 }
 ```
-In Google Cloud Dataform, click "Install Packages".
+In Google Cloud Dataform, click "Install Packages" to install it in your development workspace.
+
+If your Dataform repository does not have a package.json file, see this guide: https://docs.cloud.google.com/dataform/docs/manage-repository#move-to-package-json
 
 ## Usage
 
