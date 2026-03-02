@@ -1,0 +1,32 @@
+{
+  "name": "@taneli-salonen1/ga4-export-fixer",
+  "version": "1.0.121",
+  "description": "",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "helpers.js",
+    "utils.js",
+    "preOperations.js",
+    "constants.js",
+    "tables"
+  ],
+  "scripts": {
+    "test": "node tests/ga4EventsEnhanced.test.js",
+    "test:events": "node tests/ga4EventsEnhanced.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taneli-salonen1/ga4_export_fixer.git"
+  },
+  "author": "Taneli Salonen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/taneli-salonen1/ga4_export_fixer/issues"
+  },
+  "homepage": "https://github.com/taneli-salonen1/ga4_export_fixer#readme",
+  "devDependencies": {
+    "@google-cloud/bigquery": "^8.1.1",
+    "dotenv": "^17.3.1"
+  }
+}

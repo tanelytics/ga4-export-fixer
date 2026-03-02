@@ -1,0 +1,194 @@
+const constants = require('./constants.js');
+
+const declareVariable = (variable, value) => {
+  return `declare ${variable} default (
+  ${value}
+);`;
+};
+
+// Define the date range start for incremental and full refresh
+const getDateRangeStart = (config) => {
+  if (config.incremental) {
+    // if an incremental start override is provided, use it
+    if (config.preOperations.incrementalStartOverride) {
+      return `select ${config.preOperations.incrementalStartOverride}`;
+    }
+
+    // otherwise, use the default logic
+    return `with days as (
+  select
+    ${constants.DATE_COLUMN},
+    min(data_is_final) as data_is_final
+  from
+    ${config.self}
+  where
+    ${constants.DATE_COLUMN} > current_date()-${config.preOperations.numberOfPreviousDaysToScan}
+  group by
+    ${constants.DATE_COLUMN}
+)
+select
+  max(${constants.DATE_COLUMN})+1 as ${constants.DATE_RANGE_START_VARIABLE}
+from
+  days
+where
+  data_is_final = true`;
+  } else {
+    const dateRangeStartFullRefresh = config.test ? config.testConfig.dateRangeStart : config.preOperations.dateRangeStartFullRefresh;
+    return `select ${dateRangeStartFullRefresh}`;
+  }
+
+};
+
+// Define the date range start for incremental refresh with intraday tables
+const getDateRangeStartIntraday = (config) => {
+  const getStartDate = () => {
+    // with incremental refresh, use the checkpoint variable and check tables created starting from that date
+    if (config.incremental) {
+      return `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`;
+    }
+    // otherwise, just scan the last 5 days
+    return 'current_date()-5';
+  };
+
+  const startDate = getStartDate();
+
+  if (config.includedExportTypes.intraday) {
+    return `with export_statuses as (
+    select
+      safe_cast(regexp_extract(_table_suffix, r'\\d+') as date format 'YYYYMMDD') as date,
+      case
+        when _table_suffix like 'intraday_%' then 'intraday'
+        else 'daily'
+      end as export_type,
+    from
+      ${config.sourceTable}
+    where
+      -- check tables that are newer than the date range start or the last 5 days (if not incremental refresh)
+      (
+        regexp_extract(_table_suffix, r'\\d+') between 
+        cast(${startDate} as string format 'YYYYMMDD') 
+        and cast(current_date() as string format 'YYYYMMDD')
+      )
+      -- only include tables that are from the daily or intraday exports
+      and regexp_contains(_table_suffix, r'^(intraday_)?\\d{8}$')
+    group by 
+      date, export_type
+  ),
+  statuses_by_day as (
+    select
+      date,
+      max(if(export_type = 'daily', true, false)) as daily,
+      max(if(export_type = 'intraday', true, false)) as intraday
+    from
+      export_statuses
+    group by 
+      date
+  )
+  select
+    max(
+      if(
+        intraday = true and daily = false,
+        date,
+        null
+      )
+    )
+  from
+    statuses_by_day`;
+  }
+
+  return undefined;
+};
+
+const getDateRangeEnd = (config) => {
+  // if an incremental end override is provided, use it
+  if (config.incremental && config.preOperations.incrementalEndOverride) {
+    return `select ${config.preOperations.incrementalEndOverride}`;
+  }
+
+  // otherwise, use the default logic
+  return `select ${config.preOperations.dateRangeEnd}`;
+};
+
+const deleteNonFinalRows = (config) => {
+  return `delete from ${config.self} where ${constants.DATE_COLUMN} >= ${constants.DATE_RANGE_START_VARIABLE} and ${constants.DATE_COLUMN} <= ${constants.DATE_RANGE_END_VARIABLE};`;
+};
+
+const createSchemaLockTable = (config) => {
+  const tableName = 'events_schema_lock';
+  const tablePath = config.sourceTable.replace(/`?([^`]+)\.([^`]+)\.[^`]+`?$/, `\`$1.$2.${tableName}\``);
+  const copySchemaFromTable = config.sourceTable.replace(/`?([^`]+)\.([^`]+)\.[^`]+`?$/, `\`$1.$2.events_${config.schemaLock}\``);
+  
+  return `create or replace table ${tablePath}
+  like ${copySchemaFromTable}
+  options(
+    description = "Temporary table for locking GA4 export schema to the ${config.schemaLock} version. Auto-expires in 5 minutes.",
+    expiration_timestamp = timestamp_add(current_timestamp(), interval 5 minute)
+  );`;
+};
+
+// Set the pre operations for the query
+const setPreOperations = (config) => {
+  // define the pre operations
+  const preOperations = [
+    {
+      type: 'variable',
+      name: constants.DATE_RANGE_START_VARIABLE,
+      // variable only needed with incremental refresh
+      value: config.incremental ? getDateRangeStart(config) : undefined,
+      comment: 'Define the date range start for incremental and full refresh.',
+    },
+    {
+      type: 'variable',
+      name: constants.INTRADAY_DATE_RANGE_START_VARIABLE,
+      // variable only needed with incremental refresh and intraday export tables
+      value: config.includedExportTypes.intraday ? getDateRangeStartIntraday(config) : undefined,
+      comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data.',
+    },
+    {
+      type: 'variable',
+      name: constants.DATE_RANGE_END_VARIABLE,
+      // variable only needed with incremental refresh
+      value: config.incremental ? getDateRangeEnd(config) : undefined,
+      comment: 'Define the date range end.',
+    },
+    {
+      type: 'delete',
+      // delete only needed with incremental refresh
+      value: config.incremental ? deleteNonFinalRows(config) : undefined,
+      comment: 'Delete all rows that are about to be inserted again. (data_is_final = false)',
+    },
+    {
+      type: 'create',
+      // create table statement only needed with schema lock
+      value: config.schemaLock ? createSchemaLockTable(config) : undefined,
+      comment: 'Lock the schema to a specific version by creating a table copy from the selected day\'s export.'
+    },
+  ];
+
+  // generate the pre operations SQL
+  const preOperationsSQL = preOperations.filter(p => p.value !== undefined).map((p) => {
+    if (p.type === 'variable') {
+      return `-- ${p.comment}
+${declareVariable(p.name, p.value)}`;
+    } else if (p.type === 'delete' || p.type === 'create') {
+      return `-- ${p.comment}
+${p.value}`;
+    }
+  }).join('\n\n');
+
+  // set the variables in pre operations
+  return `
+/*
+Set the pre-operations for the query, required for managing incremental refreshes.
+*/
+
+${preOperationsSQL}
+
+-- End of pre-operations
+
+`;
+};
+
+module.exports = {
+  setPreOperations
+};
