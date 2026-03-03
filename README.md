@@ -78,7 +78,7 @@ js {
   const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
   const config = {
-    sourceTable: ref(constants.GA4_TABLES.TANELYTICS_GA4),
+    sourceTable: ref(constants.GA4_TABLES.MY_GA4_EXPORT),
     self: self(),
     incremental: incremental()
   };
