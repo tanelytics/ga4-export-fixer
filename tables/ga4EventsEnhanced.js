@@ -372,9 +372,13 @@ ${excludedEventsSQL}`,
 const createEnhancedEventsTable = (dataformPublish, config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
 
-    const tableDescription = `GA4 Events Enhanced
-    
-This table is created by the ga4-export-fixer package.`;
+    const tableDescription = `GA4 Events Enhanced 
+
+- Combines daily (processed) and intraday exports so the best available version of each event is always used. 
+- Key fields such as page_location and session_id are promoted to columns for faster queries. 
+- Supports incremental updates on any schedule. 
+
+Created by the ga4-export-fixer package.`;
 
     // the defaults for the dataform table config
     const defaultDataformTableConfig = {
@@ -438,8 +442,15 @@ This table is created by the ga4-export-fixer package.`;
 
 };
 
+// provide a merged config for the pre operations
+// required for the .sqlx deployment
+const setPreOperations = (config) => {
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    return preOperations.setPreOperations(mergedConfig);
+};
+
 module.exports = {
     generateSql: generateEnhancedEventsSQL,
     createTable: createEnhancedEventsTable,
-    setPreOperations: preOperations.setPreOperations
+    setPreOperations: setPreOperations
 }

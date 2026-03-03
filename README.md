@@ -29,13 +29,23 @@ If your Dataform repository does not have a package.json file, see this guide: h
 
 ## Usage
 
-### GA4 Events Enhanced Table (JS deployment)
+### Create GA4 Events Enhanced Table
 
 Creates an **enhanced** version of the GA4 BigQuery export (daily & intraday).
 
-Use `ga4EventsEnhanced` to generate the incremental **ga_events_enhanced** table:
+The main features include:
 
-```javascript
+- **Best available data at any time** – Combines daily (processed) and intraday exports so the most complete, accurate version of the data is always available
+- **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
+- **Flexible schema, better optimized for analysis** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for faster queries; **partitioning and clustering** enabled
+- **Event parameter handling** – Promote event params to columns; include or exclude by name
+- **Session parameters** – Promote selected event parameters as session-level parameters
+
+#### JS Deployment (Recommended)
+
+Create a new **ga4_events_enhanced** table using a **.js** file in your repository's **definitions** folder.
+
+```javascript:definitions/ga4/ga4_events_enhanced.js
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
@@ -44,6 +54,39 @@ const config = {
 
 // Create a Dataform table (inside a JS file)
 ga4EventsEnhanced.createTable(publish, config);
+```
+
+#### SQLX Deployment
+
+Alternatively, you can create the **ga4_events_enhanced** table using a .SQLX file.
+
+```javascript:definitions/ga4/ga4_events_enhanced.sqlx
+config {
+  type: "incremental",
+  description: "GA4 Events Enhanced table",
+  schema: "ga4",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
+  },
+  tags: ['ga4_export_fixer']
+}
+
+js {
+  const { ga4EventsEnhanced } = require('ga4-export-fixer');
+
+  const config = {
+    sourceTable: ref(constants.GA4_TABLES.TANELYTICS_GA4),
+    self: self(),
+    incremental: incremental()
+  };
+}
+
+${ga4EventsEnhanced.generateSql(config)}
+
+pre_operations {
+  ${ga4EventsEnhanced.setPreOperations(config)}
+}
 ```
 
 ### Helpers
