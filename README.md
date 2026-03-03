@@ -14,6 +14,7 @@ npm install ga4-export-fixer
 
 Include the package in the package.json file in your Dataform repository.
 
+**`package.json`**
 ```json
 {
   "name": "my_dataform_repo",
