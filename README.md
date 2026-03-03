@@ -45,7 +45,8 @@ The main features include:
 
 Create a new **ga4_events_enhanced** table using a **.js** file in your repository's **definitions** folder.
 
-```javascript:definitions/ga4/ga4_events_enhanced.js
+**`definitions/ga4/ga4_events_enhanced.js`**
+```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
@@ -60,7 +61,8 @@ ga4EventsEnhanced.createTable(publish, config);
 
 Alternatively, you can create the **ga4_events_enhanced** table using a .SQLX file.
 
-```javascript:definitions/ga4/ga4_events_enhanced.sqlx
+**`definitions/ga4/ga4_events_enhanced.sqlx`**
+```javascript
 config {
   type: "incremental",
   description: "GA4 Events Enhanced table",
