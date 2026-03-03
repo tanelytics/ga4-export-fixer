@@ -54,7 +54,6 @@ const config = {
   sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT
 };
 
-// Create a Dataform table (inside a JS file)
 ga4EventsEnhanced.createTable(publish, config);
 ```
 
