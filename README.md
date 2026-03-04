@@ -20,7 +20,7 @@ Include the package in the package.json file in your Dataform repository.
   "name": "my_dataform_repo",
   "dependencies": {
     "@dataform/core": "3.0.39",
-    "ga4-export-fixer": "0.1.1"
+    "ga4-export-fixer": "0.1.2"
   }
 }
 ```
