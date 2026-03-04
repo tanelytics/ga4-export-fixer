@@ -634,19 +634,21 @@ const isFinalData = (detectionMethod, dayThreshold) => {
     throw new Error(`isFinalData: Unsupported detectionMethod '${detectionMethod}'. Supported values are 'EXPORT_TYPE' and 'DAY_THRESHOLD'.`);
   }
 
-  if (typeof dayThreshold !== 'undefined' && (typeof dayThreshold !== 'number' || isNaN(dayThreshold))) {
-    throw new Error("isFinalData: 'dayThreshold' must be a number if provided.");
+  if (detectionMethod === 'DAY_THRESHOLD') {
+    if (typeof dayThreshold === 'undefined') {
+      throw new Error("isFinalData: 'dayThreshold' is required when using 'DAY_THRESHOLD' detectionMethod.");
+    }
+    if (!Number.isInteger(dayThreshold) || dayThreshold < 0) {
+      throw new Error("isFinalData: 'dayThreshold' must be an integer greater than or equal to 0 when using 'DAY_THRESHOLD' detectionMethod.");
+    }
   }
-
-  const defaultDayThreshold = 3;
-  const threshold = typeof dayThreshold !== 'undefined' ? dayThreshold : defaultDayThreshold;
 
   if (detectionMethod === 'EXPORT_TYPE') {
     return 'if(_table_suffix like \'intraday_%\' or _table_suffix like \'fresh_%\', false, true)';
   }
 
   if (detectionMethod === 'DAY_THRESHOLD') {
-    return `if(date_diff(current_date(), cast(event_date as date format 'YYYYMMDD'), day) > ${threshold}, true, false)`;
+    return `if(date_diff(current_date(), cast(event_date as date format 'YYYYMMDD'), day) > ${dayThreshold}, true, false)`;
   }
 };
 

@@ -155,16 +155,67 @@ Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYY
 
 ### Helpers
 
-The helpers contain templates for common SQL expression needed when working with GA4 data.
+The helpers contain templates for common SQL expressions. The functions are referenced by **ga4EventsEnhanced** but can also be imported as utility functions for working with GA4 data.
 
 ```javascript
 const { helpers } = require('ga4-export-fixer');
-
-// Unnest event parameters, date filters, URL extraction, session aggregation, etc.
-helpers.unnestEventParam('page_location', 'string');
-helpers.ga4ExportDateFilter('daily', 'current_date()-7', 'current_date()');
-helpers.extractPageDetails();
 ```
+
+#### SQL Templates
+
+| Name | Example | Description |
+|------|---------|-------------|
+| `eventDate` | `helpers.eventDate` | Casts `event_date` string to a DATE using YYYYMMDD format |
+| `sessionId` | `helpers.sessionId` | Builds a session ID by concatenating `user_pseudo_id` and `ga_session_id` |
+
+#### Functions
+
+**Unnesting parameters**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `unnestEventParam` | `unnestEventParam('page_location', 'string')` | Extracts a value from the `event_params` array by key. Supported types: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, `'float64'`. Omit type to get the value converted as a string |
+
+**Date and time**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `getEventTimestampMicros` | `getEventTimestampMicros('custom_ts')` | Returns SQL for event timestamp in microseconds. With a custom parameter, uses it (converted from ms) with fallback to `event_timestamp` |
+| `getEventDateTime` | `getEventDateTime({ timezone: 'Europe/Helsinki' })` | Returns SQL for event datetime in the given timezone. Defaults to `'Etc/UTC'` |
+
+**Date filters**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `ga4ExportDateFilter` | `ga4ExportDateFilter('daily', 'current_date()-7', 'current_date()')` | Generates a `_table_suffix` filter for a single export type (`'daily'` or `'intraday'`) and date range |
+
+**Page details**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `extractUrlHostname` | `extractUrlHostname('page_location')` | Extracts hostname from a URL column |
+| `extractUrlPath` | `extractUrlPath('page_location')` | Extracts the path component from a URL column |
+| `extractUrlQuery` | `extractUrlQuery('page_location')` | Extracts the query string (including `?`) from a URL column |
+| `extractUrlQueryParams` | `extractUrlQueryParams('page_location')` | Parses URL query parameters into `ARRAY<STRUCT<key STRING, value STRING>>` |
+| `extractPageDetails` | `extractPageDetails()` | Returns a struct with `hostname`, `path`, `query`, and `query_params`. Defaults to `page_location` event parameter |
+
+**Aggregation**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `aggregateValue` | `aggregateValue('user_id', 'last', 'event_timestamp')` | Aggregates a column using `'max'`, `'min'`, `'first'`, `'last'`, or `'any'`. `'first'` and `'last'` use the timestamp column for ordering |
+
+**Ecommerce**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `fixEcommerceStruct` | `fixEcommerceStruct()` | Cleans the ecommerce struct: sets `transaction_id` to null when `'(not set)'`, and fixes missing/NaN `purchase_revenue` for purchase events |
+
+**Data freshness**
+
+| Function | Example | Description |
+|----------|---------|-------------|
+| `isFinalData` | `isFinalData('DAY_THRESHOLD', 4)` | Returns SQL that evaluates to `true` when data is final. `'EXPORT_TYPE'` checks table suffix; `'DAY_THRESHOLD'` uses days since event (`dayThreshold` is required and must be a non-negative integer) |
 
 ## License
 
