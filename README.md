@@ -123,7 +123,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `dataIsFinal.detectionMethod` | string | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix) or `'DAY_THRESHOLD'` (uses days since event) |
+| `dataIsFinal.detectionMethod` | string | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix, all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event) |
 | `dataIsFinal.dayThreshold` | integer | `4` | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'` |
 
 **`testConfig`** — date range used when `test` is `true`:
