@@ -24,6 +24,9 @@ Include the package in the package.json file in your Dataform repository.
   }
 }
 ```
+
+**Note:** The best practice is to specify the package version explicitly (e.g. `"0.1.2"`) rather than using `"latest"` or `"*"`, to avoid unexpected breaking changes when the package is updated.
+
 In Google Cloud Dataform, click "Install Packages" to install it in your development workspace.
 
 If your Dataform repository does not have a package.json file, see this guide: https://docs.cloud.google.com/dataform/docs/manage-repository#move-to-package-json
