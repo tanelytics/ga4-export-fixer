@@ -39,7 +39,7 @@ const defaultConfig = {
         // this is useful if you want to re-process only a specific date range
         incrementalStartOverride: undefined,
         incrementalEndOverride: undefined,
-        numberOfPreviousDaysToScan: 5,
+        numberOfPreviousDaysToScan: 10,
     },
     // these parameters are excluded by default because they've been made available in other columns
     defaultExcludedEventParams: [

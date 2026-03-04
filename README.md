@@ -111,7 +111,6 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `excludedEvents` | string[] | `[]` | Event names to exclude from the table |
 | `excludedColumns` | string[] | `[]` | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'` |
 | `sessionParams` | string[] | `[]` | Event parameter names to aggregate as session-level parameters |
-| `eventParamsToColumns` | object[] | `[]` | Event parameters to promote to top-level columns (see below) |
 
 **`includedExportTypes`** — which GA4 export types to include:
 
@@ -140,7 +139,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 |-------|------|---------|-------------|
 | `preOperations.dateRangeStartFullRefresh` | string (SQL date) | `'date(2000, 1, 1)'` | Start date for full refresh |
 | `preOperations.dateRangeEnd` | string (SQL date) | `'current_date()'` | End date for queries |
-| `preOperations.numberOfPreviousDaysToScan` | integer | `5` | Number of previous days to re-process during incremental refresh |
+| `preOperations.numberOfPreviousDaysToScan` | integer | `10` | Number of previous days to scan from the result table when determining the incremental refresh start checkpoint. A higher value is required if the table updates have fallen behind for some reason |
 | `preOperations.incrementalStartOverride` | string (SQL date) | `undefined` | Override the incremental start date to re-process a specific range |
 | `preOperations.incrementalEndOverride` | string (SQL date) | `undefined` | Override the incremental end date to re-process a specific range |
 
@@ -149,7 +148,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Event parameter name |
-| `type` | string | No | Data type: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, or `'float64'`. If omitted, returns the first non-null value as string |
+| `type` | string | No | Data type: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, or `'float64'`. If omitted, returns the value converted to a string |
 | `columnName` | string | No | Column name in the output. Defaults to the parameter `name` |
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
