@@ -45,7 +45,7 @@ const defaultConfig = {
     defaultExcludedEventParams: [
         'page_location',
         'ga_session_id',
-        //'custom_event_timestamp', // poistetaan, jos käytössä
+        //'custom_event_timestamp', // removed if customTimestampParam is used
     ],
     excludedEventParams: [],
     eventParamsToColumns: [
@@ -57,12 +57,13 @@ const defaultConfig = {
         'first_visit'
     ],
     excludedEvents: [],
-    // exclude these columns when extracting raw data from the export tables
-    excludedColumns: [
+    defaultExcludedColumns: [
         'event_dimensions', // legacy column, not needed
         'traffic_source', // renamed to user_traffic_source
         'session_id'
     ],
+    // exclude these columns when extracting raw data from the export tables
+    excludedColumns: [],
 };
 
 // List the columns in the order they should be in the final table
@@ -227,8 +228,9 @@ const generateEnhancedEventsSQL = (config) => {
     };
 
     const getExcludedColumns = () => {
+        const allExcludedColumns = utils.mergeUniqueArrays(mergedConfig.defaultExcludedColumns, mergedConfig.excludedColumns);
         const excludedColumns = {};
-        mergedConfig.excludedColumns.forEach(c => {
+        allExcludedColumns.forEach(c => {
             excludedColumns[c] = undefined;
         });
         return excludedColumns;
