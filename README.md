@@ -95,7 +95,12 @@ const config = {
     'ga_session_number',
     'page_type',
     'user_agent'
-  ]
+  ],
+  // use day threshold for data_is_final
+  dataIsFinal: {
+    detectionMethod: 'DAY_THRESHOLD',
+    dayThreshold: 4
+  },
 };
 
 ga4EventsEnhanced.createTable(publish, config);
