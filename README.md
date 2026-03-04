@@ -46,12 +46,56 @@ The main features include:
 
 Create a new **ga4_events_enhanced** table using a **.js** file in your repository's **definitions** folder.
 
+##### Using Defaults
+
 **`definitions/ga4/ga4_events_enhanced.js`**
 ```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
   sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT
+};
+
+ga4EventsEnhanced.createTable(publish, config);
+```
+
+##### With Custom Configuration
+
+**`definitions/ga4/ga4_events_enhanced.js`**
+```javascript
+const { ga4EventsEnhanced } = require('ga4-export-fixer');
+
+const config = {
+  sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT,
+  schemaLock: '20260101', // prevent possible issues from updates to the export schema
+  customTimestampParam: 'custom_event_timestamp', // custom timestamp collected as an event param
+  timezone: 'Europe/Helsinki',
+  // not needed data
+  excludedColumns: [
+    'app_info',
+    'publisher'
+  ],
+  // not needed events
+  excludedEvents: [
+    'user_engagement'
+  ],
+  // transform to session-level
+  sessionParams: [
+    'user_agent'
+  ],
+  // promote as columns
+  eventParamsToColumns: [
+    {name: 'session_engaged'},
+    {name: 'ga_session_number', type: 'int'},
+    {name: 'page_type', type: 'string'},
+  ],
+  // not needed in the event_params array
+  excludedEventParams: [
+    'session_engaged',
+    'ga_session_number',
+    'page_type',
+    'user_agent'
+  ]
 };
 
 ga4EventsEnhanced.createTable(publish, config);
