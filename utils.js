@@ -198,7 +198,7 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
 /**
  * Checks if a given object is a Dataform table reference object.
  *
- * A Dataform table reference object is expected to have the properties: 'name', and 'schema'.
+ * A Dataform table reference object is expected to have the properties: 'name', and 'dataset'.
  *
  * @param {Object} obj - The object to check.
  * @returns {boolean} True if the object is a Dataform table reference, false otherwise.
@@ -207,7 +207,7 @@ const isDataformTableReferenceObject = (obj) => {
     return obj &&
         typeof obj === 'object' &&
         Object.hasOwn(obj, 'name') &&
-        Object.hasOwn(obj, 'schema');
+        Object.hasOwn(obj, 'dataset');
 };
 
 
@@ -215,7 +215,7 @@ const isDataformTableReferenceObject = (obj) => {
  * Sets the Dataform context for a configuration object.
  *
  * This function updates the provided config object by resolving the `sourceTable` property. If the `sourceTable`
- * is a Dataform table reference object (with 'name', and 'schema' properties), it uses `ctx.ref()` to
+ * is a Dataform table reference object (with 'name', and 'dataset' properties), it uses `ctx.ref()` to
  * obtain the correct reference. Otherwise, it checks if `sourceTable` is a string in the format '`project.dataset.table`'.
  * If not, it throws an error. Finally, it sets the `self` and `incremental` properties on the config using
  * `ctx.self()` and `ctx.incremental()`, respectively.
