@@ -105,6 +105,7 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
         return defaultConfig;
     }
 
+    // the merged configuration object
     const result = { ...defaultConfig };
 
     for (const key in inputConfig) {
@@ -170,6 +171,27 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
         }
     }
 
+    // support different formats for passing the sourceTable path
+    const fixSourceTable = (sourceTable) => {
+        if (isDataformTableReferenceObject(sourceTable)) {
+            return sourceTable;
+        }
+        if (typeof sourceTable === 'string') {
+            const tablePath = sourceTable.replace(/[`"']/g, '').trim();
+            if (/^[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\.[^\.]+)?$/.test(tablePath)) {
+                const project = tablePath.split('.')[0];
+                const dataset = tablePath.split('.')[1];
+                return `\`${project}.${dataset}.events_*\``;
+            }
+        }
+        throw new Error(`sourceTable must be a Dataform table reference or a string in the format '\`project.dataset.table\`'. Received: ${JSON.stringify(sourceTable)}`);
+    };
+
+    // process the sourceTable to support different formats
+    if (result.sourceTable) {
+        result.sourceTable = fixSourceTable(result.sourceTable);
+    }
+
     return result;
 };
 
@@ -178,15 +200,15 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
  *
  * A Dataform table reference object is expected to have the properties: 'name', 'project', and 'dataset'.
  *
- * @param {Object} table - The object to check.
+ * @param {Object} obj - The object to check.
  * @returns {boolean} True if the object is a Dataform table reference, false otherwise.
  */
-const isDataformTableReferenceObject = (table) => {
-    return table &&
-        typeof table === 'object' &&
-        Object.hasOwn(table, 'name') &&
-        Object.hasOwn(table, 'project') &&
-        Object.hasOwn(table, 'dataset');
+const isDataformTableReferenceObject = (obj) => {
+    return obj &&
+        typeof obj === 'object' &&
+        Object.hasOwn(obj, 'name') &&
+        Object.hasOwn(obj, 'project') &&
+        Object.hasOwn(obj, 'dataset');
 };
 
 
