@@ -207,7 +207,8 @@ const isDataformTableReferenceObject = (obj) => {
     return obj &&
         typeof obj === 'object' &&
         Object.hasOwn(obj, 'name') &&
-        Object.hasOwn(obj, 'dataset');
+        // Dataform transforms the schema key to dataset key when using ctx.ref()
+        (Object.hasOwn(obj, 'dataset') || Object.hasOwn(obj, 'schema'));
 };
 
 
