@@ -184,7 +184,7 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
                 return `\`${project}.${dataset}.events_*\``;
             }
         }
-        throw new Error(`sourceTable must be a Dataform table reference or a string in the format '\`project.dataset.table\`'. Received: ${JSON.stringify(sourceTable)}`);
+        throw new Error(`sourceTable must be a Dataform table reference or a string. Supported string formats include: '\`project.dataset.events_*\`', 'project.dataset', 'project.dataset.events_*', for example. Received: ${JSON.stringify(sourceTable)}`);
     };
 
     // process the sourceTable to support different formats
