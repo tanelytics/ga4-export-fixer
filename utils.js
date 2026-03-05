@@ -232,7 +232,7 @@ const setDataformContext = (ctx, config) => {
     } else {
         // if the sourceTable is not a Dataform reference, it must be a string in the format '`project.dataset.table`'
         if (typeof config.sourceTable !== 'string' || !/^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(config.sourceTable)) {
-            throw new Error("config.sourceTable must be a Dataform table reference or a string in the format '`project.dataset.table`'");
+            throw new Error(`Failed to set Dataform context: config.sourceTable must be a Dataform table reference or a string in the format 'project.dataset.table'. Received: ${JSON.stringify(config.sourceTable)}`);
         }
     }
 
