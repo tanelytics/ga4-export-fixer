@@ -207,7 +207,6 @@ const isDataformTableReferenceObject = (obj) => {
     return obj &&
         typeof obj === 'object' &&
         Object.hasOwn(obj, 'name') &&
-        Object.hasOwn(obj, 'project') &&
         Object.hasOwn(obj, 'dataset');
 };
 
