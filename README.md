@@ -148,11 +148,12 @@ pre_operations {
 
 All fields are optional except `sourceTable`. Default values are applied automatically, so you only need to specify the fields you want to override.
 
-| Field | Type | Default | Description |
+| Field | Type | Default/Required | Description |
 |-------|------|---------|-------------|
 | `sourceTable` | Dataform ref() / string | **required** | Source GA4 export table. Use `ref()` in Dataform or a string in format `` `project.dataset.table` `` |
 | `self` | Dataform self() | **required for .SQLX deployment** | Reference to the table itself. Use `self()` in Dataform |
 | `incremental` | Dataform incremental() | **required for .SQLX deployment** | Switch between incremental and full refresh logic. Use `incremental()` in Dataform |
+| `dataformTableConfig` | object | **In JS deployment only** | Include your Dataform table configuration object for the JS deployment to override the default values and include new options. See: https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig |
 | `schemaLock` | string (YYYYMMDD) | `undefined` | Lock the table schema to a specific date. Must be a valid date >= `"20241009"` |
 | `timezone` | string | `'Etc/UTC'` | IANA timezone for event datetime (e.g. `'Europe/Helsinki'`) |
 | `customTimestampParam` | string | `undefined` | Name of a custom event parameter containing a JS timestamp in milliseconds (e.g. collected via `Date.now()`) |
