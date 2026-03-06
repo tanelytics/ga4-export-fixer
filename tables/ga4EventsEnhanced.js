@@ -420,7 +420,7 @@ Created by the ga4-export-fixer package.`;
     // set the default values for table name and dataset, if not provided in the config
     const setDefaults = () => {
         const getDatasetName = (sourceTable) => {
-            if (isDataformTableReferenceObject(sourceTable)) {
+            if (utils.isDataformTableReferenceObject(sourceTable)) {
                 return sourceTable.dataset || sourceTable.schema;
             }
             if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
