@@ -1,6 +1,6 @@
 # ga4-export-fixer
 
-Helpers and table definitions for processing GA4 (Google Analytics 4) BigQuery export data in **Dataform**.
+**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
 
 ## Installation
 
