@@ -4,6 +4,18 @@
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
+### Planned Features
+
+- Support for using only intraday export data
+- Tools for building on top of the enhanced events table
+- Column descriptions
+- Default configurations for app and web properties
+- Item list attribution
+- Data enrichment (item-level, session-level, event-level)
+- Support for fresh export (GA4 360)
+- Custom processing steps (additional CTEs)
+- Custom traffic source attribution
+
 ## Installation
 
 ### Bash
