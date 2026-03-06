@@ -419,15 +419,20 @@ Created by the ga4-export-fixer package.`;
 
     // set the default values for table name and dataset, if not provided in the config
     const setDefaults = () => {
-        if (mergedConfig.sourceTable && mergedConfig.sourceTable.dataset) {
-            defaultDataformTableConfig.name = `${constants.DEFAULT_EVENTS_TABLE_NAME}_${mergedConfig.sourceTable.dataset.replace('analytics_', '')}`;
-            defaultDataformTableConfig.schema = mergedConfig.sourceTable.dataset;
-        }
-        if (/^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(mergedConfig.sourceTable)) {
-            const dataset = mergedConfig.sourceTable.split('.')[1];
-            defaultDataformTableConfig.name = `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`;
-            defaultDataformTableConfig.schema = dataset;
-        }
+        const getDatasetName = (sourceTable) => {
+            if (isDataformTableReferenceObject(sourceTable)) {
+                return sourceTable.dataset || sourceTable.schema;
+            }
+            if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
+                return sourceTable.split('.')[1];
+            }
+            throw new Error(`Unable to extract the dataset name from sourceTable, received: ${JSON.stringify(sourceTable)}`);
+        };
+
+        const dataset = getDatasetName(mergedConfig.sourceTable);
+
+        defaultDataformTableConfig.name = `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`;
+        defaultDataformTableConfig.schema = dataset;
     };
 
     setDefaults();
