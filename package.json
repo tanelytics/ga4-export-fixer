@@ -1,6 +1,6 @@
 {
   "name": "ga4-export-fixer",
-  "version": "0.1.3",
+  "version": "0.1.4-dev.0",
   "description": "",
   "main": "index.js",
   "files": [
