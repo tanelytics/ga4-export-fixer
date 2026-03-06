@@ -376,11 +376,16 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
 
     const tableDescription = `GA4 Events Enhanced 
 
-- Combines daily (processed) and intraday exports so the best available version of each event is always used. 
-- Key fields such as page_location and session_id are promoted to columns for faster queries. 
-- Supports incremental updates on any schedule. 
+- Combines daily (processed) and intraday exports so the best available version of each event is always used.
+- Incremental updates: All data with "data_is_final" flag set to false is deleted and replaced with the latest available data on every run (supports any schedule: daily, hourly, or custom).
+- Keeps the flexible schema of the original export while promoting key fields (e.g. page_location, session_id) to columns for faster queries.
+- Partitioned by event_date and clustered for optimal query performance.
+- Event parameter handling: promote params to columns or exclude by name.
+- Session-level fields: landing_page, fixed user_id, and configurable session parameters.
+- Other improvements and refinements based on configuration
 
-Created by the ga4-export-fixer package.`;
+${constants.TABLE_DESCRIPTION_SUFFIX}
+${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}`;
 
     // the defaults for the dataform table config
     const defaultDataformTableConfig = {
