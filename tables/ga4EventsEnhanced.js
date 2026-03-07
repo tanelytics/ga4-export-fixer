@@ -52,11 +52,13 @@ const defaultConfig = {
         //{name: 'page_location', type: 'string', columnName: 'page_location2'},
     ],
     sessionParams: [],
-    defaultExcludedEvents: [
+    defaultExcludedEvents: [],
+    // session_start and first_visit are excluded via the excludedEvents array
+    // this allows the user to include them if needed
+    excludedEvents: [
         'session_start',
         'first_visit'
     ],
-    excludedEvents: [],
     defaultExcludedColumns: [
         'event_dimensions', // legacy column, not needed
         'traffic_source', // renamed to user_traffic_source

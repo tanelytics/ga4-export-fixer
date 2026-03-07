@@ -87,7 +87,7 @@ ${groupByClause}`;
  * 
  * Rules:
  * - Nested objects are merged recursively key by key
- * - Arrays are concatenated and deduplicated
+ * - Arrays are overwritten by user input
  * - Default values are preserved unless explicitly overridden (including with undefined)
  * - Explicitly setting a value to undefined in inputConfig will override the default
  * - Date fields: after merging, specific date fields (listed in dateFields) are processed via processDate().
@@ -120,9 +120,9 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
             continue;
         }
 
-        // Handle arrays: concatenate and remove duplicates
+        // Handle arrays: overwrite with user input
         if (Array.isArray(defaultValue) && Array.isArray(inputValue)) {
-            result[key] = mergeUniqueArrays(defaultValue, inputValue);
+            result[key] = inputValue;
             continue;
         }
 
