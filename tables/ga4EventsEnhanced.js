@@ -216,7 +216,7 @@ const generateEnhancedEventsSQL = (config) => {
     const mainTimestampColumn = mergedConfig.customTimestampParam ? 'event_custom_timestamp' : 'event_timestamp';
 
     // exlude these events from the table
-    const excludedEvents = utils.mergeUniqueArrays(mergedConfig.defaultExcludedEvents, mergedConfig.excludedEvents);
+    const excludedEvents = mergedConfig.excludedEvents;
     const excludedEventsSQL = excludedEvents.length > 0 ? `and event_name not in (${excludedEvents.map(event => `'${event}'`).join(',')})` : '';
 
     // promote these event parameters to columns
@@ -230,7 +230,7 @@ const generateEnhancedEventsSQL = (config) => {
     };
 
     const getExcludedColumns = () => {
-        const allExcludedColumns = utils.mergeUniqueArrays(mergedConfig.defaultExcludedColumns, mergedConfig.excludedColumns);
+        const allExcludedColumns = mergedConfig.excludedColumns;
         const excludedColumns = {};
         allExcludedColumns.forEach(c => {
             excludedColumns[c] = undefined;
@@ -261,10 +261,7 @@ const generateEnhancedEventsSQL = (config) => {
             page: helpers.extractPageDetails(),
             // event parameters and user properties
             ...promotedEventParameters(),
-            event_params: helpers.filterEventParams(utils.mergeUniqueArrays(
-                mergedConfig.defaultExcludedEventParams, mergedConfig.excludedEventParams),
-                'exclude'
-            ),
+            event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
             user_properties: 'user_properties',
             // traffic source
             collected_traffic_source: 'collected_traffic_source',

@@ -87,7 +87,10 @@ ${groupByClause}`;
  * 
  * Rules:
  * - Nested objects are merged recursively key by key
- * - Arrays are overwritten by user input
+ * - Arrays with a "default" counterpart (e.g. excludedEvents + defaultExcludedEvents)
+ *   are merged with mergeUniqueArrays, with user values taking precedence
+ * - Arrays that are themselves a "default" version, or have no default counterpart,
+ *   are overwritten by user input
  * - Default values are preserved unless explicitly overridden (including with undefined)
  * - Explicitly setting a value to undefined in inputConfig will override the default
  * - Date fields: after merging, specific date fields (listed in dateFields) are processed via processDate().
@@ -120,9 +123,16 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
             continue;
         }
 
-        // Handle arrays: overwrite with user input
+        // Handle arrays: merge with default counterpart if one exists, otherwise overwrite
         if (Array.isArray(defaultValue) && Array.isArray(inputValue)) {
-            result[key] = inputValue;
+            // check if the array has a "default" counterpart
+            // for example, excludedEvents and defaultExcludedEvents
+            const defaultKey = 'default' + key.charAt(0).toUpperCase() + key.slice(1);
+            if (!key.startsWith('default') && defaultKey in result) {
+                result[key] = mergeUniqueArrays(inputValue, result[defaultKey]);
+            } else {
+                result[key] = inputValue;
+            }
             continue;
         }
 
