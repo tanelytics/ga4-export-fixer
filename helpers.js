@@ -139,66 +139,90 @@ const ga4ExportDateFilter = (exportType, start, end) => {
   }
 };
 
-// Filter the export tables by date range for both intraday and daily exports
 /**
- * Generates a SQL filter condition for GA4 export tables based on the provided configuration.
+ * Builds a `_table_suffix` WHERE clause for GA4 BigQuery export tables (daily and/or intraday).
  *
- * This function produces a composite filter condition that constrains which BigQuery GA4 export tables
- * (daily and, optionally, intraday) are included based on start and end dates, the operational mode (test, incremental, or full refresh),
- * and any configured buffer days for session overlap.
+ * Date boundaries are resolved differently depending on the mode:
+ *   - **test** -- literal dates from `config.testConfig`
+ *   - **incremental** -- BigQuery variable placeholders set by pre-operations
+ *   - **full refresh** -- static dates from `config.preOperations`
  *
- * Logic:
- *   - In test mode: Uses `testConfig.dateRangeStart` and `testConfig.dateRangeEnd` for the table date filters.
- *   - In incremental refresh mode: Uses dynamic variable placeholders for efficient incremental logic (`constants.DATE_RANGE_START_VARIABLE`, etc).
- *   - Otherwise (full refresh): Uses static date values from the configuration's preOperations.
- *   - If `includedExportTypes.intraday` is true, includes a filter for intraday tables with their own start date variable.
- *   - Applies `bufferDays` to the daily export's start boundary to ensure session completeness across date boundaries.
+ * `bufferDays` is subtracted from the daily start date so sessions that span
+ * midnight are not partially excluded.
  *
- * Example output (SQL snippet):
- *   (
- *     (_table_suffix >= '20240101-1' and _table_suffix <= '20240105')
- *     or (_table_suffix >= 'intraday_20240101' and _table_suffix <= 'intraday_20240105')
- *   )
+ * When both daily and intraday exports are enabled, the intraday start date
+ * comes from a dedicated variable (`INTRADAY_DATE_RANGE_START_VARIABLE`) so
+ * intraday tables that already have a corresponding daily table are excluded.
+ * When only intraday is enabled, the daily start-date logic (including buffer
+ * days) is reused instead.
  *
- * @param {Object} config Configuration object governing the date filtering logic. Expected properties:
- *   @param {boolean} [config.test] Whether to use test configuration dates.
- *   @param {Object} [config.testConfig] Contains `dateRangeStart` and `dateRangeEnd` for tests.
- *   @param {boolean} [config.incremental] Whether to use incremental variable placeholders.
- *   @param {Object} [config.preOperations] Contains `dateRangeStartFullRefresh` and `dateRangeEnd` for full refresh.
- *   @param {Object} [config.includedExportTypes] Should contain `intraday` (boolean).
- *   @param {number} [config.bufferDays] Number of buffer days to extend date range for daily exports.
- * @returns {string} SQL condition as a string that can be injected into a WHERE clause.
+ * @param {Object} config
+ * @param {boolean}  config.test                      - Use literal test dates.
+ * @param {Object}   config.testConfig                - `{ dateRangeStart, dateRangeEnd }`.
+ * @param {boolean}  config.incremental               - Use BigQuery variable placeholders.
+ * @param {Object}   config.preOperations             - `{ dateRangeStartFullRefresh, dateRangeEnd }`.
+ * @param {Object}   config.includedExportTypes       - `{ daily: boolean, intraday: boolean }`.
+ * @param {number}  [config.bufferDays=0]             - Extra days subtracted from the start date.
+ * @returns {string} SQL fragment for a WHERE clause.
  */
 const ga4ExportDateFilters = (config) => {
   const bufferDays = config.bufferDays || 0;
 
   const getStartDate = () => {
+    //test mode
     if (config.test) {
       return config.testConfig.dateRangeStart;
     }
     if (config.incremental) {
       return constants.DATE_RANGE_START_VARIABLE;
     }
+    // full refresh
     return config.preOperations.dateRangeStartFullRefresh;
   };
 
   const getEndDate = () => {
+    // test mode, avoid using a BigQuery variable
     if (config.test) {
       return config.testConfig.dateRangeEnd;
     }
+    // use checkpoint variable with incremental refresh -> allows pre processing any part of the table without having to do a full refresh
     if (config.incremental) {
       return constants.DATE_RANGE_END_VARIABLE;
     }
+    // full refresh
     return config.preOperations.dateRangeEnd;
   };
 
-  const start = getStartDate();
+  const getIntradayStartDate = () => {
+    // In test mode, skip pre-operations even though intraday and daily tables may temporarily overlap.
+    if (config.test) {
+      return config.testConfig.dateRangeStart;
+    }
+    // Dedicated variable excludes intraday tables that overlap with already-processed daily tables.
+    if (config.includedExportTypes.intraday && config.includedExportTypes.daily) {
+      return constants.INTRADAY_DATE_RANGE_START_VARIABLE;
+    }
+    // Without daily export, reuse the daily start-date logic and apply bufferDays
+    // (buffer is normally only applied to the daily start date).
+    if (config.includedExportTypes.intraday && !config.includedExportTypes.daily) {
+      // use the same start date as if daily export was in use
+      // include the buffer days as well (not included otherwise for intraday data)
+      return `${getStartDate()}-${bufferDays}`;
+    }
+  };
+
+  const dailyStart = `${getStartDate()}-${bufferDays}`;
+  const intradayStart = getIntradayStartDate();
   const end = getEndDate();
-  const intradayStart = config.test ? config.testConfig.dateRangeStart : constants.INTRADAY_DATE_RANGE_START_VARIABLE;
+  
+
+  const dateFilters = [
+    config.includedExportTypes.daily ? ga4ExportDateFilter('daily', dailyStart, end) : null,
+    config.includedExportTypes.intraday ? ga4ExportDateFilter('intraday', intradayStart, end) : null,
+  ];
 
   return `(
-    ${ga4ExportDateFilter('daily', `${start}-${bufferDays}`, end)}
-    ${config.includedExportTypes.intraday ? `or ${ga4ExportDateFilter('intraday', intradayStart, end)}` : ''}
+    ${dateFilters.filter(filter => !!filter).join(' or ')}
   )`;
 };
 

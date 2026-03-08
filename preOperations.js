@@ -140,9 +140,9 @@ const setPreOperations = (config) => {
     {
       type: 'variable',
       name: constants.INTRADAY_DATE_RANGE_START_VARIABLE,
-      // variable only needed with incremental refresh and intraday export tables
-      value: config.includedExportTypes.intraday ? getDateRangeStartIntraday(config) : undefined,
-      comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data.',
+      // variable only needed if intraday export tables are included together with daily export tables
+      value: config.includedExportTypes.intraday && config.includedExportTypes.daily ? getDateRangeStartIntraday(config) : undefined,
+      comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data. Only needed if intraday export tables are included together with daily export tables.',
     },
     {
       type: 'variable',
