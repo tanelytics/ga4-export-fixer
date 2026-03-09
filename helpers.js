@@ -722,6 +722,14 @@ const isGa4ExportColumn = (columnName) => {
   return ga4ExportColumns.includes(columnName);
 };
 
+const getGa4ExportType = (tableSuffix) => {
+  return `case
+      when ${tableSuffix} like 'intraday_%' then 'intraday'
+      when ${tableSuffix} like 'fresh_%' then 'fresh'
+      when regexp_contains(${tableSuffix}, r'^\\d{8}$') then 'daily'
+    end`;
+};
+
 module.exports = {
   eventDate,
   getEventDateTime,
@@ -742,5 +750,6 @@ module.exports = {
   extractUrlPath,
   extractUrlQuery,
   extractUrlQueryParams,
-  isGa4ExportColumn
+  isGa4ExportColumn,
+  getGa4ExportType
 }

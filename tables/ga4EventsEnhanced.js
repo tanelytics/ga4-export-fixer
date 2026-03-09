@@ -272,6 +272,7 @@ const generateEnhancedEventsSQL = (config) => {
             items: 'items',
             // flag if the data is "final" and is not expected to change anymore
             data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
+            export_type: helpers.getGa4ExportType('_table_suffix'),
             // prep columns for later steps
             entrances: helpers.unnestEventParam('entrances', 'int'),
             session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
@@ -318,6 +319,7 @@ ${excludedEventsSQL}`,
                     'entrances',
                     mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
                     'data_is_final',
+                    'export_type',
                 ]
             ),
             // get the rest of the session_data columns 
@@ -329,6 +331,7 @@ ${excludedEventsSQL}`,
             // include additional columns
             row_inserted_timestamp: 'current_timestamp()',
             data_is_final: 'data_is_final',
+            export_type: 'export_type',
         },
         from: 'event_data',
         leftJoin: [
