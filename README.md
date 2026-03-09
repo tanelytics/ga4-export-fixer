@@ -6,7 +6,6 @@ The goal of the package is to **speed up development** when building data models
 
 ### Planned Features
 
-- Support for using only intraday export data
 - Tools for building on top of the enhanced events table
 - Column descriptions
 - Default configurations for app and web properties
@@ -185,11 +184,13 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `includedExportTypes.daily` | boolean | `true` | Include daily (processed) export |
 | `includedExportTypes.intraday` | boolean | `true` | Include intraday export |
 
+> **Intraday-only mode:** Set `daily` to `false` and `intraday` to `true` to use only intraday export tables. When using intraday-only mode, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`.
+
 **`dataIsFinal`** — how to determine whether data is final (not expected to change):
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `dataIsFinal.detectionMethod` | string | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix, all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event) |
+| `dataIsFinal.detectionMethod` | string | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when only intraday export is enabled |
 | `dataIsFinal.dayThreshold` | integer | `4` | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'` |
 
 **`testConfig`** — date range used when `test` is `true`:
