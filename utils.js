@@ -414,6 +414,7 @@ const processDate = (dateInput) => {
  * @throws {Error} If any configuration value is invalid or missing.
  */
 const validateConfig = (config) => {
+  try {
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
         throw new Error(`config must be a non-null object. Received: ${JSON.stringify(config)}`);
     }
@@ -638,6 +639,10 @@ const validateConfig = (config) => {
             }
         }
     }
+  } catch (e) {
+    e.message = `Config validation: ${e.message}`;
+    throw e;
+  }
 };
 
 module.exports = {
