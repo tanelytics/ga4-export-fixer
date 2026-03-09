@@ -475,13 +475,15 @@ const validateConfig = (config) => {
         throw new Error(`config.includedExportTypes must be an object. Received: ${JSON.stringify(config.includedExportTypes)}`);
     }
     for (const key of ['daily', 'intraday']) {
-        // fresh not requred at the moment
         if (!(key in config.includedExportTypes)) {
             throw new Error(`config.includedExportTypes.${key} is required.`);
         }
         if (typeof config.includedExportTypes[key] !== 'boolean') {
             throw new Error(`config.includedExportTypes.${key} must be a boolean. Received: ${JSON.stringify(config.includedExportTypes[key])}`);
         }
+    }
+    if (!config.includedExportTypes.daily && !config.includedExportTypes.intraday) {
+        throw new Error("At least one of config.includedExportTypes.daily or config.includedExportTypes.intraday must be true.");
     }
 
     // timezone - required
@@ -523,6 +525,14 @@ const validateConfig = (config) => {
         (typeof config.dataIsFinal.dayThreshold !== 'number' || !Number.isInteger(config.dataIsFinal.dayThreshold) || config.dataIsFinal.dayThreshold < 0)
     ) {
         throw new Error(`config.dataIsFinal.dayThreshold must be a non-negative integer. Received: ${JSON.stringify(config.dataIsFinal.dayThreshold)}`);
+    }
+    // EXPORT_TYPE detection relies on daily export metadata; intraday-only requires DAY_THRESHOLD instead.
+    if (
+        config.includedExportTypes.intraday &&
+        !config.includedExportTypes.daily &&
+        config.dataIsFinal.detectionMethod !== 'DAY_THRESHOLD'
+    ) {
+        throw new Error(`config.dataIsFinal.detectionMethod must be 'DAY_THRESHOLD' when only intraday export is enabled (config.includedExportTypes.daily is false). A dayThreshold of 1 is recommended for intraday-only configurations. Received: ${JSON.stringify(config.dataIsFinal.detectionMethod)}`);
     }
 
     // test - optional; when defined, must be a boolean
