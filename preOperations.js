@@ -141,7 +141,7 @@ const setPreOperations = (config) => {
       type: 'variable',
       name: constants.INTRADAY_DATE_RANGE_START_VARIABLE,
       // variable only needed if intraday export tables are included together with daily export tables
-      value: config.includedExportTypes.intraday && config.includedExportTypes.daily ? getDateRangeStartIntraday(config) : undefined,
+      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.intraday && config.includedExportTypes.daily ? getDateRangeStartIntraday(config) : undefined,
       comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data. Only needed if intraday export tables are included together with daily export tables.',
     },
     {
@@ -160,7 +160,7 @@ const setPreOperations = (config) => {
     {
       type: 'create',
       // create table statement only needed with schema lock
-      value: config.schemaLock ? createSchemaLockTable(config) : undefined,
+      value: config.sourceTableType === 'GA4_EXPORT' && config.schemaLock ? createSchemaLockTable(config) : undefined,
       comment: 'Lock the schema to a specific version by creating a table copy from the selected day\'s export.'
     },
   ];

@@ -7,6 +7,7 @@ const preOperations = require('../preOperations.js');
 const defaultConfig = {
     // required
     sourceTable: undefined,
+    sourceTableType: 'GA4_EXPORT', // used with pre operations to detect if ga4 export specific pre operations are needed
     self: undefined,
     incremental: undefined,
     // optional but recommended
