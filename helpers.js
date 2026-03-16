@@ -1,4 +1,5 @@
 const constants = require('./constants');
+const { baseConfig } = require('./defaultConfig');
 
 /*
 Unnesting parameters
@@ -248,19 +249,29 @@ const ga4ExportDateFilters = (config) => {
  *   @param {Object} [config.preOperations] - Contains full refresh date range values.
  * @returns {string} - SQL condition string to filter the query by date range.
  */
-const finalDataFilter = (config) => {
+const incrementalDateFilter = (config) => {
   const setDateRange = (start, end) => {
     return `(event_date >= ${start} and event_date <= ${end})`;
   };
 
+  // test mode
   if (config.test) {
-    return setDateRange(config.testConfig.dateRangeStart, config.testConfig.dateRangeEnd);
+    const testStart = config.testConfig.dateRangeStart || baseConfig.testConfig.dateRangeStart;
+    const testEnd = config.testConfig.dateRangeEnd || baseConfig.testConfig.dateRangeEnd;
+
+    return setDateRange(testStart, testEnd);
   }
+
+  // incremental mode
   if (config.incremental) {
     return setDateRange(constants.DATE_RANGE_START_VARIABLE, constants.DATE_RANGE_END_VARIABLE);
   }
-    
-  return setDateRange(config.preOperations.dateRangeStartFullRefresh, config.preOperations.dateRangeEnd);
+
+  // full refresh mode
+  const fullRefreshStart = config.preOperations.dateRangeStartFullRefresh || baseConfig.preOperations.dateRangeStartFullRefresh;
+  const fullRefreshEnd = config.preOperations.dateRangeEnd || baseConfig.preOperations.dateRangeEnd;
+
+  return setDateRange(fullRefreshStart, fullRefreshEnd);
 };
 
 /*
@@ -744,7 +755,7 @@ module.exports = {
   filterEventParams,
   aggregateSessionParams,
   excludeNullSessionParams,
-  finalDataFilter,
+  incrementalDateFilter,
   extractPageDetails,
   extractUrlHostname,
   extractUrlPath,

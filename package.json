@@ -10,7 +10,8 @@
     "preOperations.js",
     "constants.js",
     "tables",
-    "inputValidation.js"
+    "inputValidation.js",
+    "config.js"
   ],
   "scripts": {
     "test": "node tests/ga4EventsEnhanced.test.js",
