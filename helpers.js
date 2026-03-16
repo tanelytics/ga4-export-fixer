@@ -563,8 +563,14 @@ Aggregation
  *   // => SQL expression for the last user_id by event_timestamp.
  */
 const aggregateValue = (column, aggregateType, timestampColumn) => {
-  if (typeof column === 'undefined' || typeof timestampColumn === 'undefined') {
-    throw new Error("aggregateValue: 'column' and 'timestampColumn' are required parameters and must be defined.");
+  if (typeof column === 'undefined') {
+    throw new Error("aggregateValue: 'column' is a required parameter and must be defined.");
+  }
+  if (typeof aggregateType === 'undefined') {
+    throw new Error("aggregateValue: 'aggregateType' is a required parameter and must be defined.");
+  }
+  if ((aggregateType === 'first' || aggregateType === 'last') && typeof timestampColumn === 'undefined') {
+    throw new Error(`aggregateValue: 'timestampColumn' is required when aggregateType is '${aggregateType}'.`);
   }
   
   if (aggregateType === 'max') {
