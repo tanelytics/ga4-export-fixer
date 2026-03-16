@@ -2,6 +2,7 @@ const helpers = require('./helpers.js');
 const ga4EventsEnhanced = require('./tables/ga4EventsEnhanced.js');
 const preOperations = require('./preOperations.js');
 const { validateConfig } = require('./inputValidation.js');
+const { mergeSQLConfigurations } = require('./utils.js');
 
 // export setPreOperations with default configuration for usage with downstream tables
 const setPreOperations = (config) => {
@@ -31,7 +32,7 @@ const setPreOperations = (config) => {
     },
   };
 
-  const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+  const mergedConfig = mergeSQLConfigurations(defaultConfig, config);
 
   return preOperations.setPreOperations(mergedConfig);
 };
