@@ -11,6 +11,7 @@
     "constants.js",
     "tables",
     "inputValidation.js",
+    "defaultConfig.js",
     "config.js"
   ],
   "scripts": {
