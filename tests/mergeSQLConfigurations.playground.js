@@ -1,9 +1,18 @@
 const { mergeSQLConfigurations } = require('../utils');
 const { baseConfig, ga4EventsEnhancedConfig } = require('../defaultConfig');
+const { validateBaseConfig, validateEnhancedEventsConfig } = require('../inputValidation');
 
-const log = (label, result) => {
+const log = (label, result, validationFunction) => {
   console.log(`\n--- ${label} ---`);
   console.log(JSON.stringify(result, null, 2));
+  if (validationFunction) {
+    try {
+      validationFunction(result);
+      console.log('Validation: PASSED');
+    } catch (e) {
+      console.log(`Validation: FAILED - ${e.message}`);
+    }
+  }
 };
 
 // 1. Empty input -- only defaults come through
@@ -61,8 +70,8 @@ log('Using setPreOperations in a downstream table', mergeSQLConfigurations(
   {
     self: '`project.dataset.ga4_sessions`',
     incremental: true,
-  }
-));
+  },
+), validateBaseConfig);
 
 // 7. Default GA4 Events Enhanced configuration
 log('Default GA4 Events Enhanced configuration', mergeSQLConfigurations(
@@ -72,5 +81,5 @@ log('Default GA4 Events Enhanced configuration', mergeSQLConfigurations(
     schemaLock: '20260101',
     self: '`project.dataset.ga4_events_enhanced`',
     incremental: true,
-  }
-));
+  },
+), validateEnhancedEventsConfig);
