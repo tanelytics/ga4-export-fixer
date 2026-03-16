@@ -1,5 +1,6 @@
 const helpers = require('../helpers.js');
 const utils = require('../utils.js');
+const inputValidation = require('../inputValidation.js');
 const constants = require('../constants.js');
 const preOperations = require('../preOperations.js');
 
@@ -207,7 +208,7 @@ const generateEnhancedEventsSQL = (config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
 
     // validate the config and throw an error if it's invalid
-    utils.validateConfig(mergedConfig);
+    inputValidation.validateConfig(mergedConfig);
 
     if (!mergedConfig.sourceTable || typeof mergedConfig.sourceTable !== 'string' || mergedConfig.sourceTable.trim() === '') {
         throw new Error("generateEnhancedEventsSQL: 'sourceTable' is a required parameter in config and must be a non-empty string.");
