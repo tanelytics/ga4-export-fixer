@@ -17,8 +17,6 @@ const setPreOperations = (config) => {
   /*
   Todo:
   - validation for baseConfig -> include in this function
-  - separate config merge into another function
-      - don't create a full ga4EnhancedEvents config for this case
   */
 
   const mergedConfig = mergeSQLConfigurations(baseConfig, config);
