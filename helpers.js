@@ -256,8 +256,8 @@ const incrementalDateFilter = (config) => {
 
   // test mode
   if (config.test) {
-    const testStart = config.testConfig.dateRangeStart || baseConfig.testConfig.dateRangeStart;
-    const testEnd = config.testConfig.dateRangeEnd || baseConfig.testConfig.dateRangeEnd;
+    const testStart = config?.testConfig?.dateRangeStart || baseConfig.testConfig.dateRangeStart;
+    const testEnd = config?.testConfig?.dateRangeEnd || baseConfig.testConfig.dateRangeEnd;
 
     return setDateRange(testStart, testEnd);
   }
@@ -268,8 +268,8 @@ const incrementalDateFilter = (config) => {
   }
 
   // full refresh mode
-  const fullRefreshStart = config.preOperations.dateRangeStartFullRefresh || baseConfig.preOperations.dateRangeStartFullRefresh;
-  const fullRefreshEnd = config.preOperations.dateRangeEnd || baseConfig.preOperations.dateRangeEnd;
+  const fullRefreshStart = config?.preOperations?.dateRangeStartFullRefresh || baseConfig.preOperations.dateRangeStartFullRefresh;
+  const fullRefreshEnd = config?.preOperations?.dateRangeEnd || baseConfig.preOperations.dateRangeEnd;
 
   return setDateRange(fullRefreshStart, fullRefreshEnd);
 };
