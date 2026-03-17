@@ -81,6 +81,12 @@ const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
   sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT,
+  // test configurations
+  test: false,
+  testConfig: {
+      dateRangeStart: 'current_date()-1',
+      dateRangeEnd: 'current_date()',
+  },
   schemaLock: '20260101', // prevent possible issues from updates to the export schema
   customTimestampParam: 'custom_event_timestamp', // custom timestamp collected as an event param
   timezone: 'Europe/Helsinki',
