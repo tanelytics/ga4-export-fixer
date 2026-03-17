@@ -222,6 +222,12 @@ Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYY
 
 ### Building on top of the ga4_events_enhanced table
 
+Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_enhanced_events** table.
+
+The **incrementalDateFilter()** function applies the same date filtering used by **ga4_events_enhanced**, based on the **config** options and the variables declared by **setPreOperations()**.
+
+Key fields such as session_id, user_id, and session_traffic_source_last_click are available as clean, sessionized versions that handle edge cases like sessions spanning midnight.
+
 **`definitions/ga4/ga4_sessions.sqlx`**
 ```javascript
 config {
@@ -241,6 +247,8 @@ js {
   const config = {
     self: self(),
     incremental: incremental(),
+    /*
+    Default options that can be overriden:
     test: false,
     testConfig: {
         dateRangeStart: 'current_date()-1',
@@ -249,10 +257,11 @@ js {
     preOperations: {
         dateRangeStartFullRefresh: 'date(2000, 1, 1)',
         dateRangeEnd: 'current_date()',
+        // incremental date range overrides allow re-processing only a subset of the data:
         //incrementalStartOverride: undefined,
         //incrementalEndOverride: undefined,
-        //numberOfPreviousDaysToScan: 10,
     },
+    */
   };
 }
 
@@ -260,6 +269,7 @@ select
   event_date,
   session_id,
   user_pseudo_id,
+  user_id,
   any_value(session_traffic_source_last_click.cross_channel_campaign) as session_traffic_source,
   any_value(landing_page) as landing_page,
   current_datetime() as row_inserted_timestamp,
@@ -271,7 +281,8 @@ where
 group by 
   event_date,
   session_id,
-  user_pseudo_id
+  user_pseudo_id,
+  user_id
 
 pre_operations {
   ${setPreOperations(config)}
