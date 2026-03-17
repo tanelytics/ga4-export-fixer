@@ -4,11 +4,12 @@
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
-### Planned, upcoming Features
+### Planned, Upcoming Features
 
 - Column descriptions
 - Web and app specific default configurations
 - Ecommerce item list attribution
+- Custom channel grouping
 - Data enrichment (item-level, session-level, event-level)
 - Support for fresh export (GA4 360)
 - Custom processing steps (additional CTEs)
