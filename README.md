@@ -4,12 +4,11 @@
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
-### Planned Features
+### Planned, upcoming Features
 
-- Tools for building on top of the enhanced events table
 - Column descriptions
-- Default configurations for app and web properties
-- Item list attribution
+- Web and app specific default configurations
+- Ecommerce item list attribution
 - Data enrichment (item-level, session-level, event-level)
 - Support for fresh export (GA4 360)
 - Custom processing steps (additional CTEs)
@@ -32,7 +31,7 @@ Include the package in the package.json file in your Dataform repository.
 {
   "dependencies": {
     "@dataform/core": "3.0.42",
-    "ga4-export-fixer": "0.1.5"
+    "ga4-export-fixer": "0.2.0"
   }
 }
 ```
