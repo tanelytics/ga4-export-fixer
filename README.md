@@ -220,6 +220,38 @@ All fields are optional except `sourceTable`. Default values are applied automat
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 
+### Build on top of the ga4_events_enhanced table
+
+**`definitions/ga4/ga4_sessions.sqlx`**
+```javascript
+config {
+  type: "incremental",
+  description: "GA4 Events Enhanced table",
+  schema: "ga4",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
+  },
+  tags: ['ga4_export_fixer']
+}
+
+js {
+  const { ga4EventsEnhanced } = require('ga4-export-fixer');
+
+  const config = {
+    sourceTable: ref(constants.GA4_TABLES.MY_GA4_EXPORT),
+    self: self(),
+    incremental: incremental()
+  };
+}
+
+${ga4EventsEnhanced.generateSql(config)}
+
+pre_operations {
+  ${ga4EventsEnhanced.setPreOperations(config)}
+}
+```
+
 ### Helpers
 
 The helpers contain templates for common SQL expressions. The functions are referenced by **ga4EventsEnhanced** but can also be imported as utility functions for working with GA4 data.

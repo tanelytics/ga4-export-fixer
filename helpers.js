@@ -604,6 +604,17 @@ const aggregateValue = (column, aggregateType, timestampColumn) => {
   throw new Error(`aggregateValue: Unsupported aggregateType '${aggregateType}'. Supported values are 'max', 'min', 'first', 'last', and 'any'.`);
 };
 
+// perform aggregations on an array of values
+const aggregateValues = (values) => {
+  if (Array.isArray(values)) {
+    return values.map(value => {
+      const sqlExpression = aggregateValue(value.column, value.aggregateType, value.timestampColumn)
+      return `${sqlExpression}${value.alias ? ` as ${value.alias}` : ''}`;
+    }).join('\n, ');
+  }
+  throw new Error("aggregateValues: 'values' must be an array of objects with 'column', 'aggregateType', and 'timestampColumn' properties.");
+};
+
 /*
 Ecommerce
 */
@@ -754,6 +765,7 @@ module.exports = {
   unnestEventParam,
   sessionId,
   aggregateValue,
+  aggregateValues,
   fixEcommerceStruct,
   isFinalData,
   ga4ExportDateFilter,
