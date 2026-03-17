@@ -610,7 +610,7 @@ const aggregateValues = (values) => {
     return values.map(value => {
       const sqlExpression = aggregateValue(value.column, value.aggregateType, value.timestampColumn)
       return `${sqlExpression}${value.alias ? ` as ${value.alias}` : ''}`;
-    }).join('\n, ');
+    }).join(',\n ');
   }
   throw new Error("aggregateValues: 'values' must be an array of objects with 'column', 'aggregateType', and 'timestampColumn' properties.");
 };
