@@ -172,7 +172,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `bufferDays` | integer | `1` | Extra days to include for sessions that span midnight |
 | `test` | boolean | `false` | Enable test mode (uses `testConfig` date range instead of pre-operations) |
 | `excludedEventParams` | string[] | `[]` | Event parameter names to exclude from the `event_params` array |
-| `excludedEvents` | string[] | `[]` | Event names to exclude from the table |
+| `excludedEvents` | string[] | `['session_start', 'first_visit']` | Event names to exclude from the table. These events are excluded by default because they have no use for analysis purposes. Override this to include them if needed |
 | `excludedColumns` | string[] | `[]` | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'` |
 | `sessionParams` | string[] | `[]` | Event parameter names to aggregate as session-level parameters |
 
