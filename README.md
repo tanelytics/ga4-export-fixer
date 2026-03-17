@@ -91,6 +91,8 @@ const config = {
   ],
   // not needed events
   excludedEvents: [
+    'session_start',
+    'first_visit',
     'user_engagement'
   ],
   // transform to session-level
