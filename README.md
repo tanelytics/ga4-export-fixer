@@ -220,35 +220,61 @@ All fields are optional except `sourceTable`. Default values are applied automat
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 
-### Build on top of the ga4_events_enhanced table
+### Building on top of the ga4_events_enhanced table
 
 **`definitions/ga4/ga4_sessions.sqlx`**
 ```javascript
 config {
   type: "incremental",
-  description: "GA4 Events Enhanced table",
-  schema: "ga4",
+  description: "GA4 sessions table",
+  schema: "ga4_export_fixer",
   bigquery: {
     partitionBy: "event_date",
-    clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
+    clusterBy: ['session_id', 'data_is_final'],
   },
   tags: ['ga4_export_fixer']
 }
 
 js {
-  const { ga4EventsEnhanced } = require('ga4-export-fixer');
+  const { setPreOperations, helpers } = require('ga4-export-fixer');
 
   const config = {
-    sourceTable: ref(constants.GA4_TABLES.MY_GA4_EXPORT),
     self: self(),
-    incremental: incremental()
+    incremental: incremental(),
+    test: false,
+    testConfig: {
+        dateRangeStart: 'current_date()-1',
+        dateRangeEnd: 'current_date()',
+    },
+    preOperations: {
+        dateRangeStartFullRefresh: 'date(2000, 1, 1)',
+        dateRangeEnd: 'current_date()',
+        //incrementalStartOverride: undefined,
+        //incrementalEndOverride: undefined,
+        //numberOfPreviousDaysToScan: 10,
+    },
   };
 }
 
-${ga4EventsEnhanced.generateSql(config)}
+select
+  event_date,
+  session_id,
+  user_pseudo_id,
+  any_value(session_traffic_source_last_click.cross_channel_campaign) as session_traffic_source,
+  any_value(landing_page) as landing_page,
+  current_datetime() as row_inserted_timestamp,
+  min(data_is_final) as data_is_final
+from
+  ${ref('ga4_events_enhanced_298233330')}
+where
+  ${helpers.incrementalDateFilter(config)}
+group by 
+  event_date,
+  session_id,
+  user_pseudo_id
 
 pre_operations {
-  ${ga4EventsEnhanced.setPreOperations(config)}
+  ${setPreOperations(config)}
 }
 ```
 

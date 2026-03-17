@@ -85,7 +85,7 @@ const getDateRangeStartIntraday = (config) => {
       date
   )
   select
-    max(
+    min(
       if(
         intraday = true and daily = false,
         date,
