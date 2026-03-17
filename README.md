@@ -52,7 +52,7 @@ The main features include:
 
 - **Best available data at any time** – Combines daily (processed) and intraday exports so the most complete, accurate version of the data is always available
 - **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
-- **Flexible schema, better optimized for analysis** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for faster queries; **partitioning and clustering** enabled
+- **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
 - **Event parameter handling** – Promote event params to columns; include or exclude by name
 - **Session parameters** – Promote selected event parameters as session-level parameters
 
