@@ -4,6 +4,20 @@
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
+### Table of Contents
+<!-- TOC -->
+  - [Planned, Upcoming Features](#planned-upcoming-features)
+- [Installation](#installation)
+  - [Bash](#bash)
+  - [In Google Cloud Dataform](#in-google-cloud-dataform)
+- [Usage](#usage)
+  - [Create GA4 Events Enhanced Table](#create-ga4-events-enhanced-table)
+  - [Building on top of the ga4_events_enhanced table](#building-on-top-of-the-ga4_events_enhanced-table)
+  - [Configuration Object](#configuration-object)
+  - [Helpers](#helpers)
+- [License](#license)
+<!-- /TOC -->
+
 ### Planned, Upcoming Features
 
 - Column descriptions
@@ -28,7 +42,8 @@ npm install ga4-export-fixer
 
 Include the package in the package.json file in your Dataform repository.
 
-**`package.json`**
+`**package.json**`
+
 ```json
 {
   "dependencies": {
@@ -42,7 +57,7 @@ Include the package in the package.json file in your Dataform repository.
 
 In Google Cloud Dataform, click "Install Packages" to install it in your development workspace.
 
-If your Dataform repository does not have a package.json file, see this guide: https://docs.cloud.google.com/dataform/docs/manage-repository#move-to-package-json
+If your Dataform repository does not have a package.json file, see this guide: [https://docs.cloud.google.com/dataform/docs/manage-repository#move-to-package-json](https://docs.cloud.google.com/dataform/docs/manage-repository#move-to-package-json)
 
 ## Usage
 
@@ -64,7 +79,8 @@ Create a new **ga4_events_enhanced** table using a **.js** file in your reposito
 
 ##### Using Defaults
 
-**`definitions/ga4/ga4_events_enhanced.js`**
+`**definitions/ga4/ga4_events_enhanced.js`**
+
 ```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
@@ -77,7 +93,8 @@ ga4EventsEnhanced.createTable(publish, config);
 
 ##### With Custom Configuration
 
-**`definitions/ga4/ga4_events_enhanced.js`**
+`**definitions/ga4/ga4_events_enhanced.js**`
+
 ```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
@@ -134,7 +151,8 @@ ga4EventsEnhanced.createTable(publish, config);
 
 Alternatively, you can create the **ga4_events_enhanced** table using a .SQLX file.
 
-**`definitions/ga4/ga4_events_enhanced.sqlx`**
+`**definitions/ga4/ga4_events_enhanced.sqlx`**
+
 ```javascript
 config {
   type: "incremental",
@@ -172,7 +190,8 @@ The **incrementalDateFilter()** function applies the same date filtering used by
 
 Key fields such as session_id, user_id, and session_traffic_source_last_click are available as clean, sessionized versions that handle edge cases like sessions spanning midnight.
 
-**`definitions/ga4/ga4_sessions.sqlx`**
+`**definitions/ga4/ga4_sessions.sqlx`**
+
 ```javascript
 config {
   type: "incremental",
@@ -237,62 +256,74 @@ pre_operations {
 
 All fields are optional except `sourceTable`. Default values are applied automatically, so you only need to specify the fields you want to override.
 
-| Field | Type | Default/Required | Description |
-|-------|------|---------|-------------|
-| `sourceTable` | Dataform ref() / string | **required** | Source GA4 export table. Use `ref()` in Dataform or a string in format `` `project.dataset.table` `` |
-| `self` | Dataform self() | **required for .SQLX deployment** | Reference to the table itself. Use `self()` in Dataform |
-| `incremental` | Dataform incremental() | **required for .SQLX deployment** | Switch between incremental and full refresh logic. Use `incremental()` in Dataform |
-| `dataformTableConfig` | object | **In JS deployment only** | Include your Dataform table configuration object for the JS deployment to override the default values and include new options. See: https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig |
-| `schemaLock` | string (YYYYMMDD) | `undefined` | Lock the table schema to a specific date. Must be a valid date >= `"20241009"` |
-| `timezone` | string | `'Etc/UTC'` | IANA timezone for event datetime (e.g. `'Europe/Helsinki'`) |
-| `customTimestampParam` | string | `undefined` | Name of a custom event parameter containing a JS timestamp in milliseconds (e.g. collected via `Date.now()`) |
-| `bufferDays` | integer | `1` | Extra days to include for sessions that span midnight |
-| `test` | boolean | `false` | Enable test mode (uses `testConfig` date range instead of pre-operations) |
-| `excludedEventParams` | string[] | `[]` | Event parameter names to exclude from the `event_params` array |
-| `excludedEvents` | string[] | `['session_start', 'first_visit']` | Event names to exclude from the table. These events are excluded by default because they have no use for analysis purposes. Override this to include them if needed |
-| `excludedColumns` | string[] | `[]` | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'` |
-| `sessionParams` | string[] | `[]` | Event parameter names to aggregate as session-level parameters |
 
-**`includedExportTypes`** — which GA4 export types to include:
+| Field                  | Type                    | Default/Required                   | Description                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | ----------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sourceTable`          | Dataform ref() / string | **required**                       | Source GA4 export table. Use `ref()` in Dataform or a string in format ``project.dataset.table``                                                                                                                                                                                                                             |
+| `self`                 | Dataform self()         | **required for .SQLX deployment**  | Reference to the table itself. Use `self()` in Dataform                                                                                                                                                                                                                                                                      |
+| `incremental`          | Dataform incremental()  | **required for .SQLX deployment**  | Switch between incremental and full refresh logic. Use `incremental()` in Dataform                                                                                                                                                                                                                                           |
+| `dataformTableConfig`  | object                  | **In JS deployment only**          | Include your Dataform table configuration object for the JS deployment to override the default values and include new options. See: [https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig](https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig) |
+| `schemaLock`           | string (YYYYMMDD)       | `undefined`                        | Lock the table schema to a specific date. Must be a valid date >= `"20241009"`                                                                                                                                                                                                                                               |
+| `timezone`             | string                  | `'Etc/UTC'`                        | IANA timezone for event datetime (e.g. `'Europe/Helsinki'`)                                                                                                                                                                                                                                                                  |
+| `customTimestampParam` | string                  | `undefined`                        | Name of a custom event parameter containing a JS timestamp in milliseconds (e.g. collected via `Date.now()`)                                                                                                                                                                                                                 |
+| `bufferDays`           | integer                 | `1`                                | Extra days to include for sessions that span midnight                                                                                                                                                                                                                                                                        |
+| `test`                 | boolean                 | `false`                            | Enable test mode (uses `testConfig` date range instead of pre-operations)                                                                                                                                                                                                                                                    |
+| `excludedEventParams`  | string[]                | `[]`                               | Event parameter names to exclude from the `event_params` array                                                                                                                                                                                                                                                               |
+| `excludedEvents`       | string[]                | `['session_start', 'first_visit']` | Event names to exclude from the table. These events are excluded by default because they have no use for analysis purposes. Override this to include them if needed                                                                                                                                                          |
+| `excludedColumns`      | string[]                | `[]`                               | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'`                                                                                                                                                                                                                        |
+| `sessionParams`        | string[]                | `[]`                               | Event parameter names to aggregate as session-level parameters                                                                                                                                                                                                                                                               |
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `includedExportTypes.daily` | boolean | `true` | Include daily (processed) export |
-| `includedExportTypes.intraday` | boolean | `true` | Include intraday export |
+
+`**includedExportTypes`** — which GA4 export types to include:
+
+
+| Field                          | Type    | Default | Description                      |
+| ------------------------------ | ------- | ------- | -------------------------------- |
+| `includedExportTypes.daily`    | boolean | `true`  | Include daily (processed) export |
+| `includedExportTypes.intraday` | boolean | `true`  | Include intraday export          |
+
 
 > **Intraday-only mode:** Set `daily` to `false` and `intraday` to `true` to use only intraday export tables. When using intraday-only mode, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`.
 
-**`dataIsFinal`** — how to determine whether data is final (not expected to change):
+`**dataIsFinal`** — how to determine whether data is final (not expected to change):
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `dataIsFinal.detectionMethod` | string | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when only intraday export is enabled |
-| `dataIsFinal.dayThreshold` | integer | `4` | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'` |
 
-**`testConfig`** — date range used when `test` is `true`:
+| Field                         | Type    | Default         | Description                                                                                                                                                                                          |
+| ----------------------------- | ------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataIsFinal.detectionMethod` | string  | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when only intraday export is enabled |
+| `dataIsFinal.dayThreshold`    | integer | `4`             | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'`                                                                                                      |
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+
+`**testConfig**` — date range used when `test` is `true`:
+
+
+| Field                       | Type              | Default              | Description                 |
+| --------------------------- | ----------------- | -------------------- | --------------------------- |
 | `testConfig.dateRangeStart` | string (SQL date) | `'current_date()-1'` | Start date for test queries |
-| `testConfig.dateRangeEnd` | string (SQL date) | `'current_date()'` | End date for test queries |
+| `testConfig.dateRangeEnd`   | string (SQL date) | `'current_date()'`   | End date for test queries   |
 
-**`preOperations`** — date range and incremental refresh configuration:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `preOperations.dateRangeStartFullRefresh` | string (SQL date) | `'date(2000, 1, 1)'` | Start date for full refresh |
-| `preOperations.dateRangeEnd` | string (SQL date) | `'current_date()'` | End date for queries |
-| `preOperations.numberOfPreviousDaysToScan` | integer | `10` | Number of previous days to scan from the result table when determining the incremental refresh start checkpoint. A higher value is required if the table updates have fallen behind for some reason |
-| `preOperations.incrementalStartOverride` | string (SQL date) | `undefined` | Override the incremental start date to re-process a specific range |
-| `preOperations.incrementalEndOverride` | string (SQL date) | `undefined` | Override the incremental end date to re-process a specific range |
+`**preOperations**` — date range and incremental refresh configuration:
 
-**`eventParamsToColumns`** — each item in the array is an object:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Event parameter name |
-| `type` | string | No | Data type: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, or `'float64'`. If omitted, returns the value converted to a string |
-| `columnName` | string | No | Column name in the output. Defaults to the parameter `name` |
+| Field                                      | Type              | Default              | Description                                                                                                                                                                                         |
+| ------------------------------------------ | ----------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preOperations.dateRangeStartFullRefresh`  | string (SQL date) | `'date(2000, 1, 1)'` | Start date for full refresh                                                                                                                                                                         |
+| `preOperations.dateRangeEnd`               | string (SQL date) | `'current_date()'`   | End date for queries                                                                                                                                                                                |
+| `preOperations.numberOfPreviousDaysToScan` | integer           | `10`                 | Number of previous days to scan from the result table when determining the incremental refresh start checkpoint. A higher value is required if the table updates have fallen behind for some reason |
+| `preOperations.incrementalStartOverride`   | string (SQL date) | `undefined`          | Override the incremental start date to re-process a specific range                                                                                                                                  |
+| `preOperations.incrementalEndOverride`     | string (SQL date) | `undefined`          | Override the incremental end date to re-process a specific range                                                                                                                                    |
+
+
+`**eventParamsToColumns**` — each item in the array is an object:
+
+
+| Field        | Type   | Required | Description                                                                                                                           |
+| ------------ | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | string | Yes      | Event parameter name                                                                                                                  |
+| `type`       | string | No       | Data type: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, or `'float64'`. If omitted, returns the value converted to a string |
+| `columnName` | string | No       | Column name in the output. Defaults to the parameter `name`                                                                           |
+
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 
@@ -306,59 +337,75 @@ const { helpers } = require('ga4-export-fixer');
 
 #### SQL Templates
 
-| Name | Example | Description |
-|------|---------|-------------|
-| `eventDate` | `helpers.eventDate` | Casts `event_date` string to a DATE using YYYYMMDD format |
+
+| Name        | Example             | Description                                                               |
+| ----------- | ------------------- | ------------------------------------------------------------------------- |
+| `eventDate` | `helpers.eventDate` | Casts `event_date` string to a DATE using YYYYMMDD format                 |
 | `sessionId` | `helpers.sessionId` | Builds a session ID by concatenating `user_pseudo_id` and `ga_session_id` |
+
 
 #### Functions
 
 **Unnesting parameters**
 
-| Function | Example | Description |
-|----------|---------|-------------|
+
+| Function           | Example                                       | Description                                                                                                                                                                                  |
+| ------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `unnestEventParam` | `unnestEventParam('page_location', 'string')` | Extracts a value from the `event_params` array by key. Supported types: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, `'float64'`. Omit type to get the value converted as a string |
+
 
 **Date and time**
 
-| Function | Example | Description |
-|----------|---------|-------------|
-| `getEventTimestampMicros` | `getEventTimestampMicros('custom_ts')` | Returns SQL for event timestamp in microseconds. With a custom parameter, uses it (converted from ms) with fallback to `event_timestamp` |
-| `getEventDateTime` | `getEventDateTime({ timezone: 'Europe/Helsinki' })` | Returns SQL for event datetime in the given timezone. Defaults to `'Etc/UTC'` |
+
+| Function                  | Example                                             | Description                                                                                                                              |
+| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `getEventTimestampMicros` | `getEventTimestampMicros('custom_ts')`              | Returns SQL for event timestamp in microseconds. With a custom parameter, uses it (converted from ms) with fallback to `event_timestamp` |
+| `getEventDateTime`        | `getEventDateTime({ timezone: 'Europe/Helsinki' })` | Returns SQL for event datetime in the given timezone. Defaults to `'Etc/UTC'`                                                            |
+
 
 **Date filters**
 
-| Function | Example | Description |
-|----------|---------|-------------|
+
+| Function              | Example                                                              | Description                                                                                            |
+| --------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `ga4ExportDateFilter` | `ga4ExportDateFilter('daily', 'current_date()-7', 'current_date()')` | Generates a `_table_suffix` filter for a single export type (`'daily'` or `'intraday'`) and date range |
+
 
 **Page details**
 
-| Function | Example | Description |
-|----------|---------|-------------|
-| `extractUrlHostname` | `extractUrlHostname('page_location')` | Extracts hostname from a URL column |
-| `extractUrlPath` | `extractUrlPath('page_location')` | Extracts the path component from a URL column |
-| `extractUrlQuery` | `extractUrlQuery('page_location')` | Extracts the query string (including `?`) from a URL column |
-| `extractUrlQueryParams` | `extractUrlQueryParams('page_location')` | Parses URL query parameters into `ARRAY<STRUCT<key STRING, value STRING>>` |
-| `extractPageDetails` | `extractPageDetails()` | Returns a struct with `hostname`, `path`, `query`, and `query_params`. Defaults to `page_location` event parameter |
+
+| Function                | Example                                  | Description                                                                                                        |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `extractUrlHostname`    | `extractUrlHostname('page_location')`    | Extracts hostname from a URL column                                                                                |
+| `extractUrlPath`        | `extractUrlPath('page_location')`        | Extracts the path component from a URL column                                                                      |
+| `extractUrlQuery`       | `extractUrlQuery('page_location')`       | Extracts the query string (including `?`) from a URL column                                                        |
+| `extractUrlQueryParams` | `extractUrlQueryParams('page_location')` | Parses URL query parameters into `ARRAY<STRUCT<key STRING, value STRING>>`                                         |
+| `extractPageDetails`    | `extractPageDetails()`                   | Returns a struct with `hostname`, `path`, `query`, and `query_params`. Defaults to `page_location` event parameter |
+
 
 **Aggregation**
 
-| Function | Example | Description |
-|----------|---------|-------------|
+
+| Function         | Example                                                | Description                                                                                                                               |
+| ---------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `aggregateValue` | `aggregateValue('user_id', 'last', 'event_timestamp')` | Aggregates a column using `'max'`, `'min'`, `'first'`, `'last'`, or `'any'`. `'first'` and `'last'` use the timestamp column for ordering |
+
 
 **Ecommerce**
 
-| Function | Example | Description |
-|----------|---------|-------------|
+
+| Function             | Example                | Description                                                                                                                                 |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fixEcommerceStruct` | `fixEcommerceStruct()` | Cleans the ecommerce struct: sets `transaction_id` to null when `'(not set)'`, and fixes missing/NaN `purchase_revenue` for purchase events |
+
 
 **Data freshness**
 
-| Function | Example | Description |
-|----------|---------|-------------|
+
+| Function      | Example                           | Description                                                                                                                                                                                           |
+| ------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `isFinalData` | `isFinalData('DAY_THRESHOLD', 4)` | Returns SQL that evaluates to `true` when data is final. `'EXPORT_TYPE'` checks table suffix; `'DAY_THRESHOLD'` uses days since event (`dayThreshold` is required and must be a non-negative integer) |
+
 
 ## License
 
