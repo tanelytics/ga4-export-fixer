@@ -14,6 +14,7 @@ The goal of the package is to **speed up development** when building data models
 - Support for fresh export (GA4 360)
 - Custom processing steps (additional CTEs)
 - Custom traffic source attribution
+- Default assertions
 
 ## Installation
 
