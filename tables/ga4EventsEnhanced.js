@@ -332,7 +332,14 @@ ${constants.TABLE_DESCRIPTION_SUFFIX}
 ${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}
 
 The last full table refresh was done using this configuration:
-${JSON.stringify(mergedConfig, null, 2)}`;
+${JSON.stringify(
+  Object.fromEntries(
+    // don't display the default arrays here, their contents are included in the main arrays via the mergeSQLConfigurations function
+    Object.entries(mergedConfig).filter(([key]) => !key.startsWith('default'))
+  ),
+  null,
+  2
+)}`;
 
     // the defaults for the dataform table config
     const defaultDataformTableConfig = {
