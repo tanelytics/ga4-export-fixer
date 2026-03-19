@@ -123,16 +123,9 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
             continue;
         }
 
-        // Handle arrays: merge with default counterpart if one exists, otherwise overwrite
+        // Handle arrays: overwrite with input value (default counterpart merging happens post-loop)
         if (Array.isArray(defaultValue) && Array.isArray(inputValue)) {
-            // check if the array has a "default" counterpart
-            // for example, excludedEvents and defaultExcludedEvents
-            const defaultKey = 'default' + key.charAt(0).toUpperCase() + key.slice(1);
-            if (!key.startsWith('default') && defaultKey in result) {
-                result[key] = mergeUniqueArrays(inputValue, result[defaultKey]);
-            } else {
-                result[key] = inputValue;
-            }
+            result[key] = inputValue;
             continue;
         }
 
@@ -151,6 +144,16 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
 
         // For all other cases (primitives, null, undefined), use input value
         result[key] = inputValue;
+    }
+
+    // Merge arrays with their default counterparts (e.g. excludedEvents + defaultExcludedEvents)
+    // This runs regardless of whether the user provided the array in inputConfig
+    for (const key in result) {
+        if (!result.hasOwnProperty(key) || key.startsWith('default')) continue;
+        const defaultKey = 'default' + key.charAt(0).toUpperCase() + key.slice(1);
+        if (defaultKey in result && Array.isArray(result[key]) && Array.isArray(result[defaultKey])) {
+            result[key] = mergeUniqueArrays(result[key], result[defaultKey]);
+        }
     }
 
     // process configuration date fields

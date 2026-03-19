@@ -163,13 +163,13 @@ test('excludedColumns is merged with defaultExcludedColumns', () => {
   assert.deepStrictEqual(result.excludedColumns, ['items', 'event_dimensions', 'traffic_source']);
 });
 
-test('when user does not provide the array, default empty array is preserved', () => {
+test('when user does not provide the array, it is still merged with default counterpart', () => {
   const defaults = {
     defaultExcludedEvents: ['session_start'],
     excludedEvents: [],
   };
   const result = mergeSQLConfigurations(defaults, {});
-  assert.deepStrictEqual(result.excludedEvents, []);
+  assert.deepStrictEqual(result.excludedEvents, ['session_start']);
 });
 
 // ---------------------------------------------------------------------------
