@@ -329,7 +329,10 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
 - Other improvements and refinements based on configuration
 
 ${constants.TABLE_DESCRIPTION_SUFFIX}
-${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}`;
+${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}
+
+The last full table refresh was done using this configuration:
+${JSON.stringify(mergedConfig, null, 2)}`;
 
     // the defaults for the dataform table config
     const defaultDataformTableConfig = {
