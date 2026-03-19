@@ -15,7 +15,7 @@
     "config.js"
   ],
   "scripts": {
-    "test": "node tests/ga4EventsEnhanced.test.js",
+    "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js",
     "test:events": "node tests/ga4EventsEnhanced.test.js",
     "test:merge": "node tests/mergeSQLConfigurations.test.js",
     "readme": "node scripts/updateReadme.js",
