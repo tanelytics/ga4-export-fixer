@@ -42,7 +42,7 @@ npm install ga4-export-fixer
 
 Include the package in the package.json file in your Dataform repository.
 
-`**package.json**`
+**`package.json`**
 
 ```json
 {
@@ -79,7 +79,7 @@ Create a new **ga4_events_enhanced** table using a **.js** file in your reposito
 
 ##### Using Defaults
 
-`**definitions/ga4/ga4_events_enhanced.js`**
+**`definitions/ga4/ga4_events_enhanced.js`**
 
 ```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
@@ -93,7 +93,7 @@ ga4EventsEnhanced.createTable(publish, config);
 
 ##### With Custom Configuration
 
-`**definitions/ga4/ga4_events_enhanced.js**`
+**`definitions/ga4/ga4_events_enhanced.js`**
 
 ```javascript
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
@@ -155,7 +155,7 @@ ga4EventsEnhanced.createTable(publish, config);
 
 Alternatively, you can create the **ga4_events_enhanced** table using a .SQLX file.
 
-`**definitions/ga4/ga4_events_enhanced.sqlx`**
+**`definitions/ga4/ga4_events_enhanced.sqlx`**
 
 ```javascript
 config {
@@ -194,7 +194,7 @@ The **incrementalDateFilter()** function applies the same date filtering used by
 
 Key fields such as session_id, user_id, and session_traffic_source_last_click are available as clean, sessionized versions that handle edge cases like sessions spanning midnight.
 
-`**definitions/ga4/ga4_sessions.sqlx`**
+**`definitions/ga4/ga4_sessions.sqlx`**
 
 ```javascript
 config {
