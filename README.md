@@ -277,6 +277,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `excludedColumns`      | string[]                | `[]`                               | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'`                                                                                                                                                                                                                        |
 | `sessionParams`        | string[]                | `[]`                               | Event parameter names to aggregate as session-level parameters                                                                                                                                                                                                                                                               |
 
+<a id="default-dataformtableconfig"></a>
 <details>
 <summary><strong>Default dataformTableConfig</strong></summary>
 
