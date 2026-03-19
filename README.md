@@ -266,7 +266,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `sourceTable`          | Dataform ref() / string | **required**                       | Source GA4 export table. Use `ref()` in Dataform or a string in format ``project.dataset.table``                                                                                                                                                                                                                             |
 | `self`                 | Dataform self()         | **required for .SQLX deployment**  | Reference to the table itself. Use `self()` in Dataform                                                                                                                                                                                                                                                                      |
 | `incremental`          | Dataform incremental()  | **required for .SQLX deployment**  | Switch between incremental and full refresh logic. Use `incremental()` in Dataform                                                                                                                                                                                                                                           |
-| `dataformTableConfig`  | object                  | **In JS deployment only.** Default: <pre lang="json">{&#10;  "name": "ga4_events_enhanced_&lt;dataset_id&gt;",&#10;  "type": "incremental",&#10;  "schema": "ga4_export_fixer",&#10;  "description": "&lt;default description&gt;",&#10;  "bigquery": {&#10;    "partitionBy": "event_date",&#10;    "clusterBy": [&#10;      "event_name",&#10;      "session_id",&#10;      "page_location",&#10;      "data_is_final"&#10;    ],&#10;    "labels": {&#10;      "ga4_export_fixer": "true"&#10;    }&#10;  },&#10;  "tags": [&#10;    "ga4_export_fixer"&#10;  ]&#10;}</pre> | Include your Dataform table configuration object for the JS deployment to override the default values and include new options. See: [ITableConfig reference](https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig) |
+| `dataformTableConfig`  | object                  | **In JS deployment only.** [See default](#default-dataformtableconfig) | Override the default Dataform table configuration for JS deployment. See: [ITableConfig reference](https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig) |
 | `schemaLock`           | string (YYYYMMDD)       | `undefined`                        | Lock the table schema to a specific date. Must be a valid date >= `"20241009"`                                                                                                                                                                                                                                               |
 | `timezone`             | string                  | `'Etc/UTC'`                        | IANA timezone for event datetime (e.g. `'Europe/Helsinki'`)                                                                                                                                                                                                                                                                  |
 | `customTimestampParam` | string                  | `undefined`                        | Name of a custom event parameter containing a JS timestamp in milliseconds (e.g. collected via `Date.now()`)                                                                                                                                                                                                                 |
@@ -277,6 +277,35 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `excludedColumns`      | string[]                | `[]`                               | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'`                                                                                                                                                                                                                        |
 | `sessionParams`        | string[]                | `[]`                               | Event parameter names to aggregate as session-level parameters                                                                                                                                                                                                                                                               |
 
+<details>
+<summary><strong>Default dataformTableConfig</strong></summary>
+
+```json
+{
+    "name": "ga4_events_enhanced_<dataset_id>",
+    "type": "incremental",
+    "schema": "ga4_export_fixer",
+    "description": "<default description>",
+    "bigquery": {
+        "partitionBy": "event_date",
+        "clusterBy": [
+            "event_name",
+            "session_id",
+            "page_location",
+            "data_is_final"
+        ],
+        "labels": {
+            "ga4_export_fixer": "true"
+        }
+    },
+    "tags": [
+        "ga4_export_fixer"
+    ]
+}
+```
+
+</details>
+<br>
 
 `**includedExportTypes`** — which GA4 export types to include:
 
