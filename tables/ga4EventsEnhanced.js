@@ -356,6 +356,7 @@ ${JSON.stringify(
                 'ga4_export_fixer': 'true'
             }
         },
+        onSchemaChange: 'EXTEND',
         tags: ['ga4_export_fixer'],
         // todo: include columns object
         columns: {
