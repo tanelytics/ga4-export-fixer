@@ -239,7 +239,7 @@ ${excludedEventsSQL}`,
             merged_user_id: `ifnull(${helpers.aggregateValue('user_id', 'last', mainTimestampColumn)}, any_value(user_pseudo_id))`,
             session_params: helpers.aggregateSessionParams(mergedConfig.sessionParams, 'session_params_prep', mainTimestampColumn),
             session_traffic_source_last_click: helpers.aggregateValue('session_traffic_source_last_click', 'first', mainTimestampColumn),
-            session_first_traffic_source: helpers.aggregateValue('collected_traffic_source', 'first', mainTimestampColumn),
+            session_first_traffic_source: `array_agg(collected_traffic_source order by ${mainTimestampColumn} limit 1)[safe_offset(0)]`, // don't ignore nulls
             landing_page: helpers.aggregateValue(`if(entrances > 0, page, null)`, 'first', mainTimestampColumn),
         },
         from: 'event_data',
