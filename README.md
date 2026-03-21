@@ -48,7 +48,7 @@ Include the package in the package.json file in your Dataform repository.
 {
   "dependencies": {
     "@dataform/core": "3.0.42",
-    "ga4-export-fixer": "0.2.1"
+    "ga4-export-fixer": "0.2.2"
   }
 }
 ```
@@ -162,6 +162,7 @@ config {
   type: "incremental",
   description: "GA4 Events Enhanced table",
   schema: "ga4",
+  onSchemaChange: "EXTEND",
   bigquery: {
     partitionBy: "event_date",
     clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
@@ -299,11 +300,14 @@ All fields are optional except `sourceTable`. Default values are applied automat
             "ga4_export_fixer": "true"
         }
     },
+    "onSchemaChange": "EXTEND",
     "tags": [
         "ga4_export_fixer"
     ]
 }
 ```
+
+The `onSchemaChange: "EXTEND"` setting updates the result table schema on incremental runs, adding columns for any new fields the query produces.
 
 </details>
 <br>
