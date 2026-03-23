@@ -33,11 +33,16 @@ const unnestParam = (keyName, paramsArray, dataType) => {
   }
 };
 
-// event_params
+// event_params and session_params
 
 // unnest a param from the event_params array
 const unnestEventParam = (keyName, dataType) => {
   return unnestParam(keyName, 'event_params', dataType);
+};
+
+// unnest a param from the session_params array
+const unnestSessionParam = (keyName, dataType) => {
+  return unnestParam(keyName, 'session_params', dataType);
 };
 
 /*
@@ -763,6 +768,7 @@ module.exports = {
   getEventDateTime,
   getEventTimestampMicros,
   unnestEventParam,
+  unnestSessionParam,
   sessionId,
   aggregateValue,
   aggregateValues,
