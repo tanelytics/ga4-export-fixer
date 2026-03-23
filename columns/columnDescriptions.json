@@ -1,0 +1,369 @@
+{
+    "event_date": "Date of the event, cast to DATE from the original YYYYMMDD string",
+    "event_datetime": "Event datetime converted to the configured timezone from event_timestamp (or custom timestamp if configured)",
+    "event_timestamp": "Time in microseconds (UTC) when the event was logged by Google Analytics",
+    "event_custom_timestamp": "Event timestamp in microseconds derived from a custom event parameter (e.g. collected via Date.now()), falling back to event_timestamp when the custom parameter is null. Only present when customTimestampParam is configured",
+    "event_name": "Name of the event (e.g. page_view, purchase, scroll)",
+    "session_id": "Unique session identifier, constructed by concatenating user_pseudo_id with the ga_session_id event parameter",
+    "user_pseudo_id": "Pseudonymous user identifier (e.g. app instance ID or client ID) assigned when the user first opens the app or visits the site",
+    "user_id": "Last non-null user_id observed within the session, ordered by timestamp. Reflects the most recent authenticated identity for the session",
+    "merged_user_id": "Coalesced identifier: uses the session-level user_id if available, otherwise falls back to user_pseudo_id",
+    "page_location": "Full page URL extracted from the page_location event parameter",
+    "page": {
+        "description": "Parsed page details struct derived from the page_location event parameter",
+        "columns": {
+            "hostname": "Hostname extracted from the page URL (e.g. www.example.com)",
+            "path": "URL path component with scheme, hostname, query string, and fragment removed",
+            "query": "Raw query string including the leading '?' character, if present",
+            "query_params": {
+                "description": "Parsed query parameters as an array of key-value pairs",
+                "columns": {
+                    "key": "Query parameter name",
+                    "value": "Query parameter value"
+                }
+            }
+        }
+    },
+    "landing_page": {
+        "description": "Session landing page: the first page struct (where entrances > 0) within the session, ordered by timestamp",
+        "columns": {
+            "hostname": "Hostname of the landing page",
+            "path": "Path of the landing page",
+            "query": "Query string of the landing page",
+            "query_params": {
+                "description": "Parsed query parameters of the landing page URL",
+                "columns": {
+                    "key": "Query parameter name",
+                    "value": "Query parameter value"
+                }
+            }
+        }
+    },
+    "event_params": {
+        "description": "Event parameters array. Excluded parameters (from excludedEventParams and promoted parameters) are filtered out",
+        "columns": {
+            "key": "Name of the event parameter",
+            "value": {
+                "description": "A record containing the event parameter value",
+                "columns": {
+                    "string_value": "String value of the event parameter",
+                    "int_value": "Integer value of the event parameter",
+                    "float_value": "Float value of the event parameter",
+                    "double_value": "Double value of the event parameter"
+                }
+            }
+        }
+    },
+    "session_params": {
+        "description": "Session-level parameters aggregated from event_params. For each configured session parameter, the last non-null value within the session is kept. Empty array if no sessionParams are configured",
+        "columns": {
+            "key": "Name of the session parameter",
+            "value": {
+                "description": "A record containing the session parameter value",
+                "columns": {
+                    "string_value": "String value of the session parameter",
+                    "int_value": "Integer value of the session parameter",
+                    "float_value": "Float value of the session parameter",
+                    "double_value": "Double value of the session parameter"
+                }
+            }
+        }
+    },
+    "user_properties": {
+        "description": "User properties set via the Google Analytics SDK or gtag API",
+        "columns": {
+            "key": "Name of the user property",
+            "value": {
+                "description": "A record containing the user property value",
+                "columns": {
+                    "string_value": "String value of the user property",
+                    "int_value": "Integer value of the user property",
+                    "double_value": "Double value of the user property",
+                    "float_value": "Float value of the user property (currently unused by GA4)",
+                    "set_timestamp_micros": "Time in microseconds at which the user property was last set"
+                }
+            }
+        }
+    },
+    "ecommerce": {
+        "description": "Ecommerce data with fixes applied: transaction_id is nullified when set to '(not set)', and purchase_revenue is corrected for NaN values and a legacy GA4 bug where it was missing on purchase events (falls back to the 'value' event parameter)",
+        "columns": {
+            "total_item_quantity": "Total number of items in this event (sum of items.quantity)",
+            "purchase_revenue_in_usd": "Purchase revenue in USD. Populated for purchase events only",
+            "purchase_revenue": "Purchase revenue in local currency, with NaN and missing-value fixes applied",
+            "refund_value_in_usd": "Refund amount in USD. Populated for refund events only",
+            "refund_value": "Refund amount in local currency. Populated for refund events only",
+            "shipping_value_in_usd": "Shipping cost in USD",
+            "shipping_value": "Shipping cost in local currency",
+            "tax_value_in_usd": "Tax value in USD",
+            "tax_value": "Tax value in local currency",
+            "transaction_id": "Transaction ID of the ecommerce transaction. Nullified when the original value is '(not set)'",
+            "unique_items": "Number of unique items in this event, based on item_id, item_name, and item_brand"
+        }
+    },
+    "items": {
+        "description": "Array of items associated with the event (e.g. products in a purchase or product list)",
+        "columns": {
+            "item_id": "ID of the item",
+            "item_name": "Name of the item",
+            "item_brand": "Brand of the item",
+            "item_variant": "Variant of the item",
+            "item_category": "Category of the item",
+            "item_category2": "Second-level category of the item",
+            "item_category3": "Third-level category of the item",
+            "item_category4": "Fourth-level category of the item",
+            "item_category5": "Fifth-level category of the item",
+            "price_in_usd": "Item price in USD",
+            "price": "Item price in local currency",
+            "quantity": "Quantity of the item (defaults to 1 if not specified)",
+            "item_revenue_in_usd": "Item revenue in USD (price_in_usd * quantity). Purchase events only",
+            "item_revenue": "Item revenue in local currency (price * quantity). Purchase events only",
+            "item_refund_in_usd": "Item refund in USD. Refund events only",
+            "item_refund": "Item refund in local currency. Refund events only",
+            "coupon": "Coupon code applied to the item",
+            "affiliation": "Product affiliation (e.g. supplying company or store location)",
+            "location_id": "Location associated with the item",
+            "item_list_id": "ID of the list in which the item was presented",
+            "item_list_name": "Name of the list in which the item was presented",
+            "item_list_index": "Position of the item in a list",
+            "promotion_id": "ID of the product promotion",
+            "promotion_name": "Name of the product promotion",
+            "creative_name": "Name of the creative used in a promotional spot",
+            "creative_slot": "Name of the creative slot"
+        }
+    },
+    "user_ltv": {
+        "description": "Lifetime value record for the user. Not populated in intraday tables",
+        "columns": {
+            "revenue": "Lifetime value revenue of the user",
+            "currency": "Lifetime value currency of the user"
+        }
+    },
+    "collected_traffic_source": {
+        "description": "Traffic source data collected with the event, including UTM parameters and click identifiers",
+        "columns": {
+            "manual_campaign_id": "Manual campaign ID (utm_id)",
+            "manual_campaign_name": "Manual campaign name (utm_campaign)",
+            "manual_source": "Manual source (utm_source), also includes parsed referral parameters",
+            "manual_medium": "Manual medium (utm_medium), also includes parsed referral parameters",
+            "manual_term": "Manual keyword/term (utm_term)",
+            "manual_content": "Manual content metadata (utm_content)",
+            "manual_creative_format": "Manual creative format (utm_creative_format)",
+            "manual_marketing_tactic": "Manual marketing tactic (utm_marketing_tactic)",
+            "manual_source_platform": "Manual source platform (utm_source_platform)",
+            "gclid": "Google click identifier",
+            "dclid": "DoubleClick click identifier (DV360 / CM360)",
+            "srsltid": "Google Merchant Center identifier"
+        }
+    },
+    "session_first_traffic_source": {
+        "description": "The collected_traffic_source from the first event in the session (ordered by timestamp, nulls included). Useful for session-level first-click attribution",
+        "columns": {
+            "manual_campaign_id": "Manual campaign ID (utm_id)",
+            "manual_campaign_name": "Manual campaign name (utm_campaign)",
+            "manual_source": "Manual source (utm_source)",
+            "manual_medium": "Manual medium (utm_medium)",
+            "manual_term": "Manual keyword/term (utm_term)",
+            "manual_content": "Manual content metadata (utm_content)",
+            "manual_creative_format": "Manual creative format (utm_creative_format)",
+            "manual_marketing_tactic": "Manual marketing tactic (utm_marketing_tactic)",
+            "manual_source_platform": "Manual source platform (utm_source_platform)",
+            "gclid": "Google click identifier",
+            "dclid": "DoubleClick click identifier",
+            "srsltid": "Google Merchant Center identifier"
+        }
+    },
+    "session_traffic_source_last_click": {
+        "description": "Session-level last-click attributed traffic source across Google Ads and manual channels. Aggregated as the first non-null value in the session (the field is session-scoped in the GA4 export and identical across events in the same session)",
+        "columns": {
+            "manual_campaign": {
+                "description": "Last-click manual campaign attribution",
+                "columns": {
+                    "campaign_id": "Campaign ID of the last clicked manual campaign",
+                    "campaign_name": "Name of the last clicked manual campaign",
+                    "source": "Source of the last clicked manual campaign",
+                    "medium": "Medium of the last clicked manual campaign",
+                    "term": "Keyword/term of the last clicked manual campaign",
+                    "content": "Content metadata of the last clicked manual campaign",
+                    "source_platform": "Platform of the last clicked manual campaign",
+                    "creative_format": "Creative format of the last clicked manual campaign",
+                    "marketing_tactic": "Marketing tactic of the last clicked manual campaign"
+                }
+            },
+            "google_ads_campaign": {
+                "description": "Last-click Google Ads campaign attribution",
+                "columns": {
+                    "customer_id": "Google Ads customer ID",
+                    "account_name": "Google Ads account name",
+                    "campaign_id": "Google Ads campaign ID",
+                    "campaign_name": "Google Ads campaign name",
+                    "ad_group_id": "Google Ads ad group ID",
+                    "ad_group_name": "Google Ads ad group name"
+                }
+            },
+            "cross_channel_campaign": {
+                "description": "Last-click cross-channel campaign attribution",
+                "columns": {
+                    "campaign_name": "Cross-channel campaign name",
+                    "campaign_id": "Cross-channel campaign ID",
+                    "source_platform": "Cross-channel source platform",
+                    "source": "Cross-channel source",
+                    "medium": "Cross-channel medium"
+                }
+            },
+            "sa360_campaign": {
+                "description": "Last-click SA360 campaign attribution",
+                "columns": {
+                    "campaign_id": "SA360 campaign ID",
+                    "campaign_name": "SA360 campaign name",
+                    "source": "SA360 source",
+                    "medium": "SA360 medium",
+                    "ad_group_id": "SA360 ad group ID",
+                    "ad_group_name": "SA360 ad group name",
+                    "creative_format": "SA360 creative format",
+                    "engine_account_name": "SA360 engine account name",
+                    "engine_account_type": "SA360 engine account type",
+                    "manager_account_name": "SA360 manager account name"
+                }
+            },
+            "dv360_campaign": {
+                "description": "Last-click DV360 campaign attribution",
+                "columns": {
+                    "advertiser_id": "DV360 advertiser ID",
+                    "advertiser_name": "DV360 advertiser name",
+                    "campaign_id": "DV360 campaign ID",
+                    "campaign_name": "DV360 campaign name",
+                    "creative_id": "DV360 creative ID",
+                    "creative_format": "DV360 creative format",
+                    "creative_name": "DV360 creative name",
+                    "marketing_tactic": "DV360 marketing tactic",
+                    "exchange_id": "DV360 exchange ID",
+                    "exchange_name": "DV360 exchange name",
+                    "insertion_order_id": "DV360 insertion order ID",
+                    "insertion_order_name": "DV360 insertion order name",
+                    "line_item_id": "DV360 line item ID",
+                    "line_item_name": "DV360 line item name",
+                    "partner_id": "DV360 partner ID",
+                    "partner_name": "DV360 partner name",
+                    "source": "DV360 source",
+                    "medium": "DV360 medium"
+                }
+            },
+            "cm360_campaign": {
+                "description": "Last-click CM360 campaign attribution",
+                "columns": {
+                    "account_id": "CM360 account ID",
+                    "account_name": "CM360 account name",
+                    "advertiser_id": "CM360 advertiser ID",
+                    "advertiser_name": "CM360 advertiser name",
+                    "campaign_id": "CM360 campaign ID",
+                    "campaign_name": "CM360 campaign name",
+                    "creative_id": "CM360 creative ID",
+                    "creative_format": "CM360 creative format",
+                    "creative_name": "CM360 creative name",
+                    "creative_type": "CM360 creative type",
+                    "creative_type_id": "CM360 creative type ID",
+                    "creative_version": "CM360 creative version",
+                    "placement_id": "CM360 placement ID",
+                    "placement_cost_structure": "CM360 placement cost structure",
+                    "placement_name": "CM360 placement name",
+                    "rendering_id": "CM360 rendering ID",
+                    "site_id": "CM360 site ID",
+                    "site_name": "CM360 site name",
+                    "source": "CM360 source",
+                    "medium": "CM360 medium"
+                }
+            }
+        }
+    },
+    "user_traffic_source": {
+        "description": "Traffic source that first acquired the user. Sourced from the GA4 export traffic_source field. Not populated in intraday tables",
+        "columns": {
+            "name": "Name of the marketing campaign that first acquired the user",
+            "medium": "Medium that first acquired the user (e.g. paid search, organic, referral)",
+            "source": "Source network that first acquired the user"
+        }
+    },
+    "event_previous_timestamp": "Time in microseconds (UTC) when the previous event was logged",
+    "event_value_in_usd": "Currency-converted value (in USD) of the event's 'value' parameter",
+    "event_bundle_sequence_id": "Sequential ID of the bundle in which the event was uploaded",
+    "event_server_timestamp_offset": "Timestamp offset between collection time and upload time in microseconds",
+    "privacy_info": {
+        "description": "Consent status information for the user when consent mode is enabled",
+        "columns": {
+            "ads_storage": "Whether ad targeting/storage is enabled (Yes, No, or Unset)",
+            "analytics_storage": "Whether Analytics storage is enabled (Yes, No, or Unset)",
+            "uses_transient_token": "Whether measurement uses transient tokens instead of cookies (Yes, No, or Unset)"
+        }
+    },
+    "user_first_touch_timestamp": "Time in microseconds at which the user first opened the app or visited the site",
+    "device": {
+        "description": "Information about the device from which the event originated",
+        "columns": {
+            "category": "Device category (mobile, tablet, desktop)",
+            "mobile_brand_name": "Device brand name",
+            "mobile_model_name": "Device model name",
+            "mobile_marketing_name": "Device marketing name",
+            "mobile_os_hardware_model": "Device model retrieved directly from the operating system",
+            "operating_system": "Operating system of the device",
+            "operating_system_version": "OS version",
+            "vendor_id": "IDFV (present only if IDFA is not collected)",
+            "advertising_id": "Advertising ID / IDFA",
+            "language": "OS language",
+            "time_zone_offset_seconds": "Offset from GMT in seconds",
+            "is_limited_ad_tracking": "Whether the device has Limit Ad Tracking enabled",
+            "web_info": {
+                "description": "Web-specific device information",
+                "columns": {
+                    "browser": "Browser used to view content",
+                    "browser_version": "Browser version",
+                    "hostname": "Hostname associated with the logged event"
+                }
+            }
+        }
+    },
+    "geo": {
+        "description": "Geographic location where the event was initiated, based on IP address",
+        "columns": {
+            "continent": "Continent from which the event was reported",
+            "sub_continent": "Subcontinent from which the event was reported",
+            "country": "Country from which the event was reported",
+            "region": "Region from which the event was reported",
+            "metro": "Metro area from which the event was reported",
+            "city": "City from which the event was reported"
+        }
+    },
+    "app_info": {
+        "description": "Information about the app in which the event was initiated",
+        "columns": {
+            "id": "Package name or bundle ID of the app",
+            "firebase_app_id": "Firebase App ID associated with the app",
+            "install_source": "Store that installed the app",
+            "version": "App versionName (Android) or short bundle version (iOS)"
+        }
+    },
+    "stream_id": "Numeric ID of the data stream from which the event originated",
+    "platform": "Data stream platform (Web, iOS, or Android)",
+    "event_dimensions": {
+        "description": "Event dimension metadata",
+        "columns": {
+            "hostname": "Hostname where the event was recorded"
+        }
+    },
+    "is_active_user": "Whether the user was active at any point during the calendar day. Only populated in daily tables",
+    "batch_event_index": "Sequential order of the event within a batch, based on occurrence on the device",
+    "batch_page_id": "Sequential number assigned to each page, incrementing within an engagement",
+    "batch_ordering_id": "Monotonically increasing number incremented per network request from a given page",
+    "publisher": {
+        "description": "Publisher data from AdMob integration. Not populated in intraday or Fresh Daily tables",
+        "columns": {
+            "ad_revenue_in_usd": "Estimated ad revenue in USD. Populated for ad impression events only",
+            "ad_format": "Ad format (e.g. Interstitial, Banner, Rewarded, Native advanced)",
+            "ad_source_name": "Source network that served the ad (e.g. AdMob Network, Meta Audience Network)",
+            "ad_unit_id": "Ad unit identifier"
+        }
+    },
+    "row_inserted_timestamp": "Timestamp of when the row was inserted or last refreshed by the incremental pipeline",
+    "data_is_final": "Whether the data is considered final and not expected to change. Determined by export type (intraday/fresh = not final) or by a configurable day threshold since event_date",
+    "export_type": "GA4 export type the event originated from: 'daily', 'intraday', or 'fresh'"
+}
