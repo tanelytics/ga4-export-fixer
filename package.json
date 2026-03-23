@@ -12,7 +12,8 @@
     "tables",
     "inputValidation.js",
     "defaultConfig.js",
-    "config.js"
+    "config.js",
+    "columns"
   ],
   "scripts": {
     "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js",

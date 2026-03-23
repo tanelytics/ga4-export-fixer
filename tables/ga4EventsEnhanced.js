@@ -358,25 +358,7 @@ ${JSON.stringify(
         },
         onSchemaChange: 'EXTEND',
         tags: ['ga4_export_fixer'],
-        // todo: include columns object
-        columns: {
-            event_date: 'Date of the event',
-            event_params: {
-                description: 'Event parameters array',
-                columns: {
-                    key: 'Name of the event parameter',
-                    value: {
-                        description: 'A struct with the value of the event parameter',
-                        columns: {
-                            string_value: 'String value of the event parameter',
-                            int_value: 'Integer value of the event parameter',
-                            float_value: 'Float value of the event parameter',
-                            double_value: 'Double value of the event parameter',
-                        }
-                    }
-                }
-            }
-        }
+        columns: require('../columns/columnDescriptions.json')
     };
 
     // set the default values for table name and dataset, if not provided in the config
