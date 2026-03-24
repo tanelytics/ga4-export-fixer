@@ -10,6 +10,8 @@ const columnDescriptions = require('./columns/columnDescriptions.json');
 const getColumnDescriptions = (config) => {
     const descriptions = JSON.parse(JSON.stringify(columnDescriptions));
 
+    if (!config) return descriptions;
+
     const appendToDescription = (key, suffix) => {
         if (!descriptions[key]) return;
         if (typeof descriptions[key] === 'string') {
