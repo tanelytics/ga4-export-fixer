@@ -1,7 +1,7 @@
 {
     "event_date": "Date of the event, cast to DATE from the original YYYYMMDD string",
     "event_datetime": "Event datetime converted to the configured timezone from event_timestamp (or custom timestamp if configured)",
-    "event_timestamp": "Time in microseconds (UTC) when the event was logged by Google Analytics",
+    "event_timestamp": "Time in microseconds (UTC) when the event was received by Google Analytics",
     "event_custom_timestamp": "Event timestamp in microseconds derived from a custom event parameter (e.g. collected via Date.now()), falling back to event_timestamp when the custom parameter is null. Only present when customTimestampParam is configured",
     "event_name": "Name of the event (e.g. page_view, purchase, scroll)",
     "session_id": "Unique session identifier, constructed by concatenating user_pseudo_id with the ga_session_id event parameter",
@@ -48,7 +48,7 @@
                 "columns": {
                     "string_value": "String value of the event parameter",
                     "int_value": "Integer value of the event parameter",
-                    "float_value": "Float value of the event parameter",
+                    "float_value": "Float value of the event parameter (currently unused in GA4)",
                     "double_value": "Double value of the event parameter"
                 }
             }
@@ -63,14 +63,14 @@
                 "columns": {
                     "string_value": "String value of the session parameter",
                     "int_value": "Integer value of the session parameter",
-                    "float_value": "Float value of the session parameter",
+                    "float_value": "Float value of the session parameter (currently unused in GA4)",
                     "double_value": "Double value of the session parameter"
                 }
             }
         }
     },
     "user_properties": {
-        "description": "User properties set via the Google Analytics SDK or gtag API",
+        "description": "User properties",
         "columns": {
             "key": "Name of the user property",
             "value": {
@@ -79,7 +79,7 @@
                     "string_value": "String value of the user property",
                     "int_value": "Integer value of the user property",
                     "double_value": "Double value of the user property",
-                    "float_value": "Float value of the user property (currently unused by GA4)",
+                    "float_value": "Float value of the user property (currently unused in GA4)",
                     "set_timestamp_micros": "Time in microseconds at which the user property was last set"
                 }
             }
@@ -284,7 +284,7 @@
             "source": "Source network that first acquired the user"
         }
     },
-    "event_previous_timestamp": "Time in microseconds (UTC) when the previous event was logged",
+    "event_previous_timestamp": "Time in microseconds (UTC) when the previous event happened",
     "event_value_in_usd": "Currency-converted value (in USD) of the event's 'value' parameter",
     "event_bundle_sequence_id": "Sequential ID of the bundle in which the event was uploaded",
     "event_server_timestamp_offset": "Timestamp offset between collection time and upload time in microseconds",
