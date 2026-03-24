@@ -21,3 +21,7 @@ When renaming or moving a function, search the entire codebase for all occurrenc
 ## Generating documentation
 
 When asked to generate documentation, only generate the JSDoc comment above the function. When making updates to a function's definitions, make sure that the JSDoc is also updated accordingly.
+
+## Column descriptions
+
+Whenever a new column is included in the generated SQL query, the corresponding column description should be added as well. If the column's value depends on the configuration, the used configuration setting should be visible in the description via the getColumnDescriptions function.
