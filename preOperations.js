@@ -128,6 +128,11 @@ const createSchemaLockTable = (config) => {
 
 // Set the pre operations for the query
 const setPreOperations = (config) => {
+  // if in test mode, avoid setting BigQuery variables to make query dry run estimation accurate
+  if (config.test) {
+    return '';
+  }
+
   // define the pre operations
   const preOperations = [
     {
