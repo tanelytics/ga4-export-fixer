@@ -20,7 +20,6 @@ The goal of the package is to **speed up development** when building data models
 
 ### Planned, Upcoming Features
 
-- Column descriptions
 - Web and app specific default configurations
 - Ecommerce item list attribution
 - Custom channel grouping
@@ -48,7 +47,7 @@ Include the package in the package.json file in your Dataform repository.
 {
   "dependencies": {
     "@dataform/core": "3.0.42",
-    "ga4-export-fixer": "0.2.2"
+    "ga4-export-fixer": "0.2.3"
   }
 }
 ```
