@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
 
-**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports (360 fresh export to be included) so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
+**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports (360 fresh export support not yet available) so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
@@ -121,7 +121,7 @@ const config = {
   // use dataformTableConfig to make changes to the default Dataform table configuration
   dataformTableConfig: {
       schema: 'ga4'
-  }
+  },
   // test configurations
   test: false,
   testConfig: {
@@ -234,7 +234,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 {
     "name": "ga4_events_enhanced_<dataset_id>",
     "type": "incremental",
-    "schema": "ga4_export_fixer",
+    "schema": "<source_dataset>",
     "description": "<default description>",
     "bigquery": {
         "partitionBy": "event_date",
@@ -260,7 +260,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 </details>
 <br>
 
-`**includedExportTypes`** — which GA4 export types to include:
+`**includedExportTypes**` — which GA4 export types to include:
 
 
 | Field                          | Type    | Default | Description                      |
@@ -271,7 +271,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 
 > **Intraday-only mode:** Set `daily` to `false` and `intraday` to `true` to use only intraday export tables. When using intraday-only mode, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`.
 
-`**dataIsFinal`** — how to determine whether data is final (not expected to change):
+**`dataIsFinal`** — how to determine whether data is final (not expected to change):
 
 
 | Field                         | Type    | Default         | Description                                                                                                                                                                                          |
@@ -280,7 +280,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 | `dataIsFinal.dayThreshold`    | integer | `4`             | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'`                                                                                                      |
 
 
-`**testConfig**` — date range used when `test` is `true`:
+**`testConfig`** — date range used when `test` is `true`:
 
 
 | Field                       | Type              | Default              | Description                 |
@@ -289,7 +289,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 | `testConfig.dateRangeEnd`   | string (SQL date) | `'current_date()'`   | End date for test queries   |
 
 
-`**preOperations**` — date range and incremental refresh configuration:
+**`preOperations`** — date range and incremental refresh configuration:
 
 
 | Field                                      | Type              | Default              | Description                                                                                                                                                                                         |
@@ -301,7 +301,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 | `preOperations.incrementalEndOverride`     | string (SQL date) | `undefined`          | Override the incremental end date to re-process a specific range                                                                                                                                    |
 
 
-`**eventParamsToColumns**` — each item in the array is an object:
+**`eventParamsToColumns`** — each item in the array is an object:
 
 
 | Field        | Type   | Required | Description                                                                                                                           |
@@ -315,7 +315,7 @@ Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYY
 
 ### Creating Incremental Downstream Tables from ga4_events_enhanced
 
-Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_enhanced_events** table.
+Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_events_enhanced** table.
 
 The **incrementalDateFilter()** function applies the same date filtering used by **ga4_events_enhanced**, based on the **config** options and the variables declared by **setPreOperations()**.
 
