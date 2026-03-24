@@ -161,15 +161,15 @@
         "columns": {
             "manual_campaign_id": "Manual campaign ID (utm_id)",
             "manual_campaign_name": "Manual campaign name (utm_campaign)",
-            "manual_source": "Manual source (utm_source)",
-            "manual_medium": "Manual medium (utm_medium)",
+            "manual_source": "Manual source (utm_source), also includes parsed referral parameters",
+            "manual_medium": "Manual medium (utm_medium), also includes parsed referral parameters",
             "manual_term": "Manual keyword/term (utm_term)",
             "manual_content": "Manual content metadata (utm_content)",
             "manual_creative_format": "Manual creative format (utm_creative_format)",
             "manual_marketing_tactic": "Manual marketing tactic (utm_marketing_tactic)",
             "manual_source_platform": "Manual source platform (utm_source_platform)",
             "gclid": "Google click identifier",
-            "dclid": "DoubleClick click identifier",
+            "dclid": "DoubleClick click identifier (DV360 / CM360)",
             "srsltid": "Google Merchant Center identifier"
         }
     },

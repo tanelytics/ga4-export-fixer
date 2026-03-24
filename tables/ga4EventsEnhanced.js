@@ -4,6 +4,7 @@ const inputValidation = require('../inputValidation.js');
 const constants = require('../constants.js');
 const preOperations = require('../preOperations.js');
 const { ga4EventsEnhancedConfig } = require('../defaultConfig.js'); // config defaults
+const documentation = require('../documentation.js');
 
 // default configuration for the GA4 Events Enhanced table
 const defaultConfig = {
@@ -358,7 +359,7 @@ ${JSON.stringify(
         },
         onSchemaChange: 'EXTEND',
         tags: ['ga4_export_fixer'],
-        columns: require('../columns/columnDescriptions.json')
+        columns: documentation.getColumnDescriptions(mergedConfig)
     };
 
     // set the default values for table name and dataset, if not provided in the config
