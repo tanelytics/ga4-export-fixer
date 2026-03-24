@@ -205,6 +205,14 @@ const mergeSQLConfigurations = (defaultConfig, inputConfig = {}) => {
         result.sourceTable = fixSourceTable(result.sourceTable);
     }
 
+    // include the event parameters listed in the eventParamsToColumns array in excludedEventParams
+    if (result.eventParamsToColumns && result.eventParamsToColumns.length > 0) {
+        const promotedParameters = result.eventParamsToColumns
+            .map(p => p.name)
+            .filter(p => typeof p === 'string' && p.trim() !== '');
+        result.excludedEventParams = mergeUniqueArrays(result.excludedEventParams, promotedParameters);
+    }
+
     return result;
 };
 
