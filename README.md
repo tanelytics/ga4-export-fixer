@@ -2,25 +2,50 @@
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
 
-**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
+**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports (360 fresh export to be included) so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
+<img src="./docs/images/example_data_model.png" alt="Example Data Model" width="600">
+
 ### Table of Contents
 <!-- TOC -->
+  - [Main Features](#main-features)
   - [Planned, Upcoming Features](#planned-upcoming-features)
 - [Installation](#installation)
   - [Bash](#bash)
   - [In Google Cloud Dataform](#in-google-cloud-dataform)
 - [Usage](#usage)
   - [Create GA4 Events Enhanced Table](#create-ga4-events-enhanced-table)
-  - [Building on top of the ga4_events_enhanced table](#building-on-top-of-the-ga4_events_enhanced-table)
+  - [Creating Incremental Downstream Tables from ga4_events_enhanced](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
   - [Configuration Object](#configuration-object)
   - [Helpers](#helpers)
 - [License](#license)
 <!-- /TOC -->
 
+### Main Features
+
+The **ga4_events_enhanced** table comes with features such as these:
+
+- **Best available data at any time** – Combines daily (processed) and intraday exports so the most complete, accurate version of the data is always available
+- **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
+- **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
+- **Session-level identity resolution** – `user_id` resolved to the last authenticated value per session; `merged_user_id` coalesces it with `user_pseudo_id`
+- **Session traffic sources** – `session_first_traffic_source` and session-scoped `session_traffic_source_last_click` (adjusting for sessions that span midnight) computed automatically
+- **Landing page detection** – `landing_page` derived per session from the first page where `entrances > 0`
+- **Page URL parsing** – `page` struct with parsed `hostname`, `path`, `query`, and `query_params` from `page_location`
+- **Ecommerce data fixes** – Nullifies `transaction_id` placeholder values and corrects `purchase_revenue` NaN / missing-value bugs
+- **Event parameter handling** – Promote event params to columns; include or exclude by name
+- **Session parameters** – Promote selected event parameters as session-level parameters
+- **Custom timestamp support** – Optionally use a custom event parameter as the primary timestamp, with automatic fallback to `event_timestamp`
+- **Schema lock** – Lock the table schema to a specific GA4 export date to prevent schema drift
+- **Data freshness tracking** – `data_is_final` flag and `export_type` label on every row
+- **Timezone-aware datetime** – `event_datetime` converted to a configurable IANA timezone
+- **Column descriptions** – Full column-level documentation included in the Dataform table configuration, reflecting the specific configuration used to build the table
+
 ### Planned, Upcoming Features
+
+Features under consideration for future releases:
 
 - Web and app specific default configurations
 - Ecommerce item list attribution
@@ -65,14 +90,6 @@ If your Dataform repository does not have a package.json file, see this guide: [
 ### Create GA4 Events Enhanced Table
 
 Creates an **enhanced** version of the GA4 BigQuery export (daily & intraday).
-
-The main features include:
-
-- **Best available data at any time** – Combines daily (processed) and intraday exports so the most complete, accurate version of the data is always available
-- **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
-- **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
-- **Event parameter handling** – Promote event params to columns; include or exclude by name
-- **Session parameters** – Promote selected event parameters as session-level parameters
 
 #### JS Deployment (Recommended)
 
@@ -188,7 +205,7 @@ pre_operations {
 }
 ```
 
-### Building on top of the ga4_events_enhanced table
+### Creating Incremental Downstream Tables from ga4_events_enhanced
 
 Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_enhanced_events** table.
 
