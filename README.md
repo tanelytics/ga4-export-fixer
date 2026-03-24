@@ -8,6 +8,8 @@ The goal of the package is to **speed up development** when building data models
 
 <img src="./docs/images/example_data_model.png" alt="Example Data Model" width="600">
 
+*Example data model built with ga4-export-fixer*
+
 ### Table of Contents
 <!-- TOC -->
   - [Main Features](#main-features)
