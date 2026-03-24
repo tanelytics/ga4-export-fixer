@@ -17,8 +17,8 @@ The goal of the package is to **speed up development** when building data models
   - [In Google Cloud Dataform](#in-google-cloud-dataform)
 - [Usage](#usage)
   - [Create GA4 Events Enhanced Table](#create-ga4-events-enhanced-table)
-  - [Creating Incremental Downstream Tables from ga4_events_enhanced](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
   - [Configuration Object](#configuration-object)
+  - [Creating Incremental Downstream Tables from ga4_events_enhanced](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
   - [Helpers](#helpers)
 - [License](#license)
 <!-- /TOC -->
@@ -205,76 +205,6 @@ pre_operations {
 }
 ```
 
-### Creating Incremental Downstream Tables from ga4_events_enhanced
-
-Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_enhanced_events** table.
-
-The **incrementalDateFilter()** function applies the same date filtering used by **ga4_events_enhanced**, based on the **config** options and the variables declared by **setPreOperations()**.
-
-Key fields such as session_id, user_id, and session_traffic_source_last_click are available as clean, sessionized versions that handle edge cases like sessions spanning midnight.
-
-**`definitions/ga4/ga4_sessions.sqlx`**
-
-```javascript
-config {
-  type: "incremental",
-  description: "GA4 sessions table",
-  schema: "ga4_export_fixer",
-  bigquery: {
-    partitionBy: "event_date",
-    clusterBy: ['session_id', 'data_is_final'],
-  },
-  tags: ['ga4_export_fixer']
-}
-
-js {
-  const { setPreOperations, helpers } = require('ga4-export-fixer');
-
-  const config = {
-    self: self(),
-    incremental: incremental(),
-    /*
-    Default options that can be overriden:
-    test: false,
-    testConfig: {
-        dateRangeStart: 'current_date()-1',
-        dateRangeEnd: 'current_date()',
-    },
-    preOperations: {
-        dateRangeStartFullRefresh: 'date(2000, 1, 1)',
-        dateRangeEnd: 'current_date()',
-        // incremental date range overrides allow re-processing only a subset of the data:
-        //incrementalStartOverride: undefined,
-        //incrementalEndOverride: undefined,
-    },
-    */
-  };
-}
-
-select
-  event_date,
-  session_id,
-  user_pseudo_id,
-  user_id,
-  any_value(session_traffic_source_last_click.cross_channel_campaign) as session_traffic_source,
-  any_value(landing_page) as landing_page,
-  current_datetime() as row_inserted_timestamp,
-  min(data_is_final) as data_is_final
-from
-  ${ref('ga4_events_enhanced_298233330')}
-where
-  ${helpers.incrementalDateFilter(config)}
-group by 
-  event_date,
-  session_id,
-  user_pseudo_id,
-  user_id
-
-pre_operations {
-  ${setPreOperations(config)}
-}
-```
-
 ### Configuration Object
 
 All fields are optional except `sourceTable`. Default values are applied automatically, so you only need to specify the fields you want to override.
@@ -382,6 +312,76 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
+
+### Creating Incremental Downstream Tables from ga4_events_enhanced
+
+Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_enhanced_events** table.
+
+The **incrementalDateFilter()** function applies the same date filtering used by **ga4_events_enhanced**, based on the **config** options and the variables declared by **setPreOperations()**.
+
+Key fields such as session_id, user_id, and session_traffic_source_last_click are available as clean, sessionized versions that handle edge cases like sessions spanning midnight.
+
+**`definitions/ga4/ga4_sessions.sqlx`**
+
+```javascript
+config {
+  type: "incremental",
+  description: "GA4 sessions table",
+  schema: "ga4_export_fixer",
+  bigquery: {
+    partitionBy: "event_date",
+    clusterBy: ['session_id', 'data_is_final'],
+  },
+  tags: ['ga4_export_fixer']
+}
+
+js {
+  const { setPreOperations, helpers } = require('ga4-export-fixer');
+
+  const config = {
+    self: self(),
+    incremental: incremental(),
+    /*
+    Default options that can be overriden:
+    test: false,
+    testConfig: {
+        dateRangeStart: 'current_date()-1',
+        dateRangeEnd: 'current_date()',
+    },
+    preOperations: {
+        dateRangeStartFullRefresh: 'date(2000, 1, 1)',
+        dateRangeEnd: 'current_date()',
+        // incremental date range overrides allow re-processing only a subset of the data:
+        //incrementalStartOverride: undefined,
+        //incrementalEndOverride: undefined,
+    },
+    */
+  };
+}
+
+select
+  event_date,
+  session_id,
+  user_pseudo_id,
+  user_id,
+  any_value(session_traffic_source_last_click.cross_channel_campaign) as session_traffic_source,
+  any_value(landing_page) as landing_page,
+  current_datetime() as row_inserted_timestamp,
+  min(data_is_final) as data_is_final
+from
+  ${ref('ga4_events_enhanced_298233330')}
+where
+  ${helpers.incrementalDateFilter(config)}
+group by 
+  event_date,
+  session_id,
+  user_pseudo_id,
+  user_id
+
+pre_operations {
+  ${setPreOperations(config)}
+}
+```
 
 ### Helpers
 
