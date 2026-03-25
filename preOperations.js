@@ -6,6 +6,22 @@ const declareVariable = (variable, value) => {
 );`;
 };
 
+// Get the last partition date from the result table
+const getLastPartitionDate = (config) => {
+  const informationSchemaPath = config.self.replace(
+    /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
+    '`$1.$2.INFORMATION_SCHEMA.PARTITIONS`'
+  );
+  const tableName = config.self.replace(/`/g, '').split('.').pop();
+
+  return `select 
+  max(parse_date('%Y%m%d', partition_id))
+from 
+  ${informationSchemaPath}
+where 
+  table_name = '${tableName}' and partition_id != '__NULL__'`;
+};
+
 // Define the date range start for incremental and full refresh
 const getDateRangeStart = (config) => {
   if (config.incremental) {
@@ -22,7 +38,7 @@ const getDateRangeStart = (config) => {
   from
     ${config.self}
   where
-    ${constants.DATE_COLUMN} > current_date()-${config.preOperations.numberOfPreviousDaysToScan}
+    ${constants.DATE_COLUMN} > ${constants.LAST_PARTITION_DATE_VARIABLE}-${config.preOperations.numberOfPreviousDaysToScan}
   group by
     ${constants.DATE_COLUMN}
 )
@@ -132,6 +148,12 @@ const setPreOperations = (config) => {
 
   // define the pre operations
   const preOperations = [
+    {
+      type: 'variable',
+      name: constants.LAST_PARTITION_DATE_VARIABLE,
+      value: config.incremental ? getLastPartitionDate(config) : undefined,
+      comment: 'Get the last partition date from the result table. Used to anchor the incremental date checkpoint scan window to the table\'s actual data.',
+    },
     {
       type: 'variable',
       name: constants.DATE_RANGE_START_VARIABLE,
