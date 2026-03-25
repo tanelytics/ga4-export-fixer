@@ -40,39 +40,36 @@ where
 };
 
 // Define the date range start for incremental refresh with intraday tables
+// Uses INFORMATION_SCHEMA.TABLES to avoid scanning actual table data
 const getDateRangeStartIntraday = (config) => {
   const getStartDate = () => {
-    // with incremental refresh, use the checkpoint variable and check tables created starting from that date
     if (config.incremental) {
       return `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`;
     }
-    // otherwise, just scan the last 5 days
     return 'current_date()-5';
   };
 
   const startDate = getStartDate();
 
   if (config.includedExportTypes.intraday) {
+    const informationSchemaPath = config.sourceTable.replace(
+      /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
+      '`$1.$2.INFORMATION_SCHEMA.TABLES`'
+    );
+
     return `with export_statuses as (
     select
-      safe_cast(regexp_extract(_table_suffix, r'\\d+') as date format 'YYYYMMDD') as date,
+      safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') as date,
       case
-        when _table_suffix like 'intraday_%' then 'intraday'
+        when table_name like 'events_intraday_%' then 'intraday'
         else 'daily'
-      end as export_type,
+      end as export_type
     from
-      ${config.sourceTable}
+      ${informationSchemaPath}
     where
-      -- check tables that are newer than the date range start or the last 5 days (if not incremental refresh)
-      (
-        regexp_extract(_table_suffix, r'\\d+') between 
-        cast(${startDate} as string format 'YYYYMMDD') 
-        and cast(current_date() as string format 'YYYYMMDD')
-      )
-      -- only include tables that are from the daily or intraday exports
-      and regexp_contains(_table_suffix, r'^(intraday_)?\\d{8}$')
-    group by 
-      date, export_type
+      regexp_contains(table_name, r'^events_(intraday_)?\\d{8}$')
+      and safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD')
+        between ${startDate} and current_date()
   ),
   statuses_by_day as (
     select
