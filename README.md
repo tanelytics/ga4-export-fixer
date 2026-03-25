@@ -43,6 +43,7 @@ The **ga4_events_enhanced** table comes with features such as these:
 - **Schema lock** – Lock the table schema to a specific GA4 export date to prevent schema drift
 - **Data freshness tracking** – `data_is_final` flag and `export_type` label on every row
 - **Selective date range re-processing** – Re-process a subset of data without a full table rebuild, using `incrementalStartOverride` and `incrementalEndOverride`
+- **Batch processing** – Process large GA4 exports in smaller batches using the `numberOfDaysToProcess` configuration setting
 - **Timezone-aware datetime** – `event_datetime` converted to a configurable IANA timezone
 - **Column descriptions** – Full column-level documentation included in the Dataform table configuration, reflecting the specific configuration used to build the table
 
