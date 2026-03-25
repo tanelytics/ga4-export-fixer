@@ -302,6 +302,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 | `preOperations.numberOfPreviousDaysToScan` | integer           | `10`                 | Number of days to scan backwards from the result table's last partition when determining the incremental refresh start checkpoint. Needs to cover the number of days that can still contain not final `(data_is_final = false)` data                                                                    |
 | `preOperations.incrementalStartOverride`   | string (SQL date) | `undefined`          | Override the incremental start date to re-process a specific range                                                                                                                                  |
 | `preOperations.incrementalEndOverride`     | string (SQL date) | `undefined`          | Override the incremental end date to re-process a specific range                                                                                                                                    |
+| `preOperations.numberOfDaysToProcess`      | integer           | `undefined`          | Limit each run to N days of data. When set, the end date becomes `start + N - 1` (capped at `current_date()`). When `undefined`, `dateRangeEnd` is used as-is. `incrementalEndOverride` takes priority  |
 
 
 **`eventParamsToColumns`** — each item in the array is an object:

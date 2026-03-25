@@ -196,6 +196,9 @@ const ga4ExportDateFilters = (config) => {
       return constants.DATE_RANGE_END_VARIABLE;
     }
     // full refresh
+    if (config.preOperations.numberOfDaysToProcess !== undefined) {
+      return `least(${config.preOperations.dateRangeStartFullRefresh}+${config.preOperations.numberOfDaysToProcess}-1, current_date())`;
+    }
     return config.preOperations.dateRangeEnd;
   };
 
@@ -274,7 +277,9 @@ const incrementalDateFilter = (config) => {
 
   // full refresh mode
   const fullRefreshStart = config?.preOperations?.dateRangeStartFullRefresh || baseConfig.preOperations.dateRangeStartFullRefresh;
-  const fullRefreshEnd = config?.preOperations?.dateRangeEnd || baseConfig.preOperations.dateRangeEnd;
+  const fullRefreshEnd = config?.preOperations?.numberOfDaysToProcess !== undefined
+    ? `least(${fullRefreshStart}+${config.preOperations.numberOfDaysToProcess}-1, current_date())`
+    : (config?.preOperations?.dateRangeEnd || baseConfig.preOperations.dateRangeEnd);
 
   return setDateRange(fullRefreshStart, fullRefreshEnd);
 };

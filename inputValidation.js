@@ -69,6 +69,12 @@ const validateBaseConfig = (config) => {
     if (typeof config.preOperations.dateRangeEnd !== 'string' || !config.preOperations.dateRangeEnd.trim()) {
         throw new Error(`config.preOperations.dateRangeEnd must be a non-empty string (SQL date expression). Received: ${JSON.stringify(config.preOperations.dateRangeEnd)}`);
     }
+    if (config.preOperations.numberOfDaysToProcess !== undefined) {
+        const nd = config.preOperations.numberOfDaysToProcess;
+        if (typeof nd !== 'number' || isNaN(nd) || !Number.isInteger(nd) || nd < 1) {
+            throw new Error(`config.preOperations.numberOfDaysToProcess must be a positive integer when defined. Received: ${JSON.stringify(nd)}`);
+        }
+    }
     if (config.preOperations.incrementalStartOverride !== undefined && config.preOperations.incrementalStartOverride !== null && config.preOperations.incrementalStartOverride !== '') {
         if (typeof config.preOperations.incrementalStartOverride !== 'string' || !config.preOperations.incrementalStartOverride.trim()) {
             throw new Error(`config.preOperations.incrementalStartOverride must be a non-empty string when provided. Received: ${JSON.stringify(config.preOperations.incrementalStartOverride)}`);

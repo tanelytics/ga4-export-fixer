@@ -120,7 +120,11 @@ const getDateRangeEnd = (config) => {
     return `select ${config.preOperations.incrementalEndOverride}`;
   }
 
-  // otherwise, use the default logic
+  // if a number of days to process is capped, adjust the end date accordingly
+  if (config.preOperations.numberOfDaysToProcess !== undefined) {
+    return `select least(${constants.DATE_RANGE_START_VARIABLE}+${config.preOperations.numberOfDaysToProcess}-1, current_date())`;
+  }
+
   return `select ${config.preOperations.dateRangeEnd}`;
 };
 

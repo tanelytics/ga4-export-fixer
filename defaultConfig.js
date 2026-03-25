@@ -24,6 +24,7 @@ const baseConfig = {
         incrementalStartOverride: undefined,
         incrementalEndOverride: undefined,
         numberOfPreviousDaysToScan: 10,
+        numberOfDaysToProcess: undefined,
     },
 };
 
