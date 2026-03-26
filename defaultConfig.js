@@ -42,8 +42,8 @@ const ga4EventsEnhancedConfig = {
     // optional
     includedExportTypes: {
         daily: true,
-        intraday: true,
         fresh: false,
+        intraday: true,
     },
     timezone: 'Etc/UTC',
     customTimestampParam: undefined,
