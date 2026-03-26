@@ -46,6 +46,7 @@ The **ga4_events_enhanced** table comes with features such as these:
 - **Batch processing** – Process large GA4 exports in smaller batches using the `numberOfDaysToProcess` configuration setting
 - **Timezone-aware datetime** – `event_datetime` converted to a configurable IANA timezone
 - **Column descriptions** – Full column-level documentation included in the Dataform table configuration, reflecting the specific configuration used to build the table
+- **Zero dependencies** – The package has no external dependencies and will not add any additional packages to your Dataform repository
 
 ### Planned, Upcoming Features
 
