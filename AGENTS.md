@@ -35,3 +35,12 @@ When querying GA4 export data the priority order of the exports is daily > fresh
 The pre_operation date filters should work with all possible 7 combinations of export types enabled.
 
 Some of the pre_operations check the status of the GA4 generated export tables. These pre_operations should only be set if the configuration declares that it's querying GA4 export data (sourceTableType: 'GA4_EXPORT').
+
+# Writing tests
+
+Test should cover the most important table generation logic:
+1. Generating the main SQL, without errors
+2. Generating the merged configuration and validating inputs
+3. Generating and validating the pre_operations
+
+Check that the test are updated accordingly if code is updated.
