@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
 
-**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines daily and intraday exports (360 fresh export support not yet available) so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
+**ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines **daily, fresh (360), and intraday exports** so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
 
 The goal of the package is to **speed up development** when building data models and pipelines on top of GA4 export data, allowing you to focus on your use case instead of wrestling with the raw export format.
 
@@ -29,7 +29,7 @@ The goal of the package is to **speed up development** when building data models
 
 The **ga4_events_enhanced** table comes with features such as these:
 
-- **Best available data at any time** – Combines daily (processed) and intraday exports so the most complete, accurate version of the data is always available
+- **Best available data at any time** – Combines daily (processed), fresh (360), and intraday exports so the most complete, accurate version of the data is always available
 - **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
 - **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
 - **Session-level identity resolution** – `user_id` resolved to the last authenticated value per session; `merged_user_id` coalesces it with `user_pseudo_id`
@@ -56,7 +56,6 @@ Features under consideration for future releases:
 - Ecommerce item list attribution
 - Custom channel grouping
 - Data enrichment (item-level, session-level, event-level)
-- Support for fresh export (GA4 360)
 - Custom processing steps (additional CTEs)
 - Custom traffic source attribution
 - Default assertions
