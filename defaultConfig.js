@@ -48,8 +48,10 @@ const ga4EventsEnhancedConfig = {
     timezone: 'Etc/UTC',
     customTimestampParam: undefined,
     dataIsFinal: {
-        detectionMethod: 'EXPORT_TYPE', // or 'DAY_THRESHOLD'
-        dayThreshold: 4 // only used if detectionMethod is 'DAY_THRESHOLD'
+        detectionMethod: 'DAY_THRESHOLD', // 'EXPORT_TYPE' or 'DAY_THRESHOLD'
+        dayThreshold: 3 // only used if detectionMethod is 'DAY_THRESHOLD'
+        // according to GA4 documentation, the data up to 72 hours old is subject to possible changes
+        // in reality, there have been cases where the data has changed even after 72 hours (4 day window would have covered these)
     },
     // number of additional days to take in for taking into account sessions that overlap days
     bufferDays: 1,

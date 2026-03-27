@@ -163,10 +163,9 @@ const config = {
     'page_type',
     'user_agent'
   ],
-  // use day threshold for data_is_final
+  // use export type for data_is_final instead of the default DAY_THRESHOLD
   dataIsFinal: {
-    detectionMethod: 'DAY_THRESHOLD',
-    dayThreshold: 4
+    detectionMethod: 'EXPORT_TYPE',
   },
 };
 
@@ -290,8 +289,8 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 
 | Field                         | Type    | Default         | Description                                                                                                                                                                                     |
 | ----------------------------- | ------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dataIsFinal.detectionMethod` | string  | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when daily export is not enabled |
-| `dataIsFinal.dayThreshold`    | integer | `4`             | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'`                                                                                                  |
+| `dataIsFinal.detectionMethod` | string  | `'DAY_THRESHOLD'` | `'DAY_THRESHOLD'` (uses days since event; data older than `dayThreshold` is considered final) or `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final). `'EXPORT_TYPE'` is suitable for most **web only** properties as data is rarely received with a delay. Must be `'DAY_THRESHOLD'` when daily export is not enabled |
+| `dataIsFinal.dayThreshold`    | integer | `3`               | Days after which data is considered final. According to GA4 documentation, data up to 72 hours old is subject to possible changes. Required when `detectionMethod` is `'DAY_THRESHOLD'`            |
 
 
 **`testConfig`** — date range used when `test` is `true`:
@@ -475,7 +474,7 @@ const { helpers } = require('ga4-export-fixer');
 
 | Function      | Example                           | Description                                                                                                                                                                                           |
 | ------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `isFinalData` | `isFinalData('DAY_THRESHOLD', 4)` | Returns SQL that evaluates to `true` when data is final. `'EXPORT_TYPE'` checks table suffix; `'DAY_THRESHOLD'` uses days since event (`dayThreshold` is required and must be a non-negative integer) |
+| `isFinalData` | `isFinalData('DAY_THRESHOLD', 3)` | Returns SQL that evaluates to `true` when data is final. `'DAY_THRESHOLD'` uses days since event (`dayThreshold` is required and must be a non-negative integer); `'EXPORT_TYPE'` checks table suffix |
 
 
 ## License
