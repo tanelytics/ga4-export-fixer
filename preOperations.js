@@ -258,5 +258,6 @@ ${preOperationsSQL}
 };
 
 module.exports = {
-  setPreOperations
+  setPreOperations,
+  _internal: { getExportDateRangeStart },
 };
