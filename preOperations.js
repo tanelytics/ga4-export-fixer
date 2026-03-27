@@ -114,6 +114,79 @@ const getDateRangeStartIntraday = (config) => {
   return undefined;
 };
 
+// Define the date range start for fresh export tables
+// Uses INFORMATION_SCHEMA.TABLES to find the first day with a fresh table but no daily table
+const getDateRangeStartFresh = (config) => {
+  const getStartDate = () => {
+    if (config.incremental) {
+      return `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`;
+    }
+    return 'current_date()-5';
+  };
+
+  const startDate = getStartDate();
+
+  if (config.includedExportTypes.fresh) {
+    const informationSchemaPath = config.sourceTable.replace(
+      /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
+      '`$1.$2.INFORMATION_SCHEMA.TABLES`'
+    );
+
+    return `with export_statuses as (
+    select
+      safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') as date,
+      case
+        when table_name like 'events_fresh_%' then 'fresh'
+        else 'daily'
+      end as export_type
+    from
+      ${informationSchemaPath}
+    where
+      regexp_contains(table_name, r'^events_(fresh_)?\\d{8}$')
+      and safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD')
+        between ${startDate} and current_date()
+  ),
+  statuses_by_day as (
+    select
+      date,
+      max(if(export_type = 'daily', true, false)) as daily,
+      max(if(export_type = 'fresh', true, false)) as fresh
+    from
+      export_statuses
+    group by 
+      date
+  )
+  select
+    min(
+      if(
+        fresh = true and daily = false,
+        date,
+        null
+      )
+    )
+  from
+    statuses_by_day`;
+  }
+
+  return undefined;
+};
+
+// Get the maximum event_timestamp from fresh export tables
+// Used as the boundary between fresh and intraday data
+const getFreshMaxEventTimestamp = (config) => {
+  if (config.includedExportTypes.fresh && config.includedExportTypes.intraday) {
+    const freshStartRef = config.includedExportTypes.daily
+      ? constants.FRESH_DATE_RANGE_START_VARIABLE
+      : (config.incremental ? constants.DATE_RANGE_START_VARIABLE : config.preOperations.dateRangeStartFullRefresh);
+
+    return `select max(event_timestamp) from ${config.sourceTable}
+  where _table_suffix >= 'fresh_' || cast(${freshStartRef} as string format 'YYYYMMDD')
+    and _table_suffix <= 'fresh_' || cast(current_date() as string format 'YYYYMMDD')`;
+  }
+
+  return undefined;
+};
+
 const getDateRangeEnd = (config) => {
   // if an incremental end override is provided, use it
   if (config.incremental && config.preOperations.incrementalEndOverride) {
@@ -147,8 +220,12 @@ const createSchemaLockTable = (config) => {
 
 // Set the pre operations for the query
 const setPreOperations = (config) => {
-  // if in test mode, avoid setting BigQuery variables to make query dry run estimation accurate
-  if (config.test) {
+  // In test mode, most BigQuery variables are skipped to keep dry-run estimation accurate.
+  // Fresh checkpoint variables are the exception: fresh tables persist alongside daily and
+  // intraday tables, so the checkpoints are needed even in test mode to avoid duplicate data.
+  const freshNeedsCheckpoint = config.includedExportTypes.fresh &&
+    (config.includedExportTypes.daily || config.includedExportTypes.intraday);
+  if (config.test && !freshNeedsCheckpoint) {
     return '';
   }
 
@@ -170,9 +247,24 @@ const setPreOperations = (config) => {
     {
       type: 'variable',
       name: constants.INTRADAY_DATE_RANGE_START_VARIABLE,
-      // variable only needed if intraday export tables are included together with daily export tables
-      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.intraday && config.includedExportTypes.daily ? getDateRangeStartIntraday(config) : undefined,
-      comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data. Only needed if intraday export tables are included together with daily export tables.',
+      // only needed when daily+intraday WITHOUT fresh (the two-way intraday checkpoint)
+      // when fresh is also enabled, intraday uses fresh_date_range_start instead
+      value: !config.test && config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.intraday && config.includedExportTypes.daily && !config.includedExportTypes.fresh ? getDateRangeStartIntraday(config) : undefined,
+      comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data. Only needed if intraday and daily export tables are included without fresh.',
+    },
+    {
+      type: 'variable',
+      name: constants.FRESH_DATE_RANGE_START_VARIABLE,
+      // needed when fresh and daily are both enabled, to avoid fresh data overlapping with daily
+      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.fresh && config.includedExportTypes.daily ? getDateRangeStartFresh(config) : undefined,
+      comment: 'Define the date range start for fresh export tables. Returns the first day with a fresh table but no daily table.',
+    },
+    {
+      type: 'variable',
+      name: constants.FRESH_MAX_EVENT_TIMESTAMP_VARIABLE,
+      // needed when fresh and intraday are both enabled, to set the timestamp boundary
+      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.fresh && config.includedExportTypes.intraday ? getFreshMaxEventTimestamp(config) : undefined,
+      comment: 'Get the latest event timestamp from fresh export tables. Used as the boundary between fresh and intraday data.',
     },
     {
       type: 'variable',
@@ -190,7 +282,7 @@ const setPreOperations = (config) => {
     {
       type: 'create',
       // create table statement only needed with schema lock
-      value: config.sourceTableType === 'GA4_EXPORT' && config.schemaLock ? createSchemaLockTable(config) : undefined,
+      value: !config.test && config.sourceTableType === 'GA4_EXPORT' && config.schemaLock ? createSchemaLockTable(config) : undefined,
       comment: 'Lock the schema to a specific version by creating a table copy from the selected day\'s export.'
     },
   ];

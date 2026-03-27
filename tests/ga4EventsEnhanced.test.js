@@ -57,12 +57,23 @@ const testMainQuery = async () => {
 const testDifferentConfigurations = async () => {
   const configurations = [
     {
-      name: 'Daily only (no intraday)',
+      name: 'Daily only (no intraday, no fresh)',
       config: {
         ...testConfig,
-        includedExportTypes: { daily: true, intraday: false },
+        includedExportTypes: { daily: true, fresh: false, intraday: false },
       },
     },
+    {
+      name: 'Fresh only',
+      config: {
+        ...testConfig,
+        includedExportTypes: { daily: false, fresh: true, intraday: false },
+        dataIsFinal: { detectionMethod: 'DAY_THRESHOLD', dayThreshold: 1 },
+      },
+    },
+    // Daily+fresh, fresh+intraday, and all-three combinations are not tested here
+    // because they reference pre-operation variables (fresh_date_range_start,
+    // fresh_max_event_timestamp) that cannot be declared in a standalone dry-run.
     {
       name: 'With custom timestamp',
       config: {

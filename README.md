@@ -271,18 +271,28 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 | Field                          | Type    | Default | Description                      |
 | ------------------------------ | ------- | ------- | -------------------------------- |
 | `includedExportTypes.daily`    | boolean | `true`  | Include daily (processed) export |
+| `includedExportTypes.fresh`    | boolean | `false` | Include fresh (hourly-updated) export |
 | `includedExportTypes.intraday` | boolean | `true`  | Include intraday export          |
 
 
-> **Intraday-only mode:** Set `daily` to `false` and `intraday` to `true` to use only intraday export tables. When using intraday-only mode, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`.
+Export priority: **daily > fresh > intraday**. Each lower-priority export only provides data not already covered by a higher-priority one. All seven combinations of the three export types are supported.
+
+When all three exports are enabled, the package:
+1. Gets all data from daily export tables
+2. Gets fresh export data for days not yet covered by a daily table
+3. Gets intraday export data for events after the latest fresh event timestamp
+
+The boundary between fresh and intraday is timestamp-based because the fresh export is updated hourly, so within the same day some events come from the fresh export and the rest from intraday.
+
+> **Without daily export:** When `daily` is `false`, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`, because `EXPORT_TYPE` detection relies on daily tables to mark data as final.
 
 **`dataIsFinal`** — how to determine whether data is final (not expected to change):
 
 
-| Field                         | Type    | Default         | Description                                                                                                                                                                                          |
-| ----------------------------- | ------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dataIsFinal.detectionMethod` | string  | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when only intraday export is enabled |
-| `dataIsFinal.dayThreshold`    | integer | `4`             | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'`                                                                                                      |
+| Field                         | Type    | Default         | Description                                                                                                                                                                                     |
+| ----------------------------- | ------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataIsFinal.detectionMethod` | string  | `'EXPORT_TYPE'` | `'EXPORT_TYPE'` (uses table suffix; all data from the daily export is considered final) or `'DAY_THRESHOLD'` (uses days since event). Must be `'DAY_THRESHOLD'` when daily export is not enabled |
+| `dataIsFinal.dayThreshold`    | integer | `4`             | Days after which data is considered final. Required when `detectionMethod` is `'DAY_THRESHOLD'`                                                                                                  |
 
 
 **`testConfig`** — date range used when `test` is `true`:

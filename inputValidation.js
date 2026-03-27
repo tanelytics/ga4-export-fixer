@@ -152,7 +152,7 @@ const validateEnhancedEventsConfig = (config) => {
     if (!config.includedExportTypes || typeof config.includedExportTypes !== 'object' || Array.isArray(config.includedExportTypes)) {
         throw new Error(`config.includedExportTypes must be an object. Received: ${JSON.stringify(config.includedExportTypes)}`);
     }
-    for (const key of ['daily', 'intraday']) {
+    for (const key of ['daily', 'fresh', 'intraday']) {
         if (!(key in config.includedExportTypes)) {
             throw new Error(`config.includedExportTypes.${key} is required.`);
         }
@@ -160,8 +160,8 @@ const validateEnhancedEventsConfig = (config) => {
             throw new Error(`config.includedExportTypes.${key} must be a boolean. Received: ${JSON.stringify(config.includedExportTypes[key])}`);
         }
     }
-    if (!config.includedExportTypes.daily && !config.includedExportTypes.intraday) {
-        throw new Error("At least one of config.includedExportTypes.daily or config.includedExportTypes.intraday must be true.");
+    if (!config.includedExportTypes.daily && !config.includedExportTypes.fresh && !config.includedExportTypes.intraday) {
+        throw new Error("At least one of config.includedExportTypes.daily, config.includedExportTypes.fresh, or config.includedExportTypes.intraday must be true.");
     }
 
     // timezone - required
@@ -204,13 +204,14 @@ const validateEnhancedEventsConfig = (config) => {
     ) {
         throw new Error(`config.dataIsFinal.dayThreshold must be a non-negative integer. Received: ${JSON.stringify(config.dataIsFinal.dayThreshold)}`);
     }
-    // EXPORT_TYPE detection relies on daily export metadata; intraday-only requires DAY_THRESHOLD instead.
+    // EXPORT_TYPE detection relies on daily export tables to mark data as final.
+    // When daily is not enabled, all data would be marked as not final under EXPORT_TYPE,
+    // so DAY_THRESHOLD must be used instead.
     if (
-        config.includedExportTypes.intraday &&
         !config.includedExportTypes.daily &&
         config.dataIsFinal.detectionMethod !== 'DAY_THRESHOLD'
     ) {
-        throw new Error(`config.dataIsFinal.detectionMethod must be 'DAY_THRESHOLD' when only intraday export is enabled (config.includedExportTypes.daily is false). A dayThreshold of 1 is recommended for intraday-only configurations. Received: ${JSON.stringify(config.dataIsFinal.detectionMethod)}`);
+        throw new Error(`config.dataIsFinal.detectionMethod must be 'DAY_THRESHOLD' when daily export is not enabled (config.includedExportTypes.daily is false). A dayThreshold of 1 is recommended for intraday only setups. With fresh export, the GA4 data is subject to possible changes for up to 72 hours. Received: ${JSON.stringify(config.dataIsFinal.detectionMethod)}`);
     }
 
     // bufferDays - required

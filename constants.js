@@ -1,6 +1,8 @@
 const constants = {
     DATE_RANGE_START_VARIABLE: 'date_range_start',
     INTRADAY_DATE_RANGE_START_VARIABLE: 'intraday_date_range_start',
+    FRESH_DATE_RANGE_START_VARIABLE: 'fresh_date_range_start',
+    FRESH_MAX_EVENT_TIMESTAMP_VARIABLE: 'fresh_max_event_timestamp',
     DATE_RANGE_END_VARIABLE: 'date_range_end',
     LAST_PARTITION_DATE_VARIABLE: 'last_partition_date',
     DATE_COLUMN: 'event_date',

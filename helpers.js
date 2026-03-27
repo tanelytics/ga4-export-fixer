@@ -105,48 +105,37 @@ const getEventDateTime = (config) => {
 
 // Filter the export tables by date range
 /**
- * Generates a SQL filter condition for selecting GA4 export tables based on the export type ('intraday' or 'daily') and a date range.
+ * Generates a SQL filter condition for selecting GA4 export tables based on the export type and a date range.
  *
  * This helper produces SQL snippets to be used in WHERE clauses, ensuring only tables within the provided date range and export type are included.
  * 
  * - For 'daily' exports: Matches table suffixes formatted as YYYYMMDD (e.g., 20240101).
+ * - For 'fresh' exports: Matches table suffixes prefixed with 'fresh_' followed by the date (e.g., fresh_20240101).
  * - For 'intraday' exports: Matches table suffixes prefixed with 'intraday_' followed by the date (e.g., intraday_20240101).
- * - Throws an error for unsupported export types or if start/end dates are undefined.
  *
- * @param {'intraday'|'daily'} exportType - The type of export table; either 'intraday' or 'daily'.
+ * @param {'daily'|'fresh'|'intraday'} exportType - The type of export table.
  * @param {string} start - The start date value as a SQL date expression (e.g. 'current_date()-1').
  * @param {string} end - The end date value as a SQL date expression (e.g. 'current_date()').
  * @returns {string} SQL condition to restrict tables by _table_suffix to the appropriate date range and export type.
  *
- * @throws {Error} If exportType is not 'intraday' or 'daily', or if start/end are not defined.
- *
- * @example
- *   ga4ExportDateFilter('daily', 'current_date()-1', 'current_date()')
- *   // => "(_table_suffix >= cast(current_date()-1 as string format \"YYYYMMDD\") and _table_suffix <= cast(current_date() as string format \"YYYYMMDD\"))"
- *
- *   ga4ExportDateFilter('intraday', 'current_date()-1', 'current_date()')
- *   // => "(_table_suffix >= 'intraday_' || cast(current_date()-1 as string format \"YYYYMMDD\") and _table_suffix <= 'intraday_' || cast(current_date() as string format \"YYYYMMDD\"))"
+ * @throws {Error} If exportType is not supported, or if start/end are not defined.
  */
 const ga4ExportDateFilter = (exportType, start, end) => {
-  if (exportType !== 'intraday' && exportType !== 'daily') {
+  if (exportType !== 'intraday' && exportType !== 'daily' && exportType !== 'fresh') {
     throw new Error(
-      `ga4ExportDateFilter: Unsupported exportType '${exportType}'. Supported values are 'intraday' and 'daily'.`
+      `ga4ExportDateFilter: Unsupported exportType '${exportType}'. Supported values are 'daily', 'fresh', and 'intraday'.`
     );
   }
   if (typeof start === 'undefined' || typeof end === 'undefined') {
     throw new Error("ga4ExportDateFilter: 'start' and 'end' parameters must be defined.");
   }
   
-  if (exportType === 'intraday') {
-    return `(_table_suffix >= 'intraday_' || cast(${start} as string format "YYYYMMDD") and _table_suffix <= 'intraday_' || cast(${end} as string format "YYYYMMDD"))`;
-  }
-  if (exportType === 'daily') {
-    return `(_table_suffix >= cast(${start} as string format "YYYYMMDD") and _table_suffix <= cast(${end} as string format "YYYYMMDD"))`;
-  }
+  const prefix = exportType === 'daily' ? '' : `'${exportType}_' || `;
+  return `(_table_suffix >= ${prefix}cast(${start} as string format "YYYYMMDD") and _table_suffix <= ${prefix}cast(${end} as string format "YYYYMMDD"))`;
 };
 
 /**
- * Builds a `_table_suffix` WHERE clause for GA4 BigQuery export tables (daily and/or intraday).
+ * Builds a `_table_suffix` WHERE clause for GA4 BigQuery export tables (daily, fresh, and/or intraday).
  *
  * Date boundaries are resolved differently depending on the mode:
  *   - **test** -- literal dates from `config.testConfig`
@@ -156,18 +145,24 @@ const ga4ExportDateFilter = (exportType, start, end) => {
  * `bufferDays` is subtracted from the daily start date so sessions that span
  * midnight are not partially excluded.
  *
- * When both daily and intraday exports are enabled, the intraday start date
- * comes from a dedicated variable (`INTRADAY_DATE_RANGE_START_VARIABLE`) so
- * intraday tables that already have a corresponding daily table are excluded.
- * When only intraday is enabled, the daily start-date logic (including buffer
- * days) is reused instead.
+ * Export priority: daily > fresh > intraday. Each lower-priority export only
+ * provides data not already covered by a higher-priority one.
+ *
+ * When fresh and daily are both enabled, the fresh start date comes from
+ * `FRESH_DATE_RANGE_START_VARIABLE` (first day with fresh but no daily table).
+ *
+ * When fresh and intraday are both enabled, intraday rows are filtered by
+ * `event_timestamp > fresh_max_event_timestamp` to avoid duplicating fresh data.
+ *
+ * When only daily and intraday are enabled (no fresh), the existing
+ * `INTRADAY_DATE_RANGE_START_VARIABLE` checkpoint logic is preserved.
  *
  * @param {Object} config
  * @param {boolean}  config.test                      - Use literal test dates.
  * @param {Object}   config.testConfig                - `{ dateRangeStart, dateRangeEnd }`.
  * @param {boolean}  config.incremental               - Use BigQuery variable placeholders.
  * @param {Object}   config.preOperations             - `{ dateRangeStartFullRefresh, dateRangeEnd }`.
- * @param {Object}   config.includedExportTypes       - `{ daily: boolean, intraday: boolean }`.
+ * @param {Object}   config.includedExportTypes       - `{ daily: boolean, fresh: boolean, intraday: boolean }`.
  * @param {number}  [config.bufferDays=0]             - Extra days subtracted from the start date.
  * @returns {string} SQL fragment for a WHERE clause.
  */
@@ -175,59 +170,81 @@ const ga4ExportDateFilters = (config) => {
   const bufferDays = config.bufferDays || 0;
 
   const getStartDate = () => {
-    //test mode
     if (config.test) {
       return config.testConfig.dateRangeStart;
     }
     if (config.incremental) {
       return constants.DATE_RANGE_START_VARIABLE;
     }
-    // full refresh
     return config.preOperations.dateRangeStartFullRefresh;
   };
 
   const getEndDate = () => {
-    // test mode, avoid using a BigQuery variable
     if (config.test) {
       return config.testConfig.dateRangeEnd;
     }
-    // use checkpoint variable with incremental refresh -> allows pre processing any part of the table without having to do a full refresh
     if (config.incremental) {
       return constants.DATE_RANGE_END_VARIABLE;
     }
-    // full refresh
     if (config.preOperations.numberOfDaysToProcess !== undefined) {
       return `least(${config.preOperations.dateRangeStartFullRefresh}+${config.preOperations.numberOfDaysToProcess}-1, current_date())`;
     }
     return config.preOperations.dateRangeEnd;
   };
 
+  const getFreshStartDate = () => {
+    // Fresh tables persist alongside daily tables (unlike intraday which gets deleted),
+    // so the checkpoint variable is needed even in test mode to avoid duplicate data.
+    if (config.includedExportTypes.fresh && config.includedExportTypes.daily) {
+      return constants.FRESH_DATE_RANGE_START_VARIABLE;
+    }
+    if (config.includedExportTypes.fresh && !config.includedExportTypes.daily) {
+      return getStartDate();
+    }
+  };
+
   const getIntradayStartDate = () => {
-    // In test mode, skip pre-operations even though intraday and daily tables may temporarily overlap.
+    // When fresh is enabled: intraday starts from the same point as fresh.
+    // Fresh tables persist alongside intraday tables, so the checkpoint is
+    // needed even in test mode to avoid duplicate data.
+    if (config.includedExportTypes.fresh) {
+      return getFreshStartDate();
+    }
+    // For non-fresh paths, test mode skips pre-operation variables.
     if (config.test) {
       return config.testConfig.dateRangeStart;
     }
-    // Dedicated variable excludes intraday tables that overlap with already-processed daily tables.
+    // When daily+intraday without fresh: use the existing date-based checkpoint
     if (config.includedExportTypes.intraday && config.includedExportTypes.daily) {
       return constants.INTRADAY_DATE_RANGE_START_VARIABLE;
     }
-    // Without daily export, reuse the daily start-date logic and apply bufferDays
-    // (buffer is normally only applied to the daily start date).
+    // Intraday-only: reuse the daily start-date logic with bufferDays
     if (config.includedExportTypes.intraday && !config.includedExportTypes.daily) {
-      // use the same start date as if daily export was in use
-      // include the buffer days as well (not included otherwise for intraday data)
       return `${getStartDate()}-${bufferDays}`;
     }
   };
 
+  const getIntradayFilter = () => {
+    const intradayStart = getIntradayStartDate();
+    const suffixFilter = ga4ExportDateFilter('intraday', intradayStart, end);
+
+    // When fresh is also enabled, add timestamp condition to avoid duplicating fresh data.
+    // Applied even in test mode because fresh and intraday tables coexist for the same days.
+    if (config.includedExportTypes.fresh) {
+      return `(${suffixFilter} and event_timestamp > coalesce(${constants.FRESH_MAX_EVENT_TIMESTAMP_VARIABLE}, 0))`;
+    }
+
+    return suffixFilter;
+  };
+
   const dailyStart = `${getStartDate()}-${bufferDays}`;
-  const intradayStart = getIntradayStartDate();
+  const freshStart = getFreshStartDate();
   const end = getEndDate();
-  
 
   const dateFilters = [
     config.includedExportTypes.daily ? ga4ExportDateFilter('daily', dailyStart, end) : null,
-    config.includedExportTypes.intraday ? ga4ExportDateFilter('intraday', intradayStart, end) : null,
+    config.includedExportTypes.fresh ? ga4ExportDateFilter('fresh', freshStart, end) : null,
+    config.includedExportTypes.intraday ? getIntradayFilter() : null,
   ];
 
   return `(
