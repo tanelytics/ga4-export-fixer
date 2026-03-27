@@ -27,3 +27,11 @@ When asked to generate documentation, only generate the JSDoc comment above the 
 Whenever a new column is included in the generated SQL query, the corresponding column description should be added as well. If the column's value depends on the configuration, the used configuration setting should be visible in the description via the getColumnDescriptions function.
 
 Column descriptions should follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic coming from the code base.
+
+# Setting Dataform pre_operations
+
+When querying GA4 export data the priority order of the exports is daily > fresh > intraday. The exports can overlap on specific days. In case of overlap, the data from the highest priority export table should be used.
+
+The pre_operation date filters should work with all possible 7 combinations of export types enabled.
+
+Some of the pre_operations check the status of the GA4 generated export tables. These pre_operations should only be set if the configuration declares that it's querying GA4 export data (sourceTableType: 'GA4_EXPORT').

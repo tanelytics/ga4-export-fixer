@@ -223,7 +223,8 @@ const setPreOperations = (config) => {
   // In test mode, most BigQuery variables are skipped to keep dry-run estimation accurate.
   // Fresh checkpoint variables are the exception: fresh tables persist alongside daily and
   // intraday tables, so the checkpoints are needed even in test mode to avoid duplicate data.
-  const freshNeedsCheckpoint = config.includedExportTypes.fresh &&
+  const freshNeedsCheckpoint = config.sourceTableType === 'GA4_EXPORT' &&
+    config.includedExportTypes.fresh &&
     (config.includedExportTypes.daily || config.includedExportTypes.intraday);
   if (config.test && !freshNeedsCheckpoint) {
     return '';
