@@ -57,42 +57,47 @@ where
 
 };
 
-// Define the date range start for incremental refresh with intraday tables
-// Uses INFORMATION_SCHEMA.TABLES to avoid scanning actual table data
-const getDateRangeStartIntraday = (config) => {
-  const getStartDate = () => {
-    if (config.incremental) {
-      return `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`;
-    }
-    return 'current_date()-5';
-  };
+// Find the first day where a target export type exists but no daily table does.
+// Uses INFORMATION_SCHEMA.TABLES to avoid scanning actual table data.
+// The export_statuses CTE always classifies all three export types (daily, fresh, intraday).
+// The 5-day lookback limit only applies to intraday rows; daily and fresh have no lower date bound.
+const getExportDateRangeStart = (config, targetExportType) => {
+  const intradayStartDate = config.incremental
+    ? `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`
+    : 'current_date()-5';
 
-  const startDate = getStartDate();
+  const informationSchemaPath = config.sourceTable.replace(
+    /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
+    '`$1.$2.INFORMATION_SCHEMA.TABLES`'
+  );
 
-  if (config.includedExportTypes.intraday) {
-    const informationSchemaPath = config.sourceTable.replace(
-      /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
-      '`$1.$2.INFORMATION_SCHEMA.TABLES`'
-    );
+  const finalCondition = targetExportType === 'intraday'
+    ? 'intraday = true and daily = false'
+    : 'fresh = true and daily = false';
 
-    return `with export_statuses as (
+  return `with export_statuses as (
     select
       safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') as date,
       case
         when table_name like 'events_intraday_%' then 'intraday'
-        else 'daily'
+        when table_name like 'events_fresh_%' then 'fresh'
+        when regexp_contains(table_name, r'^events_\\d{8}$') then 'daily'
       end as export_type
     from
       ${informationSchemaPath}
     where
-      regexp_contains(table_name, r'^events_(intraday_)?\\d{8}$')
-      and safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD')
-        between ${startDate} and current_date()
+      regexp_contains(table_name, r'^events_(intraday_|fresh_)?\\d{8}$')
+      and safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') <= current_date()
+      and (
+        table_name not like 'events_intraday_%'
+        or safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') >= ${intradayStartDate}
+      )
   ),
   statuses_by_day as (
     select
       date,
       max(if(export_type = 'daily', true, false)) as daily,
+      max(if(export_type = 'fresh', true, false)) as fresh,
       max(if(export_type = 'intraday', true, false)) as intraday
     from
       export_statuses
@@ -102,73 +107,13 @@ const getDateRangeStartIntraday = (config) => {
   select
     min(
       if(
-        intraday = true and daily = false,
+        ${finalCondition},
         date,
         null
       )
     )
   from
     statuses_by_day`;
-  }
-
-  return undefined;
-};
-
-// Define the date range start for fresh export tables
-// Uses INFORMATION_SCHEMA.TABLES to find the first day with a fresh table but no daily table
-const getDateRangeStartFresh = (config) => {
-  const getStartDate = () => {
-    if (config.incremental) {
-      return `greatest(${constants.DATE_RANGE_START_VARIABLE}, current_date()-5)`;
-    }
-    return 'current_date()-5';
-  };
-
-  const startDate = getStartDate();
-
-  if (config.includedExportTypes.fresh) {
-    const informationSchemaPath = config.sourceTable.replace(
-      /`?([^`]+)\.([^`]+)\.[^`]+`?$/,
-      '`$1.$2.INFORMATION_SCHEMA.TABLES`'
-    );
-
-    return `with export_statuses as (
-    select
-      safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD') as date,
-      case
-        when table_name like 'events_fresh_%' then 'fresh'
-        else 'daily'
-      end as export_type
-    from
-      ${informationSchemaPath}
-    where
-      regexp_contains(table_name, r'^events_(fresh_)?\\d{8}$')
-      and safe_cast(regexp_extract(table_name, r'\\d+') as date format 'YYYYMMDD')
-        between ${startDate} and current_date()
-  ),
-  statuses_by_day as (
-    select
-      date,
-      max(if(export_type = 'daily', true, false)) as daily,
-      max(if(export_type = 'fresh', true, false)) as fresh
-    from
-      export_statuses
-    group by 
-      date
-  )
-  select
-    min(
-      if(
-        fresh = true and daily = false,
-        date,
-        null
-      )
-    )
-  from
-    statuses_by_day`;
-  }
-
-  return undefined;
 };
 
 // Get the maximum event_timestamp from fresh export tables
@@ -250,14 +195,14 @@ const setPreOperations = (config) => {
       name: constants.INTRADAY_DATE_RANGE_START_VARIABLE,
       // only needed when daily+intraday WITHOUT fresh (the two-way intraday checkpoint)
       // when fresh is also enabled, intraday uses fresh_date_range_start instead
-      value: !config.test && config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.intraday && config.includedExportTypes.daily && !config.includedExportTypes.fresh ? getDateRangeStartIntraday(config) : undefined,
+      value: !config.test && config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.intraday && config.includedExportTypes.daily && !config.includedExportTypes.fresh ? getExportDateRangeStart(config, 'intraday') : undefined,
       comment: 'Define the date range start for intraday export tables. Avoid returning intraday data if it overlaps with daily export data. Only needed if intraday and daily export tables are included without fresh.',
     },
     {
       type: 'variable',
       name: constants.FRESH_DATE_RANGE_START_VARIABLE,
       // needed when fresh and daily are both enabled, to avoid fresh data overlapping with daily
-      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.fresh && config.includedExportTypes.daily ? getDateRangeStartFresh(config) : undefined,
+      value: config.sourceTableType === 'GA4_EXPORT' && config.includedExportTypes.fresh && config.includedExportTypes.daily ? getExportDateRangeStart(config, 'fresh') : undefined,
       comment: 'Define the date range start for fresh export tables. Returns the first day with a fresh table but no daily table.',
     },
     {
