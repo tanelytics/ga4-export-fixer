@@ -388,130 +388,139 @@ const runExportStatusTests = async () => {
 
   const config = ga4Config({ incremental: false });
 
+  const scenarios = [
+    {
+      name: 'Daily through yesterday, fresh+intraday for yesterday and today',
+      tables: [
+        `events_${daysAgoStr(1)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_fresh_${daysAgoStr(0)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'fresh',
+      expected: expectedDate(0),
+    },
+    {
+      name: 'Daily through yesterday, fresh+intraday for yesterday and today',
+      tables: [
+        `events_${daysAgoStr(1)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_fresh_${daysAgoStr(0)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'intraday',
+      expected: expectedDate(0),
+    },
+    {
+      name: 'Daily covers everything including today',
+      tables: [
+        `events_${daysAgoStr(1)}`,
+        `events_${daysAgoStr(0)}`,
+        `events_fresh_${daysAgoStr(0)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'fresh',
+      expected: null,
+    },
+    {
+      name: 'Daily covers everything including today',
+      tables: [
+        `events_${daysAgoStr(1)}`,
+        `events_${daysAgoStr(0)}`,
+        `events_fresh_${daysAgoStr(0)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'intraday',
+      expected: null,
+    },
+    {
+      name: 'No daily tables at all',
+      tables: [
+        `events_fresh_${daysAgoStr(2)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'fresh',
+      expected: expectedDate(2),
+    },
+    {
+      name: 'No daily tables at all',
+      tables: [
+        `events_fresh_${daysAgoStr(2)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'intraday',
+      expected: expectedDate(1),
+    },
+    {
+      name: 'Gap in daily export (daily stops at D-3)',
+      tables: [
+        `events_${daysAgoStr(4)}`,
+        `events_${daysAgoStr(3)}`,
+        `events_fresh_${daysAgoStr(2)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'fresh',
+      expected: expectedDate(2),
+    },
+    {
+      name: 'Gap in daily export (daily stops at D-3)',
+      tables: [
+        `events_${daysAgoStr(4)}`,
+        `events_${daysAgoStr(3)}`,
+        `events_fresh_${daysAgoStr(2)}`,
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'intraday',
+      expected: expectedDate(1),
+    },
+    {
+      name: 'Old intraday (D-8) beyond 5-day window is excluded',
+      tables: [
+        `events_fresh_${daysAgoStr(1)}`,
+        `events_intraday_${daysAgoStr(8)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'intraday',
+      expected: expectedDate(0),
+    },
+    {
+      name: 'Old fresh (D-8) is NOT excluded (no lower date bound for fresh)',
+      tables: [
+        `events_fresh_${daysAgoStr(8)}`,
+        `events_intraday_${daysAgoStr(0)}`,
+      ],
+      target: 'fresh',
+      expected: expectedDate(8),
+    },
+  ];
+
   console.log('\n6. Export status evaluation (BigQuery)\n');
+  console.log(`  Running ${scenarios.length} scenarios against BigQuery (0 bytes processed)...\n`);
 
-  // Scenario 1: Daily through yesterday, fresh+intraday for yesterday and today → fresh target = today
-  await asyncTest('Fresh target: daily through D-1, fresh+intraday D-1..D-0 → D-0', async () => {
-    const sql = simulateExportStatuses(config, 'fresh', [
-      `events_${daysAgoStr(1)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_fresh_${daysAgoStr(0)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(0));
-  });
+  for (let i = 0; i < scenarios.length; i++) {
+    const s = scenarios[i];
+    const label = `[${i + 1}/${scenarios.length}]`;
 
-  // Scenario 2: Same tables, intraday target → today
-  await asyncTest('Intraday target: daily through D-1, fresh+intraday D-1..D-0 → D-0', async () => {
-    const sql = simulateExportStatuses(config, 'intraday', [
-      `events_${daysAgoStr(1)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_fresh_${daysAgoStr(0)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(0));
-  });
+    await asyncTest(`${label} ${s.name} (target: ${s.target}) → ${s.expected ?? 'null'}`, async () => {
+      const sql = simulateExportStatuses(config, s.target, s.tables);
+      const result = await executeQuery(sql);
+      assert.strictEqual(result, s.expected);
+    });
 
-  // Scenario 3: Daily covers everything including today → fresh target = null
-  await asyncTest('Fresh target: daily covers all days → null', async () => {
-    const sql = simulateExportStatuses(config, 'fresh', [
-      `events_${daysAgoStr(1)}`,
-      `events_${daysAgoStr(0)}`,
-      `events_fresh_${daysAgoStr(0)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, null);
-  });
-
-  // Scenario 4: Daily covers everything → intraday target = null
-  await asyncTest('Intraday target: daily covers all days → null', async () => {
-    const sql = simulateExportStatuses(config, 'intraday', [
-      `events_${daysAgoStr(1)}`,
-      `events_${daysAgoStr(0)}`,
-      `events_fresh_${daysAgoStr(0)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, null);
-  });
-
-  // Scenario 5: No daily at all → fresh target = earliest fresh day
-  await asyncTest('Fresh target: no daily, fresh D-2..D-1 → D-2', async () => {
-    const sql = simulateExportStatuses(config, 'fresh', [
-      `events_fresh_${daysAgoStr(2)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(2));
-  });
-
-  // Scenario 6: No daily → intraday target = earliest intraday-without-daily day
-  await asyncTest('Intraday target: no daily, intraday D-1..D-0 → D-1', async () => {
-    const sql = simulateExportStatuses(config, 'intraday', [
-      `events_fresh_${daysAgoStr(2)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(1));
-  });
-
-  // Scenario 7: Gap in daily → fresh target = first non-daily day
-  await asyncTest('Fresh target: daily D-4..D-3, fresh D-2..D-1 → D-2', async () => {
-    const sql = simulateExportStatuses(config, 'fresh', [
-      `events_${daysAgoStr(4)}`,
-      `events_${daysAgoStr(3)}`,
-      `events_fresh_${daysAgoStr(2)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(2));
-  });
-
-  // Scenario 8: Gap in daily → intraday target = first intraday-without-daily day
-  await asyncTest('Intraday target: daily D-4..D-3, intraday D-1..D-0 → D-1', async () => {
-    const sql = simulateExportStatuses(config, 'intraday', [
-      `events_${daysAgoStr(4)}`,
-      `events_${daysAgoStr(3)}`,
-      `events_fresh_${daysAgoStr(2)}`,
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(1));
-  });
-
-  // Scenario 9: Old intraday beyond 5-day window is excluded
-  await asyncTest('Intraday target: D-8 intraday excluded by 5-day limit → D-0', async () => {
-    const sql = simulateExportStatuses(config, 'intraday', [
-      `events_fresh_${daysAgoStr(1)}`,
-      `events_intraday_${daysAgoStr(8)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(0));
-  });
-
-  // Scenario 10: Old fresh is NOT limited by 5-day window
-  await asyncTest('Fresh target: D-8 fresh NOT excluded (no lower date bound) → D-8', async () => {
-    const sql = simulateExportStatuses(config, 'fresh', [
-      `events_fresh_${daysAgoStr(8)}`,
-      `events_intraday_${daysAgoStr(0)}`,
-    ]);
-    const result = await executeQuery(sql);
-    assert.strictEqual(result, expectedDate(8));
-  });
+    console.log(`        Tables:   ${s.tables.join(', ')}`);
+    console.log(`        Target:   ${s.target}_date_range_start`);
+    console.log(`        Expected: ${s.expected ?? 'null'}\n`);
+  }
 };
 
 // ---------------------------------------------------------------------------
