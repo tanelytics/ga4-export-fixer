@@ -263,7 +263,7 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 </details>
 <br>
 
-`**includedExportTypes**` — which GA4 export types to include:
+**`includedExportTypes`** — which GA4 export types to include:
 
 
 | Field                          | Type    | Default | Description                      |
