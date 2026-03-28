@@ -228,6 +228,11 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `excludedEvents`       | string[]                | `['session_start', 'first_visit']` | Event names to exclude from the table. These events are excluded by default because they have no use for analysis purposes. Override this to include them if needed                                                                                                                                                          |
 | `excludedColumns`      | string[]                | `[]`                               | Default GA4 export columns to exclude from the final table, for example `'app_info'` or `'publisher'`                                                                                                                                                                                                                        |
 | `sessionParams`        | string[]                | `[]`                               | Event parameter names to aggregate as session-level parameters                                                                                                                                                                                                                                                               |
+| `includedExportTypes`  | object                  | [See details](#includedExportTypes) | Which GA4 export types to include (daily, fresh, intraday)                                                                                                                                                                                                                                                                  |
+| `dataIsFinal`          | object                  | [See details](#dataIsFinal)         | How to determine whether data is final (not expected to change)                                                                                                                                                                                                                                                              |
+| `testConfig`           | object                  | [See details](#testConfig)          | Date range used when `test` is `true`                                                                                                                                                                                                                                                                                        |
+| `preOperations`        | object                  | [See details](#preOperations)       | Date range and incremental refresh configuration                                                                                                                                                                                                                                                                             |
+| `eventParamsToColumns` | object[]                | `[]`                                | Event parameters to promote to columns. [See item schema](#eventParamsToColumns)                                                                                                                                                                                                                                             |
 
 <a id="default-dataformtableconfig"></a>
 <details>
@@ -263,6 +268,8 @@ The `onSchemaChange: "EXTEND"` setting updates the result table schema on increm
 </details>
 <br>
 
+<a id="includedExportTypes"></a>
+
 **`includedExportTypes`** — which GA4 export types to include:
 
 
@@ -284,6 +291,8 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 
 > **Without daily export:** When `daily` is `false`, `dataIsFinal.detectionMethod` must be set to `'DAY_THRESHOLD'`, because `EXPORT_TYPE` detection relies on daily tables to mark data as final.
 
+<a id="dataIsFinal"></a>
+
 **`dataIsFinal`** — how to determine whether data is final (not expected to change):
 
 
@@ -293,6 +302,8 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 | `dataIsFinal.dayThreshold`    | integer | `3`               | Days after which data is considered final. According to GA4 documentation, data up to 72 hours old is subject to possible changes. Required when `detectionMethod` is `'DAY_THRESHOLD'`            |
 
 
+<a id="testConfig"></a>
+
 **`testConfig`** — date range used when `test` is `true`:
 
 
@@ -301,6 +312,8 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 | `testConfig.dateRangeStart` | string (SQL date) | `'current_date()-1'` | Start date for test queries |
 | `testConfig.dateRangeEnd`   | string (SQL date) | `'current_date()'`   | End date for test queries   |
 
+
+<a id="preOperations"></a>
 
 **`preOperations`** — date range and incremental refresh configuration:
 
@@ -314,6 +327,8 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 | `preOperations.incrementalEndOverride`     | string (SQL date) | `undefined`          | Override the incremental end date to re-process a specific range                                                                                                                                    |
 | `preOperations.numberOfDaysToProcess`      | integer           | `undefined`          | Limit each run to N days of data. When set, the end date becomes `start + N - 1` (capped at `current_date()`). When `undefined`, `dateRangeEnd` is used as-is. `incrementalEndOverride` takes priority  |
 
+
+<a id="eventParamsToColumns"></a>
 
 **`eventParamsToColumns`** — each item in the array is an object:
 
