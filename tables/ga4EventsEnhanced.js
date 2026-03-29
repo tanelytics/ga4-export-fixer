@@ -338,7 +338,8 @@ The last full table refresh was done using this configuration:
 ${JSON.stringify(
   Object.fromEntries(
     // don't display the default arrays here, their contents are included in the main arrays via the mergeSQLConfigurations function
-    Object.entries(mergedConfig).filter(([key]) => !key.startsWith('default'))
+    // dataformTAbleConfig is also excluded since it's not relevant for the SQL generation and is more of a deployment detail
+    Object.entries(mergedConfig).filter(([key]) => !key.startsWith('default') && key !== 'dataformTableConfig')
   ),
   null,
   2
