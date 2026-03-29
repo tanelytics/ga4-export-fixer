@@ -17,7 +17,8 @@
     "documentation.js"
   ],
   "scripts": {
-    "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js",
+    "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js && node tests/documentation.test.js",
+    "test:docs": "node tests/documentation.test.js",
     "test:preops": "node tests/preOperations.test.js",
     "test:events": "node tests/ga4EventsEnhanced.test.js",
     "test:merge": "node tests/mergeSQLConfigurations.test.js",
