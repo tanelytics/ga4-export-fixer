@@ -17,7 +17,7 @@
         },
         {
             "terms": ["transactions", "purchases", "orders"],
-            "sql": "COUNT(*) WHERE event_name = 'purchase'",
+            "sql": "COUNT(DISTINCT ecommerce.transaction_id) WHERE event_name = 'purchase'",
             "dependsOn": ["ecommerce"]
         },
         {
