@@ -1,0 +1,130 @@
+{
+    "synonyms": [
+        {
+            "terms": ["users", "unique users", "visitors", "unique visitors"],
+            "sql": "COUNT(DISTINCT user_pseudo_id) or COUNT(DISTINCT merged_user_id) for cross-device",
+            "dependsOn": ["user_pseudo_id"]
+        },
+        {
+            "terms": ["sessions", "visits", "unique sessions"],
+            "sql": "COUNT(DISTINCT session_id)",
+            "dependsOn": ["session_id"]
+        },
+        {
+            "terms": ["page views", "pageviews", "page view count"],
+            "sql": "COUNT(*) WHERE event_name = 'page_view'",
+            "dependsOn": ["event_name"]
+        },
+        {
+            "terms": ["transactions", "purchases", "orders"],
+            "sql": "COUNT(*) WHERE event_name = 'purchase'",
+            "dependsOn": ["ecommerce"]
+        },
+        {
+            "terms": ["revenue", "sales", "purchase revenue", "total revenue"],
+            "sql": "SUM(ecommerce.purchase_revenue) WHERE event_name = 'purchase'",
+            "dependsOn": ["ecommerce"]
+        },
+        {
+            "terms": ["page URL", "page location", "URL", "current page"],
+            "sql": "page_location (full URL) or page.hostname, page.path, page.query (parsed components)",
+            "dependsOn": ["page_location"]
+        },
+        {
+            "terms": ["landing page", "entry page", "first page"],
+            "sql": "landing_page.hostname, landing_page.path",
+            "dependsOn": ["landing_page"]
+        },
+        {
+            "terms": ["traffic source", "channel", "channel group", "medium", "campaign", "source", "UTM"],
+            "sql": "session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. For detailed attribution: session_traffic_source_last_click (last-click), session_first_traffic_source (first-touch), collected_traffic_source (event-level UTM)",
+            "dependsOn": ["session_traffic_source_last_click"]
+        },
+        {
+            "terms": ["device type", "device category", "device", "mobile vs desktop"],
+            "sql": "device.category (values: mobile, tablet, desktop)",
+            "dependsOn": ["device"]
+        },
+        {
+            "terms": ["country", "location", "region", "city", "geography", "geo"],
+            "sql": "geo.country, geo.region, geo.city",
+            "dependsOn": ["geo"]
+        }
+    ],
+    "keyFields": [
+        {
+            "field": "event_date",
+            "note": "Partition column. Always include in WHERE to limit scanned data and cost.",
+            "dependsOn": []
+        },
+        {
+            "field": "event_name",
+            "note": "Primary event type filter (e.g. 'page_view', 'purchase', 'scroll').",
+            "dependsOn": []
+        },
+        {
+            "field": "user_pseudo_id",
+            "note": "Device-level user identifier. COUNT(DISTINCT) for unique users.",
+            "dependsOn": []
+        },
+        {
+            "field": "session_id",
+            "note": "Unique session identifier. COUNT(DISTINCT) for sessions, GROUP BY for session metrics.",
+            "dependsOn": ["session_id"]
+        },
+        {
+            "field": "merged_user_id",
+            "note": "Cross-device user identifier. Prefer over user_pseudo_id for user-level analysis.",
+            "dependsOn": []
+        },
+        {
+            "field": "page_location",
+            "note": "Full page URL. Use page.hostname and page.path for structured analysis.",
+            "dependsOn": ["page_location"]
+        },
+        {
+            "field": "ecommerce.purchase_revenue",
+            "note": "Revenue per transaction. Filter to event_name = 'purchase' before aggregating.",
+            "dependsOn": ["ecommerce"]
+        },
+        {
+            "field": "session_traffic_source_last_click",
+            "note": "Primary field for traffic source analysis. Use .cross_channel_campaign.primary_channel_group for channel grouping. When asked about popular traffic sources, default to channel group unless specified otherwise.",
+            "dependsOn": ["session_traffic_source_last_click"]
+        },
+        {
+            "field": "device.category",
+            "note": "Device type segmentation (mobile, tablet, desktop).",
+            "dependsOn": ["device"]
+        },
+        {
+            "field": "geo.country",
+            "note": "Geographic segmentation by country.",
+            "dependsOn": ["geo"]
+        },
+        {
+            "field": "event_datetime",
+            "note": "Event timestamp in the configured timezone. Use for time-of-day analysis.",
+            "dependsOn": []
+        },
+        {
+            "field": "data_is_final",
+            "note": "Data stability flag. WHERE data_is_final = true for stable data only.",
+            "dependsOn": []
+        }
+    ],
+    "filteringGuidance": [
+        {"text": "Always filter on event_date (partition column) to reduce query cost.", "dependsOn": []},
+        {"text": "Use event_name to select specific event types (e.g. WHERE event_name = 'page_view').", "dependsOn": []},
+        {"text": "For user counts: COUNT(DISTINCT user_pseudo_id) for device-level, COUNT(DISTINCT merged_user_id) for cross-device.", "dependsOn": []},
+        {"text": "For session metrics: GROUP BY session_id.", "dependsOn": ["session_id"]},
+        {"text": "For ecommerce revenue: filter WHERE event_name = 'purchase' before aggregating ecommerce.purchase_revenue.", "dependsOn": ["ecommerce"]},
+        {"text": "For traffic source analysis: default to session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. Use session_first_traffic_source for first-touch, session_traffic_source_last_click for last-click attribution.", "dependsOn": ["session_traffic_source_last_click"]},
+        {"text": "Nested arrays (event_params, items): use CROSS JOIN UNNEST(...) to access individual values.", "dependsOn": []},
+        {"text": "Use data_is_final = true to exclude data that may still change in future refreshes.", "dependsOn": []}
+    ],
+    "eventVocabulary": {
+        "autoCollectedAndEnhanced": ["page_view", "session_start", "first_visit", "user_engagement", "scroll", "click", "file_download", "video_start", "video_progress", "video_complete", "view_search_results", "form_start", "form_submit"],
+        "ecommerce": ["purchase", "add_to_cart", "begin_checkout", "view_item", "view_item_list", "add_to_wishlist", "remove_from_cart", "add_payment_info", "add_shipping_info", "refund"]
+    }
+}

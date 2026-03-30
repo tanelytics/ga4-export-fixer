@@ -1,0 +1,23 @@
+{
+    "event_date": "Partition column. Always include in WHERE clauses to limit scanned data and reduce query cost",
+    "event_datetime": "Human-readable timestamp in the configured timezone. Use for time-of-day analysis and reporting",
+    "event_timestamp": "Microsecond-precision UTC timestamp. Use for precise event ordering and time difference calculations",
+    "event_name": "Primary event filter. Use in WHERE clauses to select specific event types (e.g. WHERE event_name = 'purchase')",
+    "session_id": "Use for counting unique sessions (COUNT(DISTINCT session_id)) and as a GROUP BY key for session-level aggregations",
+    "user_pseudo_id": "Device-level user identifier. Use for counting unique devices or as a fallback when merged_user_id is not needed",
+    "user_id": "Authenticated user identifier. NULL when the user is not logged in. Prefer merged_user_id for user-level analysis",
+    "merged_user_id": "Preferred user identifier for user-level aggregations. Resolves authenticated and anonymous users into a single ID per session",
+    "page_location": "Full URL string. Use for exact-match filtering. For path-level or hostname-level analysis, use the page struct instead",
+    "page": "Use page.hostname, page.path, and page.query_params for structured URL analysis without manual string parsing",
+    "landing_page": "Session entry page. Use for landing page performance reports and campaign attribution analysis",
+    "event_params": "Nested array of event parameters. Unnest with CROSS JOIN UNNEST(event_params) to access individual parameter values",
+    "session_params": "Session-scoped parameters. Unnest with CROSS JOIN UNNEST(session_params) to access session-level parameter values",
+    "ecommerce": "Transaction and revenue data. Filter to purchase or refund events (WHERE event_name = 'purchase') for ecommerce reporting",
+    "items": "Product-level data array. Unnest with CROSS JOIN UNNEST(items) for item-level analysis in ecommerce reports",
+    "collected_traffic_source": "Event-level UTM parameters and click identifiers. For session-level attribution, prefer session_first_traffic_source instead",
+    "session_first_traffic_source": "First-touch traffic source for the session. Use for session-level acquisition and campaign reporting",
+    "session_traffic_source_last_click": "Google-attributed session traffic source. Use for last-click attribution analysis across Google Ads and manual channels",
+    "data_is_final": "Data stability flag. Use WHERE data_is_final = true when you need only stable data that will not change in future refreshes",
+    "export_type": "Source export type (daily, intraday, fresh). Use for debugging data freshness or filtering by export source",
+    "row_inserted_timestamp": "Pipeline metadata. Use to identify when data was last refreshed or to debug incremental update issues"
+}

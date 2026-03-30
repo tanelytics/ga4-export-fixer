@@ -1,0 +1,146 @@
+{
+    "event_date": {
+        "source": "ga4_export_modified",
+        "note": "Cast to DATE from the original YYYYMMDD string format"
+    },
+    "event_datetime": {
+        "source": "derived",
+        "note": "Computed from event_timestamp (or custom timestamp parameter) with timezone conversion"
+    },
+    "event_timestamp": {
+        "source": "ga4_export"
+    },
+    "event_custom_timestamp": {
+        "source": "derived",
+        "note": "Derived from a custom event parameter (milliseconds converted to microseconds), falling back to event_timestamp"
+    },
+    "event_name": {
+        "source": "ga4_export"
+    },
+    "session_id": {
+        "source": "derived",
+        "note": "Concatenation of user_pseudo_id and the ga_session_id event parameter"
+    },
+    "user_pseudo_id": {
+        "source": "ga4_export"
+    },
+    "user_id": {
+        "source": "ga4_export_modified",
+        "note": "Session-level aggregation: last non-null user_id within the session, ordered by timestamp"
+    },
+    "merged_user_id": {
+        "source": "derived",
+        "note": "Coalesces session-level user_id with user_pseudo_id"
+    },
+    "page_location": {
+        "source": "derived",
+        "note": "Unnested from the page_location event parameter"
+    },
+    "page": {
+        "source": "derived",
+        "note": "Parsed from the page_location event parameter into hostname, path, query, and query_params"
+    },
+    "landing_page": {
+        "source": "derived",
+        "note": "Session-level aggregation: first page struct where entrances > 0, ordered by timestamp"
+    },
+    "event_params": {
+        "source": "ga4_export_modified",
+        "note": "Excluded and promoted parameters are filtered out from the original array"
+    },
+    "session_params": {
+        "source": "derived",
+        "note": "Aggregated from event_params at session level: last non-null value per configured parameter"
+    },
+    "user_properties": {
+        "source": "ga4_export"
+    },
+    "ecommerce": {
+        "source": "ga4_export_modified",
+        "note": "Fixes applied: transaction_id '(not set)' nullified, purchase_revenue NaN and missing-value corrections"
+    },
+    "items": {
+        "source": "ga4_export"
+    },
+    "user_ltv": {
+        "source": "ga4_export"
+    },
+    "collected_traffic_source": {
+        "source": "ga4_export"
+    },
+    "session_first_traffic_source": {
+        "source": "derived",
+        "note": "Session-level aggregation: collected_traffic_source from the first event in the session"
+    },
+    "session_traffic_source_last_click": {
+        "source": "ga4_export_modified",
+        "note": "Session-level aggregation: first non-null value in the session (the field is session-scoped in the GA4 export)"
+    },
+    "user_traffic_source": {
+        "source": "ga4_export_modified",
+        "note": "Renamed from the GA4 export traffic_source field"
+    },
+    "event_previous_timestamp": {
+        "source": "ga4_export"
+    },
+    "event_value_in_usd": {
+        "source": "ga4_export"
+    },
+    "event_bundle_sequence_id": {
+        "source": "ga4_export"
+    },
+    "event_server_timestamp_offset": {
+        "source": "ga4_export"
+    },
+    "privacy_info": {
+        "source": "ga4_export"
+    },
+    "user_first_touch_timestamp": {
+        "source": "ga4_export"
+    },
+    "device": {
+        "source": "ga4_export"
+    },
+    "geo": {
+        "source": "ga4_export"
+    },
+    "app_info": {
+        "source": "ga4_export"
+    },
+    "stream_id": {
+        "source": "ga4_export"
+    },
+    "platform": {
+        "source": "ga4_export"
+    },
+    "event_dimensions": {
+        "source": "ga4_export"
+    },
+    "is_active_user": {
+        "source": "ga4_export"
+    },
+    "batch_event_index": {
+        "source": "ga4_export"
+    },
+    "batch_page_id": {
+        "source": "ga4_export"
+    },
+    "batch_ordering_id": {
+        "source": "ga4_export"
+    },
+    "publisher": {
+        "source": "ga4_export"
+    },
+    "row_inserted_timestamp": {
+        "source": "derived",
+        "note": "Set to current_timestamp() when the row is inserted or refreshed by the incremental pipeline"
+    },
+    "data_is_final": {
+        "source": "derived",
+        "note": "Computed from export type or day threshold since event_date"
+    },
+    "export_type": {
+        "source": "derived",
+        "note": "Determined from the GA4 export table suffix pattern"
+    }
+}

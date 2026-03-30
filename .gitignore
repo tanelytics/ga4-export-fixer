@@ -49,6 +49,10 @@ tests/.env
 !package.json
 !package-lock.json
 !columns/columnDescriptions.json
+!columns/columnLineage.json
+!columns/columnTypicalUse.json
+!columns/tableAgentInstructions.json
+
 
 # OS files
 .DS_Store
