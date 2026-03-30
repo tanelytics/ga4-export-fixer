@@ -15,8 +15,8 @@
     "ecommerce": "Transaction and revenue data. Filter to purchase or refund events (WHERE event_name = 'purchase') for ecommerce reporting",
     "items": "Product-level data array. Unnest with CROSS JOIN UNNEST(items) for item-level analysis. For product revenue and units sold, filter to event_name = 'purchase' and use item_revenue and quantity. Use item_category to filter or group by product category",
     "collected_traffic_source": "Event-level UTM parameters and click identifiers. For session-level attribution, prefer session_first_traffic_source instead",
-    "session_first_traffic_source": "First-touch traffic source for the session. Use for session-level acquisition and campaign reporting",
-    "session_traffic_source_last_click": "Google-attributed session traffic source. For high-level 'traffic source' reporting, ALWAYS use .cross_channel_campaign.primary_channel_group as the primary dimension. Use .cross_channel_campaign.source as a secondary drill-down when granular detail is required",
+    "session_first_traffic_source": "Typically NOT used as the default field for general traffic source reporting. Use when building custom attribution models that require the session's first touchpoint, including sessions that started without a source (reported as direct)",
+    "session_traffic_source_last_click": "The default field to use for session-level traffic source analysis. For high-level 'traffic source' reporting, ALWAYS use .cross_channel_campaign.primary_channel_group as the primary dimension. Assume that the user wants the data on the channel grouping level. Even if they ask for \"traffic sources\". Use .cross_channel_campaign.source as a secondary drill-down when granular detail is required",
     "data_is_final": "Data stability flag. Use WHERE data_is_final = true when you need only stable data that will not change in future refreshes",
     "export_type": "Source export type (daily, intraday, fresh). Use for debugging data freshness or filtering by export source",
     "row_inserted_timestamp": "Pipeline metadata. Use to identify when data was last refreshed or to debug incremental update issues"
