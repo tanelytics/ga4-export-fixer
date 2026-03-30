@@ -130,7 +130,7 @@
         {"text": "For session metrics: GROUP BY session_id.", "dependsOn": ["session_id"]},
         {"text": "For transaction-level ecommerce revenue: filter WHERE event_name = 'purchase' before aggregating ecommerce.purchase_revenue.", "dependsOn": ["ecommerce"]},
         {"text": "For product-level analysis: CROSS JOIN UNNEST(items) WHERE event_name = 'purchase'. Use items.item_revenue for product revenue, items.quantity for units sold, items.item_category for product categories.", "dependsOn": ["items"]},
-        {"text": "For traffic source analysis: use session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. When asked about popular traffic sources, default to channel group unless specified otherwise. For detailed attribution: session_traffic_source_last_click (last non-direct click), session_first_traffic_source (last click without non-direct attribution), collected_traffic_source (event-level data).", "dependsOn": ["session_traffic_source_last_click"]},
+        {"text": "For traffic source analysis: use session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for high-level traffic source information", "dependsOn": ["session_traffic_source_last_click"]},
         {"text": "Nested arrays (event_params, items): use CROSS JOIN UNNEST(...) to access individual values.", "dependsOn": []},
         {"text": "Use data_is_final = true to exclude data that may still change in future refreshes.", "dependsOn": []}
     ],
