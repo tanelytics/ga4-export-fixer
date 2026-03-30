@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
     columnDescriptions,
     getColumnDescriptions,
+    getTableDescription,
     composeDescription,
     getLineageText,
     buildConfigNotes,
@@ -244,7 +245,119 @@ test('no description exceeds 1024 characters', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Lineage cross-checks
+// 5. getTableDescription
+// ---------------------------------------------------------------------------
+console.log('\n5. getTableDescription\n');
+
+const minimalConfig = {
+    timezone: 'Etc/UTC',
+    excludedEvents: ['session_start', 'first_visit'],
+    excludedEventParams: [],
+    excludedColumns: [],
+    defaultExcludedColumns: ['event_dimensions', 'traffic_source', 'session_id'],
+    defaultExcludedEvents: [],
+    includedExportTypes: { daily: true, intraday: true, fresh: false },
+    dataIsFinal: { detectionMethod: 'DAY_THRESHOLD', dayThreshold: 3 },
+};
+
+test('getTableDescription returns a string', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(typeof result === 'string');
+    assert.ok(result.length > 0);
+});
+
+test('getTableDescription includes key fields section', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('KEY FIELDS:'));
+    assert.ok(result.includes('event_date'));
+    assert.ok(result.includes('event_name'));
+});
+
+test('getTableDescription includes synonyms section', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('SYNONYMS:'));
+    assert.ok(result.includes('users'));
+    assert.ok(result.includes('sessions'));
+});
+
+test('getTableDescription includes filtering guidance section', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('FILTERING AND GROUPING:'));
+    assert.ok(result.includes('partition column'));
+});
+
+test('getTableDescription includes event vocabulary', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('COMMON EVENT NAMES:'));
+    assert.ok(result.includes('page_view'));
+    assert.ok(result.includes('purchase'));
+});
+
+test('getTableDescription reflects timezone from config', () => {
+    const result = getTableDescription({ ...minimalConfig, timezone: 'Europe/Helsinki' });
+    assert.ok(result.includes('Timezone: Europe/Helsinki'));
+});
+
+test('getTableDescription excludes ecommerce synonyms when ecommerce column is excluded', () => {
+    const config = { ...minimalConfig, excludedColumns: ['ecommerce'] };
+    const result = getTableDescription(config);
+    assert.ok(!result.includes('purchase revenue'));
+    assert.ok(!result.includes('ecommerce.purchase_revenue'));
+});
+
+test('getTableDescription includes promoted event params in key fields', () => {
+    const config = {
+        ...minimalConfig,
+        eventParamsToColumns: [{ name: 'page_type', type: 'string' }],
+    };
+    const result = getTableDescription(config);
+    assert.ok(result.includes('page_type'));
+    assert.ok(result.includes("Promoted event parameter 'page_type'"));
+});
+
+test('getTableDescription includes config JSON', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('The last full table refresh was done using this configuration:'));
+    assert.ok(result.includes('"timezone"'));
+});
+
+test('getTableDescription does not exceed 16384 characters', () => {
+    const verboseConfig = {
+        ...minimalConfig,
+        timezone: 'America/Los_Angeles',
+        customTimestampParam: 'custom_event_timestamp',
+        excludedEvents: ['session_start', 'first_visit', 'user_engagement'],
+        excludedEventParams: ['ga_session_id', 'ga_session_number', 'page_location', 'entrances', 'session_engaged'],
+        sessionParams: ['user_agent', 'currency', 'country'],
+        eventParamsToColumns: [
+            { name: 'page_type', type: 'string' },
+            { name: 'content_group', type: 'string', columnName: 'page_content_group' },
+            { name: 'logged_in', type: 'int' },
+        ],
+    };
+    const result = getTableDescription(verboseConfig);
+    assert.ok(result.length <= 16384, `Table description is ${result.length} chars (max 16384)`);
+});
+
+test('getTableDescription excludes events from vocabulary based on excludedEvents', () => {
+    const result = getTableDescription(minimalConfig);
+    // Extract the event vocabulary section
+    const vocabSection = result.split('COMMON EVENT NAMES:\n')[1].split('\n\n')[0];
+    // session_start and first_visit are in excludedEvents and should not appear in the vocabulary
+    assert.ok(!vocabSection.includes('session_start'), 'session_start should be excluded from vocabulary');
+    assert.ok(!vocabSection.includes('first_visit'), 'first_visit should be excluded from vocabulary');
+    // page_view should still be present
+    assert.ok(vocabSection.includes('page_view'));
+});
+
+test('getTableDescription includes package attribution', () => {
+    const result = getTableDescription(minimalConfig);
+    assert.ok(result.includes('Created by the ga4-export-fixer package'));
+    assert.ok(result.includes('github.com/tanelytics/ga4-export-fixer'));
+});
+
+// ---------------------------------------------------------------------------
+// 6. Lineage cross-checks
 // ---------------------------------------------------------------------------
 console.log('\n5. Lineage cross-checks\n');
 

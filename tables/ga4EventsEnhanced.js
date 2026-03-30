@@ -321,29 +321,7 @@ ${excludedEventsSQL}`,
 const createEnhancedEventsTable = (dataformPublish, config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
 
-    const tableDescription = `GA4 Events Enhanced 
-
-- Combines daily (processed) and intraday exports so the best available version of each event is always used.
-- Incremental updates: All data with "data_is_final" flag set to false is deleted and replaced with the latest available data on every run (supports any schedule: daily, hourly, or custom).
-- Keeps the flexible schema of the original export while promoting key fields (e.g. page_location, session_id) to columns for faster queries.
-- Partitioned by event_date and clustered for optimal query performance.
-- Event parameter handling: promote params to columns or exclude by name.
-- Session-level fields: landing_page, fixed user_id, and configurable session parameters.
-- Other improvements and refinements based on configuration
-
-${constants.TABLE_DESCRIPTION_SUFFIX}
-${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}
-
-The last full table refresh was done using this configuration:
-${JSON.stringify(
-  Object.fromEntries(
-    // don't display the default arrays here, their contents are included in the main arrays via the mergeSQLConfigurations function
-    // dataformTAbleConfig is also excluded since it's not relevant for the SQL generation and is more of a deployment detail
-    Object.entries(mergedConfig).filter(([key]) => !key.startsWith('default') && key !== 'dataformTableConfig')
-  ),
-  null,
-  2
-)}`;
+    const tableDescription = documentation.getTableDescription(mergedConfig);
 
     // the defaults for the dataform table config
     const defaultDataformTableConfig = {
