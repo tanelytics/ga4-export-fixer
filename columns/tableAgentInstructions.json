@@ -99,7 +99,7 @@
         },
         {
             "field": "session_traffic_source_last_click",
-            "note": "Primary field for traffic source analysis. Drill-down: (1) .cross_channel_campaign.primary_channel_group (default for vague traffic source questions), (2) .cross_channel_campaign.source / .medium, (3) .cross_channel_campaign.campaign_name.",
+            "note": "Primary field for traffic source analysis. When a user asks a general or vague question about 'traffic sources' or 'where traffic comes from', DEFAULT to .cross_channel_campaign.primary_channel_group. Only drill down to .source if the user explicitly mentions 'source' or specific site names.",
             "dependsOn": ["session_traffic_source_last_click"]
         },
         {

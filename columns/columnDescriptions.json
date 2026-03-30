@@ -209,7 +209,7 @@
                     "source_platform": "Cross-channel source platform",
                     "source": "Cross-channel source",
                     "medium": "Cross-channel medium",
-                    "primary_channel_group": "Custom primary channel group for the session's last non-direct click",
+                    "primary_channel_group": "The highest-level traffic categorization (e.g., Organic Search, Paid Social). Use this as the default dimension for all general 'traffic source' questions",
                     "default_channel_group": "Default channel group for the session's last non-direct click"
                 }
             },
