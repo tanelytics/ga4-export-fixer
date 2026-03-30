@@ -42,7 +42,7 @@
         },
         {
             "terms": ["traffic source", "channel", "channel group", "source of traffic"],
-            "sql": "session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for top-level channel grouping. session_traffic_source_last_click.cross_channel_campaign.source, session_traffic_source_last_click.cross_channel_campaign.medium, and session_traffic_source_last_click.cross_channel_campaign.campaign_name for detailed source/medium/campaign analysis.",
+            "sql": "Drill-down hierarchy: (1) .primary_channel_group is the default — always use when asked vaguely about traffic sources or channels. (2) .source and .medium — use when asked for source/medium breakdown. (3) .campaign_name — use when asked for campaign-level detail. All under session_traffic_source_last_click.cross_channel_campaign.",
             "dependsOn": ["session_traffic_source_last_click"]
         },
         {
@@ -99,7 +99,7 @@
         },
         {
             "field": "session_traffic_source_last_click",
-            "note": "Primary field for traffic source analysis. Use .cross_channel_campaign.primary_channel_group for channel grouping. When asked about popular traffic sources, default to channel group unless specified otherwise.",
+            "note": "Primary field for traffic source analysis. Drill-down: (1) .cross_channel_campaign.primary_channel_group (default for vague traffic source questions), (2) .cross_channel_campaign.source / .medium, (3) .cross_channel_campaign.campaign_name.",
             "dependsOn": ["session_traffic_source_last_click"]
         },
         {

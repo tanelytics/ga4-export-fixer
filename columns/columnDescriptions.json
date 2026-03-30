@@ -157,7 +157,7 @@
         }
     },
     "session_first_traffic_source": {
-        "description": "The collected_traffic_source from the first event in the session (ordered by timestamp, nulls included). Useful for session-level first-click attribution",
+        "description": "The data extracted from the collected_traffic_source struct of the session's first event. Similar to the session_traffic_source_last_click but does not include last non-direct attribution. Meaning that sessions that started without a source of traffic are always reported as direct in this field. Can be useful for building custom attribution models.",
         "columns": {
             "manual_campaign_id": "Manual campaign ID (utm_id)",
             "manual_campaign_name": "Manual campaign name (utm_campaign)",
