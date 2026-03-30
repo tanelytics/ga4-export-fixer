@@ -22,8 +22,13 @@
         },
         {
             "terms": ["revenue", "sales", "purchase revenue", "total revenue"],
-            "sql": "SUM(ecommerce.purchase_revenue) WHERE event_name = 'purchase'",
+            "sql": "SUM(ecommerce.purchase_revenue) WHERE event_name = 'purchase' for transaction-level. For product-level revenue: SUM(items.item_revenue) after CROSS JOIN UNNEST(items) WHERE event_name = 'purchase'",
             "dependsOn": ["ecommerce"]
+        },
+        {
+            "terms": ["products", "items", "product revenue", "item revenue", "product sales", "items sold"],
+            "sql": "CROSS JOIN UNNEST(items) to access product-level data. Use items.item_name, items.item_category for identification, items.item_revenue for revenue, items.quantity for units sold. Filter to event_name = 'purchase' for sold products",
+            "dependsOn": ["items"]
         },
         {
             "terms": ["page URL", "page location", "URL", "current page"],
@@ -36,8 +41,8 @@
             "dependsOn": ["landing_page"]
         },
         {
-            "terms": ["traffic source", "channel", "channel group", "medium", "campaign", "source", "UTM"],
-            "sql": "session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. For detailed attribution: session_traffic_source_last_click (last-click), session_first_traffic_source (first-touch), collected_traffic_source (event-level UTM)",
+            "terms": ["traffic source", "channel", "channel group", "source of traffic"],
+            "sql": "session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for top-level channel grouping. session_traffic_source_last_click.cross_channel_campaign.source, session_traffic_source_last_click.cross_channel_campaign.medium, and session_traffic_source_last_click.cross_channel_campaign.campaign_name for detailed source/medium/campaign analysis.",
             "dependsOn": ["session_traffic_source_last_click"]
         },
         {
@@ -84,8 +89,13 @@
         },
         {
             "field": "ecommerce.purchase_revenue",
-            "note": "Revenue per transaction. Filter to event_name = 'purchase' before aggregating.",
+            "note": "Transaction-level revenue. Filter to event_name = 'purchase' before aggregating.",
             "dependsOn": ["ecommerce"]
+        },
+        {
+            "field": "items",
+            "note": "Product-level data (nested array). CROSS JOIN UNNEST(items) to access item_name, item_category, item_revenue, quantity. Filter to event_name = 'purchase' for sold products.",
+            "dependsOn": ["items"]
         },
         {
             "field": "session_traffic_source_last_click",
@@ -118,8 +128,9 @@
         {"text": "Use event_name to select specific event types (e.g. WHERE event_name = 'page_view').", "dependsOn": []},
         {"text": "For user counts: COUNT(DISTINCT user_pseudo_id) for device-level, COUNT(DISTINCT merged_user_id) for cross-device.", "dependsOn": []},
         {"text": "For session metrics: GROUP BY session_id.", "dependsOn": ["session_id"]},
-        {"text": "For ecommerce revenue: filter WHERE event_name = 'purchase' before aggregating ecommerce.purchase_revenue.", "dependsOn": ["ecommerce"]},
-        {"text": "For traffic source analysis: default to session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. Use session_first_traffic_source for first-touch, session_traffic_source_last_click for last-click attribution.", "dependsOn": ["session_traffic_source_last_click"]},
+        {"text": "For transaction-level ecommerce revenue: filter WHERE event_name = 'purchase' before aggregating ecommerce.purchase_revenue.", "dependsOn": ["ecommerce"]},
+        {"text": "For product-level analysis: CROSS JOIN UNNEST(items) WHERE event_name = 'purchase'. Use items.item_revenue for product revenue, items.quantity for units sold, items.item_category for product categories.", "dependsOn": ["items"]},
+        {"text": "For traffic source analysis: use session_traffic_source_last_click.cross_channel_campaign.primary_channel_group for channel grouping. When asked about popular traffic sources, default to channel group unless specified otherwise. For detailed attribution: session_traffic_source_last_click (last non-direct click), session_first_traffic_source (last click without non-direct attribution), collected_traffic_source (event-level data).", "dependsOn": ["session_traffic_source_last_click"]},
         {"text": "Nested arrays (event_params, items): use CROSS JOIN UNNEST(...) to access individual values.", "dependsOn": []},
         {"text": "Use data_is_final = true to exclude data that may still change in future refreshes.", "dependsOn": []}
     ],

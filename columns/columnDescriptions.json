@@ -208,7 +208,9 @@
                     "campaign_id": "Cross-channel campaign ID",
                     "source_platform": "Cross-channel source platform",
                     "source": "Cross-channel source",
-                    "medium": "Cross-channel medium"
+                    "medium": "Cross-channel medium",
+                    "primary_channel_group": "Custom primary channel group for the session's last non-direct click",
+                    "default_channel_group": "Default channel group for the session's last non-direct click"
                 }
             },
             "sa360_campaign": {

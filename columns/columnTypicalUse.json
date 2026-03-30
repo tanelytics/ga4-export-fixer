@@ -13,7 +13,7 @@
     "event_params": "Nested array of event parameters. Unnest with CROSS JOIN UNNEST(event_params) to access individual parameter values",
     "session_params": "Session-scoped parameters. Unnest with CROSS JOIN UNNEST(session_params) to access session-level parameter values",
     "ecommerce": "Transaction and revenue data. Filter to purchase or refund events (WHERE event_name = 'purchase') for ecommerce reporting",
-    "items": "Product-level data array. Unnest with CROSS JOIN UNNEST(items) for item-level analysis in ecommerce reports",
+    "items": "Product-level data array. Unnest with CROSS JOIN UNNEST(items) for item-level analysis. For product revenue and units sold, filter to event_name = 'purchase' and use item_revenue and quantity. Use item_category to filter or group by product category",
     "collected_traffic_source": "Event-level UTM parameters and click identifiers. For session-level attribution, prefer session_first_traffic_source instead",
     "session_first_traffic_source": "First-touch traffic source for the session. Use for session-level acquisition and campaign reporting",
     "session_traffic_source_last_click": "Google-attributed session traffic source. Use for last-click attribution analysis across Google Ads and manual channels",

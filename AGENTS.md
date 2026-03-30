@@ -24,7 +24,7 @@ When asked to generate documentation, only generate the JSDoc comment above the 
 
 ## Column descriptions
 
-Whenever a new column is included in the generated SQL query, the corresponding column description should be added as well. Include the documentation in the files inside the columns folder.
+Whenever a new column is included in the generated SQL query, the corresponding column description should be added as well. Include the documentation in the files inside the columns folder using the designed format defined in documentation.getColumnDescriptions().
 
 Column descriptions should follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic coming from the code base.
 
