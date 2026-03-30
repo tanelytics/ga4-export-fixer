@@ -174,7 +174,7 @@
         }
     },
     "session_traffic_source_last_click": {
-        "description": "Session-level last-click attributed traffic source across Google Ads and manual channels. Aggregated as the first non-null value in the session (the field is session-scoped in the GA4 export and identical across events in the same session)",
+        "description": "Primary session attribution data. Session-level last non-direct click attribution.",
         "columns": {
             "manual_campaign": {
                 "description": "Last-click manual campaign attribution",
@@ -202,14 +202,14 @@
                 }
             },
             "cross_channel_campaign": {
-                "description": "Last-click cross-channel campaign attribution",
+                "description": "Last-click cross-channel campaign attribution. The primary session attribution data within the session_traffic_source_last_click struct",
                 "columns": {
                     "campaign_name": "Cross-channel campaign name",
                     "campaign_id": "Cross-channel campaign ID",
                     "source_platform": "Cross-channel source platform",
                     "source": "Cross-channel source",
                     "medium": "Cross-channel medium",
-                    "primary_channel_group": "The highest-level traffic categorization (e.g., Organic Search, Paid Social). Use this as the default dimension for all general 'traffic source' questions",
+                    "primary_channel_group": "The default dimension for ranking traffic popularity and acquisition performance. Prefer this over source/medium for general summaries. Use this as the default dimension for all general 'traffic source' questions",
                     "default_channel_group": "Default channel group for the session's last non-direct click"
                 }
             },

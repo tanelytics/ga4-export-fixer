@@ -99,7 +99,7 @@
         },
         {
             "field": "session_traffic_source_last_click",
-            "note": "Primary field for traffic source analysis. When a user asks a general or vague question about 'traffic sources' or 'where traffic comes from', DEFAULT to .cross_channel_campaign.primary_channel_group. Only drill down to .source if the user explicitly mentions 'source' or specific site names.",
+            "note": "The primary source of truth for all session-level traffic analysis. For high-level reporting (e.g., 'most popular sources'), always default to the primary_channel_group field within this struct. Only drill down to .source and .medium if the user explicitly asks for the \"source / medium\" level of detail.",
             "dependsOn": ["session_traffic_source_last_click"]
         },
         {
