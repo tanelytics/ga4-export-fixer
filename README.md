@@ -32,6 +32,7 @@ The **ga4_events_enhanced** table comes with features such as these:
 - **Best available data at any time** – Combines daily (processed), fresh (360), and intraday exports so the most complete, accurate version of the data is always available
 - **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
 - **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
+- **AI agent ready** – Extensive table description and detailed column descriptions (including lineage, configuration context, and typical use examples) make the data understandable for both AI agents (e.g. BigQuery data agents) and humans
 - **Session-level identity resolution** – `user_id` resolved to the last authenticated value per session; `merged_user_id` coalesces it with `user_pseudo_id`
 - **Session traffic sources** – `session_first_traffic_source` and session-scoped `session_traffic_source_last_click` (adjusting for sessions that span midnight) computed automatically
 - **Landing page detection** – `landing_page` derived per session from the first page where `entrances > 0`
@@ -45,7 +46,6 @@ The **ga4_events_enhanced** table comes with features such as these:
 - **Selective date range re-processing** – Re-process a subset of data without a full table rebuild, using `incrementalStartOverride` and `incrementalEndOverride`
 - **Batch processing** – Process large GA4 exports in smaller batches using the `numberOfDaysToProcess` configuration setting
 - **Timezone-aware datetime** – `event_datetime` converted to a configurable IANA timezone
-- **Column descriptions** – Full column-level documentation included in the Dataform table configuration, reflecting the specific configuration used to build the table
 - **Zero dependencies** – The package has no external dependencies and will not add any additional packages to your Dataform repository
 
 ### Planned, Upcoming Features
