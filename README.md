@@ -27,26 +27,98 @@ The goal of the package is to **speed up development** when building data models
 
 ### Main Features
 
-The **ga4_events_enhanced** table comes with features such as these:
-
-- **Best available data at any time** – Combines daily (processed), fresh (360), and intraday exports so the most complete, accurate version of the data is always available
-- **Robust incremental updates** – Run on any schedule (daily, hourly, or custom)
-- **Flexible schema, better optimized for building data models** – Keeps the flexible structure of the original export while promoting key fields (e.g. `page_location`, `session_id`) to columns for better query performance; **partitioning and clustering** enabled
-- **AI agent ready** – Extensive table description and detailed column descriptions (including lineage, configuration context, and typical use examples) make the data understandable for both AI agents (e.g. BigQuery data agents) and humans
-- **Session-level identity resolution** – `user_id` resolved to the last authenticated value per session; `merged_user_id` coalesces it with `user_pseudo_id`
-- **Session traffic sources** – `session_first_traffic_source` and session-scoped `session_traffic_source_last_click` (adjusting for sessions that span midnight) computed automatically
-- **Landing page detection** – `landing_page` derived per session from the first page where `entrances > 0`
-- **Page URL parsing** – `page` struct with parsed `hostname`, `path`, `query`, and `query_params` from `page_location`
-- **Ecommerce data fixes** – Nullifies `transaction_id` placeholder values and corrects `purchase_revenue` NaN / missing-value bugs
-- **Event parameter handling** – Promote event params to columns; include or exclude by name
-- **Session parameters** – Promote selected event parameters as session-level parameters
-- **Custom timestamp support** – Optionally use a custom event parameter as the primary timestamp, with automatic fallback to `event_timestamp`
-- **Schema lock** – Lock the table schema to a specific GA4 export date to prevent schema drift
-- **Data freshness tracking** – `data_is_final` flag and `export_type` label on every row
-- **Selective date range re-processing** – Re-process a subset of data without a full table rebuild, using `incrementalStartOverride` and `incrementalEndOverride`
-- **Batch processing** – Process large GA4 exports in smaller batches using the `numberOfDaysToProcess` configuration setting
-- **Timezone-aware datetime** – `event_datetime` converted to a configurable IANA timezone
-- **Zero dependencies** – The package has no external dependencies and will not add any additional packages to your Dataform repository
+<table>
+<tr>
+<td width="50%" valign="top">
+  <b>📦 Best Available Data</b><br>
+  Combines daily, fresh (360) &amp; intraday exports so the most complete version is always available
+</td>
+<td width="50%" valign="top">
+  <b>🔄 Incremental Updates</b><br>
+  Run on any schedule — daily, hourly, or custom
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>📐 Flexible Schema</b><br>
+  Keeps the flexible structure of the original export with key fields promoted to columns for better query performance; partitioning &amp; clustering enabled
+</td>
+<td valign="top">
+  <b>🤖 AI Agent Ready</b><br>
+  Extensive table &amp; column descriptions for AI agents and humans
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>🔑 Session Identity Resolution</b><br>
+  <code>user_id</code> resolved per session; <code>merged_user_id</code> coalesces with <code>user_pseudo_id</code>
+</td>
+<td valign="top">
+  <b>📡 Session Traffic Sources</b><br>
+  <code>session_first_traffic_source</code> and <code>session_traffic_source_last_click</code> computed automatically, adjusting for sessions that span midnight
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>📍 Landing Page Detection</b><br>
+  Derived per session from the first page where <code>entrances > 0</code>
+</td>
+<td valign="top">
+  <b>🔗 Page URL Parsing</b><br>
+  Parsed <code>hostname</code>, <code>path</code>, <code>query</code>, and <code>query_params</code> from <code>page_location</code>
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>🛒 Ecommerce Data Fixes</b><br>
+  Nullifies placeholder <code>transaction_id</code>; corrects <code>purchase_revenue</code> bugs
+</td>
+<td valign="top">
+  <b>⚙️ Event Parameter Handling</b><br>
+  Promote event params to columns; include or exclude by name
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>📊 Session Parameters</b><br>
+  Promote selected event parameters as <code>session_params</code>
+</td>
+<td valign="top">
+  <b>⏱️ Custom Timestamp</b><br>
+  Use a custom event parameter as primary timestamp with automatic fallback
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>🔒 Schema Lock</b><br>
+  Lock table schema to a specific GA4 export date to prevent schema drift
+</td>
+<td valign="top">
+  <b>✅ Data Freshness Tracking</b><br>
+  <code>data_is_final</code> flag and <code>export_type</code> label on every row
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>🔃 Selective Re-processing</b><br>
+  Re-process a date range without full table rebuild using <code>incrementalStartOverride</code> and <code>incrementalEndOverride</code>
+</td>
+<td valign="top">
+  <b>📑 Batch Processing</b><br>
+  Process large exports in smaller batches via <code>numberOfDaysToProcess</code>
+</td>
+</tr>
+<tr>
+<td valign="top">
+  <b>🕐 Timezone-Aware Datetime</b><br>
+  <code>event_datetime</code> converted to a configurable IANA timezone
+</td>
+<td valign="top">
+  <b>🛡️ Zero Dependencies</b><br>
+  No additional external dependencies added to your Dataform repository
+</td>
+</tr>
+</table>
 
 ### Planned, Upcoming Features
 
