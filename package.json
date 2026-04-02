@@ -5,7 +5,7 @@
   "main": "index.js",
   "files": [
     "index.js",
-    "helpers.js",
+    "helpers",
     "utils.js",
     "preOperations.js",
     "constants.js",

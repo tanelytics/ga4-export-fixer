@@ -1,4 +1,4 @@
-const helpers = require('./helpers.js');
+const helpers = require('./helpers/index.js');
 const ga4EventsEnhanced = require('./tables/ga4EventsEnhanced.js');
 const preOperations = require('./preOperations.js');
 const { validateBaseConfig, validateEnhancedEventsConfig } = require('./inputValidation.js');

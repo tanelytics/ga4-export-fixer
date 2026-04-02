@@ -9,7 +9,7 @@ const {
 } = require('../documentation');
 const columnLineage = require('../columns/columnLineage.json');
 const columnTypicalUse = require('../columns/columnTypicalUse.json');
-const { isGa4ExportColumn } = require('../helpers');
+const { isGa4ExportColumn } = require('../helpers/index.js');
 
 let passed = 0;
 let failed = 0;

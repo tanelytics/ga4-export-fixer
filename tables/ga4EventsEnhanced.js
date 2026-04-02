@@ -1,4 +1,4 @@
-const helpers = require('../helpers.js');
+const helpers = require('../helpers/index.js');
 const utils = require('../utils.js');
 const inputValidation = require('../inputValidation.js');
 const constants = require('../constants.js');
