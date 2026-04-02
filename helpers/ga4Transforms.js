@@ -1,9 +1,8 @@
 const { unnestEventParam } = require('./params');
 
-/*
-Common identifiers
-*/
-
+/**
+ * SQL expression that builds a session ID by concatenating `user_pseudo_id` with the `ga_session_id` event parameter.
+ */
 const sessionId = `concat(user_pseudo_id, (select value.int_value from unnest(event_params) where key = 'ga_session_id'))`;
 
 /*
@@ -58,7 +57,7 @@ Check if GA4 data is "final" and is not expected to change anymore
  * @param {'EXPORT_TYPE'|'DAY_THRESHOLD'} detectionMethod - The method to use for finality determination.
  *        'EXPORT_TYPE': Uses patterns in _table_suffix (e.g., 'intraday_%', 'fresh_%').
  *        'DAY_THRESHOLD': Uses date difference between the current date and event_date.
- * @param {number} [dayThreshold=3] - (Only for 'DAY_THRESHOLD') Number of days after which data is considered final.
+ * @param {number} [dayThreshold] - (Only for 'DAY_THRESHOLD') Number of days after which data is considered final. Required when detectionMethod is 'DAY_THRESHOLD'.
  * @returns {string} SQL expression that evaluates to TRUE if the data is final, otherwise FALSE.
  *
  * @throws {Error} If an unsupported detectionMethod is provided.
@@ -141,6 +140,15 @@ const isGa4ExportColumn = (columnName) => {
   return ga4ExportColumns.includes(columnName);
 };
 
+/**
+ * Generates a SQL CASE expression that determines the GA4 export type from a table suffix.
+ *
+ * Returns 'intraday' for suffixes like 'intraday_%', 'fresh' for 'fresh_%',
+ * and 'daily' for 8-digit date suffixes (YYYYMMDD).
+ *
+ * @param {string} tableSuffix - SQL expression or column reference for the table suffix (e.g., '_table_suffix').
+ * @returns {string} SQL CASE expression that evaluates to 'intraday', 'fresh', or 'daily'.
+ */
 const getGa4ExportType = (tableSuffix) => {
   return `case
       when ${tableSuffix} like 'intraday_%' then 'intraday'

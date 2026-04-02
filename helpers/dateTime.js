@@ -2,9 +2,11 @@
 Date and time
 */
 
+/**
+ * SQL expression that casts the GA4 `event_date` string column to a DATE using YYYYMMDD format.
+ */
 const eventDate = `cast(event_date as date format 'YYYYMMDD')`;
 
-// get the most accurate event timestamp
 /**
  * Returns a SQL expression for the event timestamp in microseconds.
  *
@@ -28,7 +30,6 @@ const getEventTimestampMicros = (customTimestampParameter) => {
   return 'event_timestamp';
 };
 
-// datetime in the local time zone
 /**
  * Returns a SQL expression representing the event's local datetime (in the specified time zone),
  * derived from the default event_timestamp field.
@@ -37,7 +38,7 @@ const getEventTimestampMicros = (customTimestampParameter) => {
  * - No custom timestamp parameter from event_params is used; the extraction is strictly from event_timestamp.
  * - The returned expression converts event_timestamp to a TIMESTAMP, then extracts the DATETIME in the desired time zone.
  *
- * @param {Object} config - Optional configuration with a timezone property (defaults to 'Etc/UTC').
+ * @param {Object} [config] - Optional configuration with a timezone property (defaults to 'Etc/UTC').
  * @param {string} [config.timezone] - IANA time zone string (e.g., 'Europe/Helsinki'). Defaults to 'Etc/UTC'.
  * @returns {string} SQL expression for the local datetime of the event.
  *

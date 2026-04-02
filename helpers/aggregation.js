@@ -2,7 +2,18 @@
 Handling event and session parameters
 */
 
-// filter the event_params array by the selected parameters
+/**
+ * Generates a SQL expression that filters the `event_params` array by the given parameter names.
+ *
+ * When filterType is 'include', only parameters whose key matches one of the given names are kept.
+ * When filterType is 'exclude', parameters whose key matches are removed. If the params array is
+ * empty with 'exclude', the original `event_params` column is returned unfiltered.
+ *
+ * @param {string[]} params - Array of event parameter names to include or exclude.
+ * @param {'include'|'exclude'} filterType - Whether to include or exclude the listed parameters.
+ * @returns {string} SQL expression that produces a filtered event_params array.
+ * @throws {Error} If params is not an array of strings, or if filterType is not 'include' or 'exclude'.
+ */
 const filterEventParams = (params, filterType) => {
   if (!Array.isArray(params) || !params.every(p => typeof p === 'string')) {
     throw new Error("filterEventParams: 'params' must be an array of strings (empty array allowed).");
@@ -131,8 +142,8 @@ Aggregation
  * Throws an error if required parameters are missing or an unsupported aggregation type is requested.
  *
  * @param {string} column - The name of the column to aggregate.
- * @param {string} aggregateType - Type of aggregation ('max', 'min', 'first', 'last', or 'any').
- * @param {string} timestampColumn - Column to use for ordering when aggregateType is 'first' or 'last'.
+ * @param {'max'|'min'|'first'|'last'|'any'} aggregateType - Type of aggregation.
+ * @param {string} [timestampColumn] - Column to use for ordering. Required when aggregateType is 'first' or 'last'.
  * @returns {string} A SQL expression for the requested aggregation.
  * @throws {Error} If required parameters are missing or an unsupported aggregateType is provided.
  *
@@ -182,7 +193,20 @@ const aggregateValue = (column, aggregateType, timestampColumn) => {
   throw new Error(`aggregateValue: Unsupported aggregateType '${aggregateType}'. Supported values are 'max', 'min', 'first', 'last', and 'any'.`);
 };
 
-// perform aggregations on an array of values
+/**
+ * Generates SQL aggregation expressions for an array of column specifications.
+ *
+ * Each item in the array is passed to {@link aggregateValue} and optionally aliased.
+ * The results are joined with commas for use in a SELECT clause.
+ *
+ * @param {Object[]} values - Array of aggregation specifications.
+ * @param {string} values[].column - The column to aggregate.
+ * @param {'max'|'min'|'first'|'last'|'any'} values[].aggregateType - Type of aggregation.
+ * @param {string} [values[].timestampColumn] - Column for ordering. Required for 'first'/'last'.
+ * @param {string} [values[].alias] - Optional output alias (appended as `AS alias`).
+ * @returns {string} Comma-separated SQL aggregation expressions.
+ * @throws {Error} If values is not an array.
+ */
 const aggregateValues = (values) => {
   if (Array.isArray(values)) {
     return values.map(value => {

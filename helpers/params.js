@@ -2,7 +2,20 @@
 Unnesting parameters
 */
 
-// unnest any parameter from the selected params array
+/**
+ * Generates a SQL subquery to extract a value from a parameter array by key.
+ *
+ * When a dataType is provided, the value is extracted from the corresponding typed column
+ * (e.g., `value.string_value`, `value.int_value`). When omitted, a coalesce across all
+ * value columns is returned, cast as a string.
+ *
+ * @param {string} keyName - The parameter key to look up in the array.
+ * @param {string} paramsArray - The SQL expression for the parameter array to unnest (e.g., 'event_params').
+ * @param {string} [dataType] - Optional data type: 'string', 'int', 'int64', 'double', 'float', or 'float64'.
+ *                               If omitted, returns the value converted to a string.
+ * @returns {string} SQL subquery expression that extracts the parameter value.
+ * @throws {Error} If keyName or paramsArray is not a non-empty string, or if dataType is unsupported.
+ */
 const unnestParam = (keyName, paramsArray, dataType) => {
   if (typeof keyName !== 'string' || keyName.trim() === '') {
     throw new Error("unnestParam: 'keyName' is required and must be a non-empty string.");
@@ -30,14 +43,30 @@ const unnestParam = (keyName, paramsArray, dataType) => {
   }
 };
 
-// event_params and session_params
-
-// unnest a param from the event_params array
+/**
+ * Extracts a value from the `event_params` array by key.
+ *
+ * Supported types: 'string', 'int', 'int64', 'double', 'float', 'float64'.
+ * If omitted, returns the value converted to a string.
+ *
+ * @param {string} keyName - The event parameter key to look up.
+ * @param {string} [dataType] - Optional data type for the extracted value.
+ * @returns {string} SQL subquery expression that extracts the event parameter value.
+ */
 const unnestEventParam = (keyName, dataType) => {
   return unnestParam(keyName, 'event_params', dataType);
 };
 
-// unnest a param from the session_params array
+/**
+ * Extracts a value from the `session_params` array by key.
+ *
+ * Supported types: 'string', 'int', 'int64', 'double', 'float', 'float64'.
+ * If omitted, returns the value converted to a string.
+ *
+ * @param {string} keyName - The session parameter key to look up.
+ * @param {string} [dataType] - Optional data type for the extracted value.
+ * @returns {string} SQL subquery expression that extracts the session parameter value.
+ */
 const unnestSessionParam = (keyName, dataType) => {
   return unnestParam(keyName, 'session_params', dataType);
 };
