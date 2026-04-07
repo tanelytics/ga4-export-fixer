@@ -319,18 +319,9 @@ ${excludedEventsSQL}`,
  * @returns {Object} The Dataform publish() object for the enhanced events table, supporting chaining (e.g. .preOps, .query).
  */
 const createEnhancedEventsTable = (dataformPublish, config) => {
-    // Extract user dataformTableConfig before SQL merge to prevent double-merge.
-    // mergeSQLConfigurations overwrites arrays (tags), so passing user overrides through it
-    // would lose the default tags. By stripping it here, user overrides are applied exactly
-    // once via mergeDataformTableConfigurations.
-    const { dataformTableConfig: userDataformTableConfig, ...sqlConfig } = config;
-
-    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, sqlConfig);
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
 
     const tableDescription = documentation.getTableDescription(mergedConfig);
-
-    // Static defaults from defaultConfig.js (via mergedConfig, without user overrides)
-    const staticDefaults = mergedConfig.dataformTableConfig || {};
 
     // Compute dynamic fields from merged SQL config
     const getDatasetName = (sourceTable) => {
@@ -352,10 +343,13 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
         columns: documentation.getColumnDescriptions(mergedConfig),
     };
 
-    // Merge: static defaults → dynamic fields → user overrides
+    // Build dataformTableConfig: static defaults (from defaultConfig.js) → dynamic fields → user overrides
+    // Uses defaultConfig.dataformTableConfig directly for defaults and config.dataformTableConfig
+    // directly for user overrides, bypassing mergeSQLConfigurations for this merge to ensure
+    // defaults are always applied and mergeDataformTableConfigurations handles tags correctly.
     const dataformTableConfig = utils.mergeDataformTableConfigurations(
-        { ...staticDefaults, ...dynamicFields },
-        userDataformTableConfig
+        { ...(defaultConfig.dataformTableConfig || {}), ...dynamicFields },
+        config.dataformTableConfig
     );
 
     // create the table using Dataform publish()
