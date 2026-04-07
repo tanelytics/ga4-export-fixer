@@ -151,7 +151,8 @@ const deleteNonFinalRows = (config) => {
 };
 
 const createSchemaLockTable = (config) => {
-  const tableName = 'events_schema_lock';
+  const outputTableName = config.self.replace(/`/g, '').split('.').pop();
+  const tableName = `events_schema_lock_${outputTableName}`;
   const tablePath = config.sourceTable.replace(/`?([^`]+)\.([^`]+)\.[^`]+`?$/, `\`$1.$2.${tableName}\``);
   const copySchemaFromTable = config.sourceTable.replace(/`?([^`]+)\.([^`]+)\.[^`]+`?$/, `\`$1.$2.events_${config.schemaLock}\``);
   
