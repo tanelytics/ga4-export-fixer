@@ -61,6 +61,7 @@ Thumbs.db
 # IDE files
 .vscode/
 .claude/
+.cursor/
 .idea/
 *.swp
 *.swo
