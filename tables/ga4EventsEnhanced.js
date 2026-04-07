@@ -343,12 +343,11 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
         columns: documentation.getColumnDescriptions(mergedConfig),
     };
 
-    // Build dataformTableConfig: static defaults (from defaultConfig.js) → dynamic fields → user overrides
-    // Uses defaultConfig.dataformTableConfig directly for defaults and config.dataformTableConfig
-    // directly for user overrides, bypassing mergeSQLConfigurations for this merge to ensure
-    // defaults are always applied and mergeDataformTableConfigurations handles tags correctly.
+    // Build dataformTableConfig: static defaults (from defaultConfig.js) → dynamic fields → user overrides.
+    // Deep-clone defaults to prevent Dataform's publish() from mutating nested objects (e.g. bigquery)
+    // across multiple createTable calls in the same process.
     const dataformTableConfig = utils.mergeDataformTableConfigurations(
-        { ...(defaultConfig.dataformTableConfig || {}), ...dynamicFields },
+        { ...JSON.parse(JSON.stringify(defaultConfig.dataformTableConfig || {})), ...dynamicFields },
         config.dataformTableConfig
     );
 
