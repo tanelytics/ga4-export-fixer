@@ -38,7 +38,18 @@ const ga4EventsEnhancedConfig = {
     // optional but recommended
     schemaLock: undefined,
     // only used with js tables
-    // dataformTableConfig: {},
+    dataformTableConfig: {
+        type: 'incremental',
+        bigquery: {
+            partitionBy: 'event_date',
+            clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
+            labels: {
+                'ga4_export_fixer': 'true'
+            }
+        },
+        onSchemaChange: 'EXTEND',
+        tags: ['ga4_export_fixer'],
+    },
     // optional
     includedExportTypes: {
         daily: true,

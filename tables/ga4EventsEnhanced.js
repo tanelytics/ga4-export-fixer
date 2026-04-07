@@ -319,50 +319,44 @@ ${excludedEventsSQL}`,
  * @returns {Object} The Dataform publish() object for the enhanced events table, supporting chaining (e.g. .preOps, .query).
  */
 const createEnhancedEventsTable = (dataformPublish, config) => {
-    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    // Extract user dataformTableConfig before SQL merge to prevent double-merge.
+    // mergeSQLConfigurations overwrites arrays (tags), so passing user overrides through it
+    // would lose the default tags. By stripping it here, user overrides are applied exactly
+    // once via mergeDataformTableConfigurations.
+    const { dataformTableConfig: userDataformTableConfig, ...sqlConfig } = config;
+
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, sqlConfig);
 
     const tableDescription = documentation.getTableDescription(mergedConfig);
 
-    // the defaults for the dataform table config
-    const defaultDataformTableConfig = {
-        name: constants.DEFAULT_EVENTS_TABLE_NAME,
-        type: 'incremental',
-        schema: 'ga4_export_fixer',
+    // Static defaults from defaultConfig.js (via mergedConfig, without user overrides)
+    const staticDefaults = mergedConfig.dataformTableConfig || {};
+
+    // Compute dynamic fields from merged SQL config
+    const getDatasetName = (sourceTable) => {
+        if (utils.isDataformTableReferenceObject(sourceTable)) {
+            return sourceTable.dataset || sourceTable.schema;
+        }
+        if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
+            return sourceTable.split('.')[1];
+        }
+        throw new Error(`Unable to extract the dataset name from sourceTable, received: ${JSON.stringify(sourceTable)}`);
+    };
+
+    const dataset = getDatasetName(mergedConfig.sourceTable);
+
+    const dynamicFields = {
+        name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
+        schema: dataset,
         description: tableDescription,
-        bigquery: {
-            partitionBy: 'event_date',
-            clusterBy: ['event_name', 'session_id', 'page_location', 'data_is_final'],
-            labels: {
-                'ga4_export_fixer': 'true'
-            }
-        },
-        onSchemaChange: 'EXTEND',
-        tags: ['ga4_export_fixer'],
-        columns: documentation.getColumnDescriptions(mergedConfig)
+        columns: documentation.getColumnDescriptions(mergedConfig),
     };
 
-    // set the default values for table name and dataset, if not provided in the config
-    const setDefaults = () => {
-        const getDatasetName = (sourceTable) => {
-            if (utils.isDataformTableReferenceObject(sourceTable)) {
-                return sourceTable.dataset || sourceTable.schema;
-            }
-            if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
-                return sourceTable.split('.')[1];
-            }
-            throw new Error(`Unable to extract the dataset name from sourceTable, received: ${JSON.stringify(sourceTable)}`);
-        };
-
-        const dataset = getDatasetName(mergedConfig.sourceTable);
-
-        defaultDataformTableConfig.name = `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`;
-        defaultDataformTableConfig.schema = dataset;
-    };
-
-    setDefaults();
-
-    // merge the dataform table config with the default dataform table config
-    const dataformTableConfig = utils.mergeDataformTableConfigurations(defaultDataformTableConfig, mergedConfig.dataformTableConfig);
+    // Merge: static defaults → dynamic fields → user overrides
+    const dataformTableConfig = utils.mergeDataformTableConfigurations(
+        { ...staticDefaults, ...dynamicFields },
+        userDataformTableConfig
+    );
 
     // create the table using Dataform publish()
     return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
