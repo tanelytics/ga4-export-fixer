@@ -347,9 +347,9 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
         config.dataformTableConfig
     );
 
-    // Include the final dataformTableConfig in mergedConfig for the description's config dump
-    mergedConfig.dataformTableConfig = dataformTableConfig;
-    const tableDescription = documentation.getTableDescription(mergedConfig);
+    // Pass dataformTableConfig to getTableDescription via a new object to avoid mutating mergedConfig
+    // (Dataform's sandboxed runtime may freeze objects returned by mergeSQLConfigurations)
+    const tableDescription = documentation.getTableDescription({ ...mergedConfig, dataformTableConfig });
 
     // Set description (user override from the merge wins if provided)
     if (!dataformTableConfig.description) {
