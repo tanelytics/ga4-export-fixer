@@ -282,13 +282,15 @@ const getTableDescription = (config) => {
     sections.push(`${constants.TABLE_DESCRIPTION_SUFFIX}\n${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}`);
 
     // 8. Config JSON dump
-    const configJson = JSON.stringify(
-        Object.fromEntries(
-            Object.entries(config).filter(([key]) => !key.startsWith('default') && key !== 'dataformTableConfig')
-        ),
-        null,
-        2
+    const configForDump = Object.fromEntries(
+        Object.entries(config).filter(([key]) => !key.startsWith('default'))
     );
+    // Strip description and columns from dataformTableConfig to avoid circular reference and bloat
+    if (configForDump.dataformTableConfig) {
+        const { description, columns, ...rest } = configForDump.dataformTableConfig;
+        configForDump.dataformTableConfig = rest;
+    }
+    const configJson = JSON.stringify(configForDump, null, 2);
     sections.push(`The last full table refresh was done using this configuration:\n${configJson}`);
 
     return sections.join('\n\n');

@@ -327,8 +327,6 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
 
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, sqlConfig);
 
-    const tableDescription = documentation.getTableDescription(mergedConfig);
-
     // Static defaults from defaultConfig.js (via mergedConfig, without user overrides)
     const staticDefaults = mergedConfig.dataformTableConfig || {};
 
@@ -345,18 +343,25 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
 
     const dataset = getDatasetName(mergedConfig.sourceTable);
 
-    const dynamicFields = {
-        name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
-        schema: dataset,
-        description: tableDescription,
-        columns: documentation.getColumnDescriptions(mergedConfig),
-    };
-
-    // Merge: static defaults → dynamic fields → user overrides
+    // Merge: static defaults → dynamic fields (except description) → user overrides
     const dataformTableConfig = utils.mergeDataformTableConfigurations(
-        { ...staticDefaults, ...dynamicFields },
+        {
+            ...staticDefaults,
+            name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
+            schema: dataset,
+            columns: documentation.getColumnDescriptions(mergedConfig),
+        },
         userDataformTableConfig
     );
+
+    // Include the final dataformTableConfig in mergedConfig for the description's config dump
+    mergedConfig.dataformTableConfig = dataformTableConfig;
+    const tableDescription = documentation.getTableDescription(mergedConfig);
+
+    // Set description (user override from the merge wins if provided)
+    if (!dataformTableConfig.description) {
+        dataformTableConfig.description = tableDescription;
+    }
 
     // create the table using Dataform publish()
     return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
