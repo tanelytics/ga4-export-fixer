@@ -321,8 +321,6 @@ ${excludedEventsSQL}`,
 const createEnhancedEventsTable = (dataformPublish, config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
 
-    const tableDescription = documentation.getTableDescription(mergedConfig);
-
     // Compute dynamic fields from merged SQL config
     const getDatasetName = (sourceTable) => {
         if (utils.isDataformTableReferenceObject(sourceTable)) {
@@ -336,20 +334,27 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
 
     const dataset = getDatasetName(mergedConfig.sourceTable);
 
-    const dynamicFields = {
-        name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
-        schema: dataset,
-        description: tableDescription,
-        columns: documentation.getColumnDescriptions(mergedConfig),
-    };
-
     // Build dataformTableConfig: static defaults (from defaultConfig.js) → dynamic fields → user overrides.
     // Deep-clone defaults to prevent Dataform's publish() from mutating nested objects (e.g. bigquery)
     // across multiple createTable calls in the same process.
     const dataformTableConfig = utils.mergeDataformTableConfigurations(
-        { ...JSON.parse(JSON.stringify(defaultConfig.dataformTableConfig || {})), ...dynamicFields },
+        {
+            ...JSON.parse(JSON.stringify(defaultConfig.dataformTableConfig || {})),
+            name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
+            schema: dataset,
+            columns: documentation.getColumnDescriptions(mergedConfig),
+        },
         config.dataformTableConfig
     );
+
+    // Include the final dataformTableConfig in mergedConfig for the description's config dump
+    mergedConfig.dataformTableConfig = dataformTableConfig;
+    const tableDescription = documentation.getTableDescription(mergedConfig);
+
+    // Set description (user override from the merge wins if provided)
+    if (!dataformTableConfig.description) {
+        dataformTableConfig.description = tableDescription;
+    }
 
     // create the table using Dataform publish()
     return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
