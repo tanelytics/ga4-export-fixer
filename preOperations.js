@@ -245,7 +245,11 @@ ${p.value}`;
     }
   }).join('\n\n');
 
-  // set the variables in pre operations
+  // return empty string if no pre-operations are needed
+  if (!preOperationsSQL) {
+    return '';
+  }
+
   return `
 /*
 Set the pre-operations for the query, required for managing incremental refreshes.
