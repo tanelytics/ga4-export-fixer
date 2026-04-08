@@ -252,9 +252,6 @@ Set the pre-operations for the query, required for managing incremental refreshe
 */
 
 ${preOperationsSQL}
-
--- End of pre-operations
-
 `;
 };
 
