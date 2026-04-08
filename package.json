@@ -22,6 +22,7 @@
     "test:preops": "node tests/preOperations.test.js",
     "test:events": "node tests/ga4EventsEnhanced.test.js",
     "test:merge": "node tests/mergeSQLConfigurations.test.js",
+    "test:integration": "node tests/integration/integration.test.js",
     "readme": "node scripts/updateReadme.js",
     "prepublishOnly": "node scripts/updateReadme.js"
   },
@@ -37,6 +38,7 @@
   "homepage": "https://github.com/tanelytics/ga4-export-fixer#readme",
   "devDependencies": {
     "@google-cloud/bigquery": "^8.1.1",
+    "@google-cloud/dataform": "^2.2.1",
     "dotenv": "^17.3.1"
   }
 }
