@@ -181,45 +181,44 @@ const run = async () => {
         // Post-run validation for tables whose actions succeeded
         if (incrementalRan && succeededTables.length > 0) {
             for (const table of succeededTables) {
-                try {
-                    const metadata = await bq.snapshotTableMetadata(
-                        bigquery, config.projectId, table.dataset, table.name
-                    );
+                const expectedTypes = ['daily', 'intraday'];
+                const [metadataResult, freshnessResult, exportResult] = await Promise.allSettled([
+                    bq.snapshotTableMetadata(bigquery, config.projectId, table.dataset, table.name),
+                    bq.validateDataFreshness(bigquery, config.projectId, table.dataset, table.name, config.maxDataAgeMinutes),
+                    bq.validateExportTypes(bigquery, config.projectId, table.dataset, table.name, expectedTypes),
+                ]);
+
+                if (metadataResult.status === 'fulfilled') {
+                    const metadata = metadataResult.value;
                     const totalRows = metadata.reduce((sum, p) => sum + p.totalRows, 0);
                     pass(2, `${table.name}: ${totalRows.toLocaleString()} rows, ${metadata.length} partitions`);
-                } catch (err) {
-                    fail(2, `${table.name} metadata query failed: ${err.message}`);
+                } else {
+                    fail(2, `${table.name} metadata query failed: ${metadataResult.reason.message}`);
                 }
 
-                try {
-                    const freshness = await bq.validateDataFreshness(
-                        bigquery, config.projectId, table.dataset, table.name, config.maxDataAgeMinutes
-                    );
+                if (freshnessResult.status === 'fulfilled') {
+                    const freshness = freshnessResult.value;
                     if (freshness.fresh) {
                         pass(2, `${table.name}: Latest insert ${freshness.ageMinutes}m ago`);
                     } else {
                         fail(2, `${table.name}: Data not fresh (${freshness.ageMinutes}m old, max ${config.maxDataAgeMinutes}m)`);
                     }
-                } catch (err) {
-                    fail(2, `${table.name} freshness check failed: ${err.message}`);
+                } else {
+                    fail(2, `${table.name} freshness check failed: ${freshnessResult.reason.message}`);
                 }
 
-                try {
-                    // Expected export types based on default config (daily + intraday)
-                    const expectedTypes = ['daily', 'intraday'];
-                    const exportResult = await bq.validateExportTypes(
-                        bigquery, config.projectId, table.dataset, table.name, expectedTypes
-                    );
-                    const typesSummary = Object.entries(exportResult.exportTypes)
+                if (exportResult.status === 'fulfilled') {
+                    const result = exportResult.value;
+                    const typesSummary = Object.entries(result.exportTypes)
                         .map(([type, count]) => `${type} (${count.toLocaleString()})`)
                         .join(', ');
-                    if (exportResult.unexpected.length === 0) {
+                    if (result.unexpected.length === 0) {
                         pass(2, `${table.name}: Export types: ${typesSummary}`);
                     } else {
-                        fail(2, `${table.name}: Unexpected export types: ${exportResult.unexpected.join(', ')}`);
+                        fail(2, `${table.name}: Unexpected export types: ${result.unexpected.join(', ')}`);
                     }
-                } catch (err) {
-                    fail(2, `${table.name} export type check failed: ${err.message}`);
+                } else {
+                    fail(2, `${table.name} export type check failed: ${exportResult.reason.message}`);
                 }
             }
         }
@@ -257,17 +256,20 @@ const run = async () => {
         }
 
         if (fullRefreshRan && fullRefreshSucceededTables.length > 0) {
-            for (const table of fullRefreshSucceededTables) {
-                try {
-                    const metadata = await bq.snapshotTableMetadata(
-                        bigquery, config.projectId, table.dataset, table.name
-                    );
-                    const totalRows = metadata.reduce((sum, p) => sum + p.totalRows, 0);
-                    pass(3, `${table.name}: ${totalRows.toLocaleString()} rows, ${metadata.length} partitions`);
-                } catch (err) {
-                    fail(3, `${table.name} metadata query failed: ${err.message}`);
+            const metadataResults = await Promise.allSettled(
+                fullRefreshSucceededTables.map(table =>
+                    bq.snapshotTableMetadata(bigquery, config.projectId, table.dataset, table.name)
+                )
+            );
+            fullRefreshSucceededTables.forEach((table, i) => {
+                const r = metadataResults[i];
+                if (r.status === 'fulfilled') {
+                    const totalRows = r.value.reduce((sum, p) => sum + p.totalRows, 0);
+                    pass(3, `${table.name}: ${totalRows.toLocaleString()} rows, ${r.value.length} partitions`);
+                } else {
+                    fail(3, `${table.name} metadata query failed: ${r.reason.message}`);
                 }
-            }
+            });
         }
 
         // ─── Phase 4: Delete and Recovery ────────────────────────────────
@@ -279,21 +281,24 @@ const run = async () => {
             const deletedPartitionsPerTable = {};
 
             // Delete recent partitions from each table that succeeded in full refresh
-            for (const table of fullRefreshSucceededTables) {
-                try {
-                    const deleteResult = await bq.deleteRecentPartitions(
-                        bigquery, config.projectId, table.dataset, table.name, config.partitionsToDelete
-                    );
-                    if (deleteResult.deletedPartitions.length > 0) {
-                        deletedPartitionsPerTable[table.name] = deleteResult.deletedPartitions;
-                        pass(4, `${table.name}: Deleted ${deleteResult.deletedPartitions.length} partitions (${deleteResult.deletedRows.toLocaleString()} rows): ${deleteResult.deletedPartitions.join(', ')}`);
+            const deleteResults = await Promise.allSettled(
+                fullRefreshSucceededTables.map(table =>
+                    bq.deleteRecentPartitions(bigquery, config.projectId, table.dataset, table.name, config.partitionsToDelete)
+                )
+            );
+            fullRefreshSucceededTables.forEach((table, i) => {
+                const r = deleteResults[i];
+                if (r.status === 'fulfilled') {
+                    if (r.value.deletedPartitions.length > 0) {
+                        deletedPartitionsPerTable[table.name] = r.value.deletedPartitions;
+                        pass(4, `${table.name}: Deleted ${r.value.deletedPartitions.length} partitions (${r.value.deletedRows.toLocaleString()} rows): ${r.value.deletedPartitions.join(', ')}`);
                     } else {
                         pass(4, `${table.name}: No partitions to delete (table may be empty)`);
                     }
-                } catch (err) {
-                    fail(4, `${table.name} partition delete failed: ${err.message}`);
+                } else {
+                    fail(4, `${table.name} partition delete failed: ${r.reason.message}`);
                 }
-            }
+            });
 
             // Run incremental to recover deleted data
             let recoverySucceededTables = [];
@@ -322,32 +327,33 @@ const run = async () => {
             }
 
             // Validate recovery for tables that succeeded
-            if (recoverySucceededTables.length > 0) {
-                for (const table of recoverySucceededTables) {
-                    const deletedPartitions = deletedPartitionsPerTable[table.name];
-                    if (!deletedPartitions || deletedPartitions.length === 0) continue;
-
-                    try {
-                        const recovery = await bq.validatePartitionRecovery(
-                            bigquery, config.projectId, table.dataset, table.name, deletedPartitions
-                        );
-                        if (recovery.recovered) {
-                            recovery.partitions.forEach(p => {
+            const recoveryTablesToValidate = recoverySucceededTables.filter(t => {
+                const dp = deletedPartitionsPerTable[t.name];
+                return dp && dp.length > 0;
+            });
+            if (recoveryTablesToValidate.length > 0) {
+                const recoveryResults = await Promise.allSettled(
+                    recoveryTablesToValidate.map(table =>
+                        bq.validatePartitionRecovery(
+                            bigquery, config.projectId, table.dataset, table.name,
+                            deletedPartitionsPerTable[table.name]
+                        )
+                    )
+                );
+                recoveryTablesToValidate.forEach((table, i) => {
+                    const r = recoveryResults[i];
+                    if (r.status === 'fulfilled') {
+                        r.value.partitions.forEach(p => {
+                            if (p.totalRows > 0) {
                                 pass(4, `${table.name} partition ${p.partitionId}: recovered (${p.totalRows} rows)`);
-                            });
-                        } else {
-                            recovery.partitions.forEach(p => {
-                                if (p.totalRows > 0) {
-                                    pass(4, `${table.name} partition ${p.partitionId}: recovered (${p.totalRows} rows)`);
-                                } else {
-                                    fail(4, `${table.name} partition ${p.partitionId}: NOT recovered (0 rows)`);
-                                }
-                            });
-                        }
-                    } catch (err) {
-                        fail(4, `${table.name} recovery validation failed: ${err.message}`);
+                            } else {
+                                fail(4, `${table.name} partition ${p.partitionId}: NOT recovered (0 rows)`);
+                            }
+                        });
+                    } else {
+                        fail(4, `${table.name} recovery validation failed: ${r.reason.message}`);
                     }
-                }
+                });
             }
         }
 
