@@ -6,23 +6,28 @@ const { isDataformTableReferenceObject } = require('./utils.js');
  * self, incremental, test, testConfig, and preOperations.
  *
  * @param {Object} config - The merged configuration object to validate.
+ * @param {Object} [options] - Validation options.
+ * @param {boolean} [options.skipDataformContextFields=false] - Skip validation of `self` and `incremental`,
+ *   which are set by Dataform's publish() context rather than user input.
  * @throws {Error} If any base configuration value is invalid or missing.
  */
-const validateBaseConfig = (config) => {
+const validateBaseConfig = (config, options = {}) => {
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
         throw new Error(`config must be a non-null object. Received: ${JSON.stringify(config)}`);
     }
 
-    // self - required, must be valid format
-    if (config.test !== true) {
-        if (typeof config.self !== 'string' || !config.self.trim() || !/^`[^`]+`$/.test(config.self.trim())) {
-            throw new Error(`config.self is required when config.test !== true and must be a non-empty string in format '\`project.dataset.table\`' (using the ref() function). Received: ${JSON.stringify(config.self)}`);
+    if (!options.skipDataformContextFields) {
+        // self - required, must be valid format
+        if (config.test !== true) {
+            if (typeof config.self !== 'string' || !config.self.trim() || !/^`[^`]+`$/.test(config.self.trim())) {
+                throw new Error(`config.self is required when config.test !== true and must be a non-empty string in format '\`project.dataset.table\`' (using the ref() function). Received: ${JSON.stringify(config.self)}`);
+            }
         }
-    }
 
-    // incremental - required, must be boolean
-    if (typeof config.incremental !== 'boolean') {
-        throw new Error(`config.incremental must be a boolean. Received: ${JSON.stringify(config.incremental)}`);
+        // incremental - required, must be boolean
+        if (typeof config.incremental !== 'boolean') {
+            throw new Error(`config.incremental must be a boolean. Received: ${JSON.stringify(config.incremental)}`);
+        }
     }
 
     // test - optional; when defined, must be a boolean
@@ -96,14 +101,14 @@ const validateBaseConfig = (config) => {
  * @param {Object} config - The merged configuration object to validate.
  * @throws {Error} If any configuration value is invalid or missing.
  */
-const validateEnhancedEventsConfig = (config) => {
+const validateEnhancedEventsConfig = (config, options = {}) => {
   try {
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
         throw new Error(`config must be a non-null object. Received: ${JSON.stringify(config)}`);
     }
 
     // base config fields (self, incremental, test, testConfig, preOperations)
-    validateBaseConfig(config);
+    validateBaseConfig(config, options);
 
     /*
     Rest of the validations are related to ga4_events_enhanced table specific fields

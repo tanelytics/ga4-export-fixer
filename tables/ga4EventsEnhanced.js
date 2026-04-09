@@ -318,7 +318,7 @@ const generateEnhancedEventsSQL = (config) => {
  */
 const createEnhancedEventsTable = (dataformPublish, config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
-    inputValidation.validateEnhancedEventsConfig(mergedConfig);
+    inputValidation.validateEnhancedEventsConfig(mergedConfig, { skipDataformContextFields: true });
 
     // Compute dynamic fields from merged SQL config
     const getDatasetName = (sourceTable) => {
