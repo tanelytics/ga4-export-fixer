@@ -1,5 +1,6 @@
 const helpers = require('../../helpers/index.js');
 const utils = require('../../utils.js');
+const preOperations = require('../../preOperations.js');
 const constants = require('../../constants.js');
 const { ga4EventsEnhancedConfig } = require('./config.js');
 const { validateEnhancedEventsConfig } = require('./validation.js');
