@@ -146,16 +146,7 @@ const getFinalColumnOrder = (eventDataStep, sessionDataStep) => {
  *   eventParamsToColumns: [{ name: 'foo', type: 'string' }]
  * });
  */
-const generateEnhancedEventsSQL = (config) => {
-    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
-
-    // validate the config and throw an error if it's invalid
-    inputValidation.validateEnhancedEventsConfig(mergedConfig);
-
-    if (!mergedConfig.sourceTable || typeof mergedConfig.sourceTable !== 'string' || mergedConfig.sourceTable.trim() === '') {
-        throw new Error("generateEnhancedEventsSQL: 'sourceTable' is a required parameter in config and must be a non-empty string.");
-    }
-
+const _generateEnhancedEventsSQL = (mergedConfig) => {
     // the most accurate available timestamp column
     const mainTimestampColumn = mergedConfig.customTimestampParam ? 'event_custom_timestamp' : 'event_timestamp';
 
@@ -297,6 +288,13 @@ ${excludedEventsSQL}`,
     return utils.queryBuilder(steps);
 };
 
+// Exported wrapper: merge config, validate, then delegate to the internal function
+const generateEnhancedEventsSQL = (config) => {
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    inputValidation.validateEnhancedEventsConfig(mergedConfig);
+    return _generateEnhancedEventsSQL(mergedConfig);
+};
+
 /**
  * Creates an enhanced GA4 events table using Dataform's publish() API.
  *
@@ -320,6 +318,7 @@ ${excludedEventsSQL}`,
  */
 const createEnhancedEventsTable = (dataformPublish, config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    inputValidation.validateEnhancedEventsConfig(mergedConfig);
 
     // Compute dynamic fields from merged SQL config
     const getDatasetName = (sourceTable) => {
@@ -360,15 +359,15 @@ const createEnhancedEventsTable = (dataformPublish, config) => {
     return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
         return preOperations.setPreOperations(utils.setDataformContext(ctx, mergedConfig));
     }).query(ctx => {
-        return generateEnhancedEventsSQL(utils.setDataformContext(ctx, mergedConfig));
+        return _generateEnhancedEventsSQL(utils.setDataformContext(ctx, mergedConfig));
     });
 
 };
 
-// provide a merged config for the pre operations
-// required for the .sqlx deployment
+// Exported wrapper: merge config, validate, then delegate to preOperations module
 const setPreOperations = (config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    inputValidation.validateEnhancedEventsConfig(mergedConfig);
     return preOperations.setPreOperations(mergedConfig);
 };
 
