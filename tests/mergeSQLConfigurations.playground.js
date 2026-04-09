@@ -1,6 +1,8 @@
 const { mergeSQLConfigurations } = require('../utils');
-const { baseConfig, ga4EventsEnhancedConfig } = require('../defaultConfig');
-const { validateBaseConfig, validateEnhancedEventsConfig } = require('../inputValidation');
+const { baseConfig } = require('../defaultConfig');
+const { validateBaseConfig } = require('../inputValidation');
+const { ga4EventsEnhancedConfig } = require('../tables/ga4EventsEnhanced/config');
+const { validateEnhancedEventsConfig } = require('../tables/ga4EventsEnhanced/validation');
 
 const log = (label, result, validationFunction) => {
   console.log(`\n--- ${label} ---`);

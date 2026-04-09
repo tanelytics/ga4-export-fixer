@@ -12,7 +12,7 @@ After editing `README.md`, run `npm run readme` to regenerate the table of conte
 
 Validation functions in `inputValidation.js` **throw** on invalid input. They do not return booleans. When wrapping a validation call, use try/catch — not a truthy check on the return value.
 
-`validateBaseConfig` covers fields from `baseConfig` in `defaultConfig.js`. `validateEnhancedEventsConfig` covers the full GA4 events enhanced config and calls `validateBaseConfig` internally. When adding new config fields to `defaultConfig.js`, add corresponding validation to `inputValidation.js`.
+`validateBaseConfig` in `inputValidation.js` covers fields from `baseConfig` in `defaultConfig.js`. Table-specific validators live inside their table module directory (e.g. `tables/ga4EventsEnhanced/validation.js`). Each table-specific validator calls `validateBaseConfig` internally.
 
 ## Refactoring checklist
 

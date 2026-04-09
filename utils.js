@@ -415,6 +415,26 @@ const processDate = (dateInput) => {
     throw new Error(`processDate: Unsupported date input format: ${JSON.stringify(dateInput)}. Expected formats are: YYYYMMDD, YYYY-MM-DD, or BigQuery SQL statement.`);
 };
 
+/**
+ * Extracts the dataset name from a sourceTable configuration value.
+ *
+ * Supports both Dataform table reference objects (with 'dataset' or 'schema' property)
+ * and backtick-quoted strings in the format '`project.dataset.table`'.
+ *
+ * @param {Object|string} sourceTable - A Dataform table reference object or a backtick-quoted string.
+ * @returns {string} The dataset name.
+ * @throws {Error} If the dataset name cannot be extracted from the provided value.
+ */
+const getDatasetName = (sourceTable) => {
+    if (isDataformTableReferenceObject(sourceTable)) {
+        return sourceTable.dataset || sourceTable.schema;
+    }
+    if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
+        return sourceTable.split('.')[1];
+    }
+    throw new Error(`Unable to extract the dataset name from sourceTable, received: ${JSON.stringify(sourceTable)}`);
+};
+
 module.exports = {
     mergeUniqueArrays,
     mergeSQLConfigurations,
@@ -423,5 +443,6 @@ module.exports = {
     isDataformTableReferenceObject,
     setDataformContext,
     selectOtherColumns,
-    processDate
+    processDate,
+    getDatasetName
 };

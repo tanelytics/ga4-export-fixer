@@ -1,10 +1,18 @@
-const helpers = require('../helpers/index.js');
-const utils = require('../utils.js');
-const inputValidation = require('../inputValidation.js');
-const constants = require('../constants.js');
-const preOperations = require('../preOperations.js');
-const { ga4EventsEnhancedConfig } = require('../defaultConfig.js'); // config defaults
-const documentation = require('../documentation.js');
+const helpers = require('../../helpers/index.js');
+const utils = require('../../utils.js');
+const constants = require('../../constants.js');
+const { ga4EventsEnhancedConfig } = require('./config.js');
+const { validateEnhancedEventsConfig } = require('./validation.js');
+const documentation = require('../../documentation.js');
+const { createTable } = require('../../createTable.js');
+const { getTableDescriptionSections } = require('./tableDescription.js');
+
+// Column metadata for the GA4 Events Enhanced table
+const columnMetadata = {
+    descriptions: require('./columns/columnDescriptions.json'),
+    lineage: require('./columns/columnLineage.json'),
+    typicalUse: require('./columns/columnTypicalUse.json'),
+};
 
 // default configuration for the GA4 Events Enhanced table
 const defaultConfig = {
@@ -291,7 +299,7 @@ ${excludedEventsSQL}`,
 // Exported wrapper: merge config, validate, then delegate to the internal function
 const generateEnhancedEventsSQL = (config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
-    inputValidation.validateEnhancedEventsConfig(mergedConfig);
+    validateEnhancedEventsConfig(mergedConfig);
     return _generateEnhancedEventsSQL(mergedConfig);
 };
 
@@ -316,58 +324,24 @@ const generateEnhancedEventsSQL = (config) => {
  *
  * @returns {Object} The Dataform publish() object for the enhanced events table, supporting chaining (e.g. .preOps, .query).
  */
+// Table module definition — conforms to the shared createTable interface
+const tableModule = {
+    defaultConfig,
+    defaultTableName: constants.DEFAULT_EVENTS_TABLE_NAME,
+    validate: validateEnhancedEventsConfig,
+    generateSql: _generateEnhancedEventsSQL,
+    getColumnDescriptions: (config) => documentation.getColumnDescriptions(config, columnMetadata),
+    getTableDescription: (config) => documentation.buildTableDescription(config, getTableDescriptionSections(config)),
+};
+
 const createEnhancedEventsTable = (dataformPublish, config) => {
-    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
-    inputValidation.validateEnhancedEventsConfig(mergedConfig, { skipDataformContextFields: true });
-
-    // Compute dynamic fields from merged SQL config
-    const getDatasetName = (sourceTable) => {
-        if (utils.isDataformTableReferenceObject(sourceTable)) {
-            return sourceTable.dataset || sourceTable.schema;
-        }
-        if (typeof sourceTable === 'string' && /^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(sourceTable)) {
-            return sourceTable.split('.')[1];
-        }
-        throw new Error(`Unable to extract the dataset name from sourceTable, received: ${JSON.stringify(sourceTable)}`);
-    };
-
-    const dataset = getDatasetName(mergedConfig.sourceTable);
-
-    // Build dataformTableConfig: static defaults (from defaultConfig.js) → dynamic fields → user overrides.
-    // Deep-clone defaults to prevent Dataform's publish() from mutating nested objects (e.g. bigquery)
-    // across multiple createTable calls in the same process.
-    const dataformTableConfig = utils.mergeDataformTableConfigurations(
-        {
-            ...JSON.parse(JSON.stringify(defaultConfig.dataformTableConfig || {})),
-            name: `${constants.DEFAULT_EVENTS_TABLE_NAME}_${dataset.replace('analytics_', '')}`,
-            schema: dataset,
-            columns: documentation.getColumnDescriptions(mergedConfig),
-        },
-        config.dataformTableConfig
-    );
-
-    // Pass dataformTableConfig to getTableDescription via a new object to avoid mutating mergedConfig
-    // (Dataform's sandboxed runtime may freeze objects returned by mergeSQLConfigurations)
-    const tableDescription = documentation.getTableDescription({ ...mergedConfig, dataformTableConfig });
-
-    // Set description (user override from the merge wins if provided)
-    if (!dataformTableConfig.description) {
-        dataformTableConfig.description = tableDescription;
-    }
-
-    // create the table using Dataform publish()
-    return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
-        return preOperations.setPreOperations(utils.setDataformContext(ctx, mergedConfig));
-    }).query(ctx => {
-        return _generateEnhancedEventsSQL(utils.setDataformContext(ctx, mergedConfig));
-    });
-
+    return createTable(dataformPublish, config, tableModule);
 };
 
 // Exported wrapper: merge config, validate, then delegate to preOperations module
 const setPreOperations = (config) => {
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
-    inputValidation.validateEnhancedEventsConfig(mergedConfig);
+    validateEnhancedEventsConfig(mergedConfig);
     return preOperations.setPreOperations(mergedConfig);
 };
 

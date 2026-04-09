@@ -1,15 +1,22 @@
 const assert = require('assert');
 const {
-    columnDescriptions,
     getColumnDescriptions,
-    getTableDescription,
+    buildTableDescription,
     composeDescription,
     getLineageText,
     buildConfigNotes,
 } = require('../documentation');
-const columnLineage = require('../columns/columnLineage.json');
-const columnTypicalUse = require('../columns/columnTypicalUse.json');
+const { getTableDescriptionSections } = require('../tables/ga4EventsEnhanced/tableDescription.js');
+const columnDescriptions = require('../tables/ga4EventsEnhanced/columns/columnDescriptions.json');
+const columnLineage = require('../tables/ga4EventsEnhanced/columns/columnLineage.json');
+const columnTypicalUse = require('../tables/ga4EventsEnhanced/columns/columnTypicalUse.json');
 const { isGa4ExportColumn } = require('../helpers/index.js');
+
+// Column metadata for tests — mirrors what the table module provides
+const columnMetadata = { descriptions: columnDescriptions, lineage: columnLineage, typicalUse: columnTypicalUse };
+
+// Helper: build a full table description the same way the table module does
+const getTableDescription = (config) => buildTableDescription(config, getTableDescriptionSections(config));
 
 let passed = 0;
 let failed = 0;
@@ -72,28 +79,28 @@ test('omits sections with empty string values', () => {
 console.log('\n2. getLineageText\n');
 
 test('returns formatted text for ga4_export source', () => {
-    const result = getLineageText('event_timestamp');
+    const result = getLineageText('event_timestamp', columnLineage);
     assert.strictEqual(result, 'Standard GA4 export field');
 });
 
 test('returns formatted text for ga4_export_modified source with note', () => {
-    const result = getLineageText('ecommerce');
+    const result = getLineageText('ecommerce', columnLineage);
     assert.ok(result.startsWith('GA4 export field (modified) -- '));
 });
 
 test('returns formatted text for derived source with note', () => {
-    const result = getLineageText('session_id');
+    const result = getLineageText('session_id', columnLineage);
     assert.ok(result.startsWith('Derived -- '));
 });
 
 test('returns null for unknown column', () => {
-    const result = getLineageText('nonexistent_column_xyz');
+    const result = getLineageText('nonexistent_column_xyz', columnLineage);
     assert.strictEqual(result, null);
 });
 
 test('returns label only when entry has no note', () => {
     // event_timestamp and event_name are ga4_export with no note
-    const result = getLineageText('event_name');
+    const result = getLineageText('event_name', columnLineage);
     assert.strictEqual(result, 'Standard GA4 export field');
 });
 
@@ -166,24 +173,24 @@ test('combines timezone and custom timestamp for event_datetime', () => {
 console.log('\n4. getColumnDescriptions integration\n');
 
 test('returns descriptions without config', () => {
-    const result = getColumnDescriptions(null);
+    const result = getColumnDescriptions(null, columnMetadata);
     assert.ok(typeof result === 'object');
     assert.ok(Object.keys(result).length > 0);
 });
 
 test('string columns have multi-section format with lineage', () => {
-    const result = getColumnDescriptions(null);
+    const result = getColumnDescriptions(null, columnMetadata);
     // event_timestamp is a ga4_export column with typical use
     assert.ok(result.event_timestamp.includes('Lineage: Standard GA4 export field'));
 });
 
 test('string columns include typical use when available', () => {
-    const result = getColumnDescriptions(null);
+    const result = getColumnDescriptions(null, columnMetadata);
     assert.ok(result.session_id.includes('Typical use:'));
 });
 
 test('struct columns have multi-section description field', () => {
-    const result = getColumnDescriptions(null);
+    const result = getColumnDescriptions(null, columnMetadata);
     assert.ok(typeof result.ecommerce === 'object');
     assert.ok(result.ecommerce.description.includes('Lineage: GA4 export field (modified)'));
     // sub-fields should remain simple strings
@@ -192,14 +199,14 @@ test('struct columns have multi-section description field', () => {
 });
 
 test('config notes appear in descriptions', () => {
-    const result = getColumnDescriptions({ timezone: 'Europe/Helsinki' });
+    const result = getColumnDescriptions({ timezone: 'Europe/Helsinki' }, columnMetadata);
     assert.ok(result.event_datetime.includes('Config: Timezone: Europe/Helsinki'));
 });
 
 test('promoted event params get all sections', () => {
     const result = getColumnDescriptions({
         eventParamsToColumns: [{ name: 'page_type', type: 'string' }],
-    });
+    }, columnMetadata);
     assert.ok(result.page_type.includes("Promoted from event parameter 'page_type' (string)"));
     assert.ok(result.page_type.includes('Lineage: Derived'));
     assert.ok(result.page_type.includes('Typical use:'));
@@ -208,13 +215,13 @@ test('promoted event params get all sections', () => {
 test('promoted event params with custom column name', () => {
     const result = getColumnDescriptions({
         eventParamsToColumns: [{ name: 'content_group', type: 'string', columnName: 'page_content_group' }],
-    });
+    }, columnMetadata);
     assert.ok(result.page_content_group);
     assert.ok(result.page_content_group.includes("Promoted from event parameter 'content_group'"));
 });
 
 test('all top-level descriptions are strings (not corrupted)', () => {
-    const result = getColumnDescriptions(null);
+    const result = getColumnDescriptions(null, columnMetadata);
     for (const [key, value] of Object.entries(result)) {
         if (typeof value === 'string') {
             assert.ok(value.length > 0, `${key} has empty description`);
@@ -235,7 +242,7 @@ test('no description exceeds 1024 characters', () => {
         dataIsFinal: { detectionMethod: 'DAY_THRESHOLD', dayThreshold: 3 },
         includedExportTypes: { daily: true, intraday: true, fresh: true },
         eventParamsToColumns: [{ name: 'page_type', type: 'string' }],
-    });
+    }, columnMetadata);
     for (const [key, value] of Object.entries(result)) {
         const desc = typeof value === 'string' ? value : value?.description;
         if (desc) {
