@@ -181,12 +181,26 @@ const run = async () => {
         // Post-run validation for tables whose actions succeeded
         if (incrementalRan && succeededTables.length > 0) {
             for (const table of succeededTables) {
-                const expectedTypes = ['daily', 'intraday'];
-                const [metadataResult, freshnessResult, exportResult] = await Promise.allSettled([
+                // Check which columns exist to gate table-specific validations
+                let columns;
+                try {
+                    columns = await bq.getTableColumns(bigquery, config.projectId, table.dataset, table.name);
+                } catch (err) {
+                    fail(2, `${table.name} column check failed: ${err.message}`);
+                    continue;
+                }
+
+                const hasExportType = columns.has('export_type');
+                const hasFreshness = columns.has('row_inserted_timestamp');
+
+                const validations = [
                     bq.snapshotTableMetadata(bigquery, config.projectId, table.dataset, table.name),
-                    bq.validateDataFreshness(bigquery, config.projectId, table.dataset, table.name, config.maxDataAgeMinutes),
-                    bq.validateExportTypes(bigquery, config.projectId, table.dataset, table.name, expectedTypes),
-                ]);
+                    hasFreshness ? bq.validateDataFreshness(bigquery, config.projectId, table.dataset, table.name, config.maxDataAgeMinutes) : null,
+                    hasExportType ? bq.validateExportTypes(bigquery, config.projectId, table.dataset, table.name, ['daily', 'intraday']) : null,
+                ];
+                const [metadataResult, freshnessResult, exportResult] = await Promise.allSettled(
+                    validations.map(v => v ?? Promise.resolve(null))
+                );
 
                 if (metadataResult.status === 'fulfilled') {
                     const metadata = metadataResult.value;
@@ -196,7 +210,9 @@ const run = async () => {
                     fail(2, `${table.name} metadata query failed: ${metadataResult.reason.message}`);
                 }
 
-                if (freshnessResult.status === 'fulfilled') {
+                if (!hasFreshness) {
+                    console.log(`  ⏭️  ${table.name}: skipping freshness check (no row_inserted_timestamp column)`);
+                } else if (freshnessResult.status === 'fulfilled') {
                     const freshness = freshnessResult.value;
                     if (freshness.fresh) {
                         pass(2, `${table.name}: Latest insert ${freshness.ageMinutes}m ago`);
@@ -207,7 +223,9 @@ const run = async () => {
                     fail(2, `${table.name} freshness check failed: ${freshnessResult.reason.message}`);
                 }
 
-                if (exportResult.status === 'fulfilled') {
+                if (!hasExportType) {
+                    console.log(`    ⏭️  ${table.name}: skipping export type check (no export_type column)`);
+                } else if (exportResult.status === 'fulfilled') {
                     const result = exportResult.value;
                     const typesSummary = Object.entries(result.exportTypes)
                         .map(([type, count]) => `${type} (${count.toLocaleString()})`)

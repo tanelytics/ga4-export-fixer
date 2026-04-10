@@ -212,6 +212,30 @@ const validatePartitionRecovery = async (bigquery, project, dataset, tableName, 
     return { recovered: allRecovered, partitions: results };
 };
 
+/**
+ * Get the set of column names for a table.
+ *
+ * @param {BigQuery} bigquery
+ * @param {string} project
+ * @param {string} dataset
+ * @param {string} tableName
+ * @returns {Promise<Set<string>>}
+ */
+const getTableColumns = async (bigquery, project, dataset, tableName) => {
+    const query = `
+        SELECT column_name
+        FROM \`${project}.${dataset}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = @tableName`;
+
+    const [rows] = await bigquery.query({
+        query,
+        params: { tableName },
+        location: process.env.BIGQUERY_LOCATION || 'EU',
+    });
+
+    return new Set(rows.map(r => r.column_name));
+};
+
 module.exports = {
     createClient,
     snapshotTableMetadata,
@@ -219,4 +243,5 @@ module.exports = {
     validateDataFreshness,
     deleteRecentPartitions,
     validatePartitionRecovery,
+    getTableColumns,
 };

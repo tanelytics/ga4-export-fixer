@@ -126,10 +126,10 @@ const discoverTaggedActions = async (client, compilationResultName, tag) => {
     for await (const action of iterable) {
         if (!action.target) continue;
 
-        // Match by Dataform tags (top-level) or BigQuery labels
-        const actionTags = action.tags || [];
+        // Match by relation tags or BigQuery labels
+        const relationTags = action.relation?.tags || [];
         const bigqueryLabels = action.relation?.relationDescriptor?.bigqueryLabels || {};
-        const hasTag = actionTags.includes(tag) || bigqueryLabels[tag] !== undefined;
+        const hasTag = relationTags.includes(tag) || bigqueryLabels[tag] !== undefined;
         const isTable = action.relation != null;
 
         if (hasTag && isTable) {
