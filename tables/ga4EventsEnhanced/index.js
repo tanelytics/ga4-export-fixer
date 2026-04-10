@@ -157,7 +157,7 @@ const getFinalColumnOrder = (eventDataStep, sessionDataStep) => {
  */
 const _generateEnhancedEventsSQL = (mergedConfig) => {
     // the most accurate available timestamp column
-    const mainTimestampColumn = mergedConfig.customTimestampParam ? 'event_custom_timestamp' : 'event_timestamp';
+    const timestampColumn = mergedConfig.customTimestampParam ? 'event_custom_timestamp' : 'event_timestamp';
 
     // exlude these events from the table
     const excludedEvents = mergedConfig.excludedEvents;
@@ -236,12 +236,12 @@ ${excludedEventsSQL}`,
         name: 'session_data',
         columns: {
             session_id: 'session_id',
-            user_id: helpers.aggregateValue('user_id', 'last', mainTimestampColumn),
-            merged_user_id: `ifnull(${helpers.aggregateValue('user_id', 'last', mainTimestampColumn)}, any_value(user_pseudo_id))`,
-            session_params: helpers.aggregateSessionParams(mergedConfig.sessionParams, 'session_params_prep', mainTimestampColumn),
-            session_traffic_source_last_click: helpers.aggregateValue('session_traffic_source_last_click', 'first', mainTimestampColumn),
-            session_first_traffic_source: `array_agg(collected_traffic_source order by ${mainTimestampColumn} limit 1)[safe_offset(0)]`, // don't ignore nulls
-            landing_page: helpers.aggregateValue(`if(entrances > 0, page, null)`, 'first', mainTimestampColumn),
+            user_id: helpers.aggregateValue('user_id', 'last', timestampColumn),
+            merged_user_id: `ifnull(${helpers.aggregateValue('user_id', 'last', timestampColumn)}, any_value(user_pseudo_id))`,
+            session_params: helpers.aggregateSessionParams(mergedConfig.sessionParams, 'session_params_prep', timestampColumn),
+            session_traffic_source_last_click: helpers.aggregateValue('session_traffic_source_last_click', 'first', timestampColumn),
+            session_first_traffic_source: `array_agg(collected_traffic_source order by ${timestampColumn} limit 1)[safe_offset(0)]`, // don't ignore nulls
+            landing_page: helpers.aggregateValue(`if(entrances > 0, page, null)`, 'first', timestampColumn),
         },
         from: 'event_data',
         where: `session_id is not null`,
