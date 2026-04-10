@@ -346,8 +346,20 @@ const setPreOperations = (config) => {
     return preOperations.setPreOperations(mergedConfig);
 };
 
+const getColumnDescriptions = (config) => {
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    return documentation.getColumnDescriptions(mergedConfig, columnMetadata);
+};
+
+const getTableDescription = (config) => {
+    const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+    return documentation.buildTableDescription(mergedConfig, getTableDescriptionSections(mergedConfig));
+};
+
 module.exports = {
-    generateSql: generateEnhancedEventsSQL,
     createTable: createEnhancedEventsTable,
-    setPreOperations: setPreOperations
+    generateSql: generateEnhancedEventsSQL,
+    setPreOperations: setPreOperations,
+    getColumnDescriptions: getColumnDescriptions,
+    getTableDescription: getTableDescription
 }
