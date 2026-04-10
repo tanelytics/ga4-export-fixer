@@ -17,11 +17,12 @@
     "createTable.js"
   ],
   "scripts": {
-    "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js && node tests/documentation.test.js",
+    "test": "node tests/ga4EventsEnhanced.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js && node tests/documentation.test.js && node tests/inputValidation.test.js",
     "test:docs": "node tests/documentation.test.js",
     "test:preops": "node tests/preOperations.test.js",
     "test:events": "node tests/ga4EventsEnhanced.test.js",
     "test:merge": "node tests/mergeSQLConfigurations.test.js",
+    "test:validation": "node tests/inputValidation.test.js",
     "test:integration": "node tests/integration/integration.test.js",
     "readme": "node scripts/updateReadme.js",
     "prepublishOnly": "node scripts/updateReadme.js"
