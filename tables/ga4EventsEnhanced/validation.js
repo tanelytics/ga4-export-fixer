@@ -40,22 +40,23 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
         throw new Error(`config.sourceTable must be a Dataform table reference object or a string in format '\`project.dataset.table\`'. Received: ${JSON.stringify(config.sourceTable)}`);
     }
 
-    // schemaLock - optional; must be undefined or a string in "YYYYMMDD" format (e.g., "20260101")
+    // schemaLock - optional; must be undefined or a GA4 export table suffix: "YYYYMMDD", "intraday_YYYYMMDD", or "fresh_YYYYMMDD"
     if (typeof config.schemaLock !== 'undefined') {
-        if (typeof config.schemaLock !== 'string' || !/^\d{8}$/.test(config.schemaLock)) {
-            throw new Error(`config.schemaLock must be a string in "YYYYMMDD" format (e.g., "20260101"). Received: ${JSON.stringify(config.schemaLock)}`);
+        if (typeof config.schemaLock !== 'string' || !/^(?:(?:intraday|fresh)_)?\d{8}$/.test(config.schemaLock)) {
+            throw new Error(`config.schemaLock must be a string in "YYYYMMDD", "intraday_YYYYMMDD", or "fresh_YYYYMMDD" format (e.g., "20260101", "intraday_20260101"). Received: ${JSON.stringify(config.schemaLock)}`);
         }
-        // Must be a valid date
-        const year = parseInt(config.schemaLock.slice(0, 4), 10);
-        const month = parseInt(config.schemaLock.slice(4, 6), 10);
-        const day = parseInt(config.schemaLock.slice(6, 8), 10);
+        // Must be a valid date (extract date portion from the end)
+        const datePart = config.schemaLock.slice(-8);
+        const year = parseInt(datePart.slice(0, 4), 10);
+        const month = parseInt(datePart.slice(4, 6), 10);
+        const day = parseInt(datePart.slice(6, 8), 10);
         const date = new Date(year, month - 1, day);
         if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-            throw new Error(`config.schemaLock must be a valid date. Received: ${JSON.stringify(config.schemaLock)}`);
+            throw new Error(`config.schemaLock must contain a valid date. Received: ${JSON.stringify(config.schemaLock)}`);
         }
         // Must be at least 20241009
-        if (config.schemaLock < "20241009") {
-            throw new Error(`config.schemaLock must be a date string equal to or greater than "20241009". Received: ${JSON.stringify(config.schemaLock)}`);
+        if (datePart < "20241009") {
+            throw new Error(`config.schemaLock date must be equal to or greater than "20241009". Received: ${JSON.stringify(config.schemaLock)}`);
         }
     }
 

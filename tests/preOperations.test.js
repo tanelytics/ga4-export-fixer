@@ -363,6 +363,26 @@ test('Downstream with schemaLock: no CREATE', () => {
   assert.strictEqual(hasCreateStatement(sql), false);
 });
 
+test('intraday schemaLock generates CREATE with correct LIKE table', () => {
+  const sql = setPreOperations(ga4Config({
+    incremental: false,
+    schemaLock: 'intraday_20260101',
+    includedExportTypes: { daily: false, fresh: false, intraday: true },
+  }));
+  assert.strictEqual(hasCreateStatement(sql), true);
+  assert.ok(sql.includes('events_intraday_20260101'), 'SQL should reference events_intraday_20260101');
+});
+
+test('fresh schemaLock generates CREATE with correct LIKE table', () => {
+  const sql = setPreOperations(ga4Config({
+    incremental: false,
+    schemaLock: 'fresh_20260101',
+    includedExportTypes: { daily: false, fresh: true, intraday: false },
+  }));
+  assert.strictEqual(hasCreateStatement(sql), true);
+  assert.ok(sql.includes('events_fresh_20260101'), 'SQL should reference events_fresh_20260101');
+});
+
 // ---------------------------------------------------------------------------
 // Group 2: Export status evaluation tests (BigQuery execution)
 // ---------------------------------------------------------------------------

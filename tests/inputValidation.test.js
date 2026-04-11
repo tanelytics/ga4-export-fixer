@@ -536,28 +536,28 @@ test('accepts undefined schemaLock (optional)', () => {
 test('rejects non-YYYYMMDD format', () => {
     assert.throws(
         () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: '2024-10-09' })),
-        /schemaLock must be a string in "YYYYMMDD" format/
+        /schemaLock must be a string in "YYYYMMDD", "intraday_YYYYMMDD", or "fresh_YYYYMMDD" format/
     );
 });
 
 test('rejects non-string schemaLock', () => {
     assert.throws(
         () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 20241009 })),
-        /schemaLock must be a string in "YYYYMMDD" format/
+        /schemaLock must be a string in "YYYYMMDD", "intraday_YYYYMMDD", or "fresh_YYYYMMDD" format/
     );
 });
 
 test('rejects invalid date (20241332)', () => {
     assert.throws(
         () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: '20241332' })),
-        /schemaLock must be a valid date/
+        /schemaLock must contain a valid date/
     );
 });
 
 test('rejects date before 20241009', () => {
     assert.throws(
         () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: '20241008' })),
-        /schemaLock must be a date string equal to or greater than "20241009"/
+        /schemaLock date must be equal to or greater than "20241009"/
     );
 });
 
@@ -567,6 +567,39 @@ test('accepts 20241009 (minimum)', () => {
 
 test('accepts valid future date', () => {
     validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: '20260101' }));
+});
+
+test('accepts intraday prefix', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'intraday_20260101' }));
+});
+
+test('accepts fresh prefix', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'fresh_20260101' }));
+});
+
+test('accepts intraday with minimum date', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'intraday_20241009' }));
+});
+
+test('rejects unknown prefix', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'streaming_20260101' })),
+        /schemaLock must be a string in "YYYYMMDD", "intraday_YYYYMMDD", or "fresh_YYYYMMDD" format/
+    );
+});
+
+test('rejects intraday prefix with invalid date', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'intraday_20241332' })),
+        /schemaLock must contain a valid date/
+    );
+});
+
+test('rejects fresh prefix with date before minimum', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ schemaLock: 'fresh_20241008' })),
+        /schemaLock date must be equal to or greater than "20241009"/
+    );
 });
 
 // ---------------------------------------------------------------------------
