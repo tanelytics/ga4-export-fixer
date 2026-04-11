@@ -199,15 +199,16 @@ const validatePartitionRecovery = async (bigquery, project, dataset, tableName, 
         location: process.env.BIGQUERY_LOCATION || 'EU',
     });
 
-    const results = rows.map(r => ({
-        partitionId: r.partition_id,
-        totalRows: Number(r.total_rows),
-    }));
-
-    const allRecovered = partitionIds.every(pid => {
-        const found = results.find(r => r.partitionId === pid);
-        return found && found.totalRows > 0;
+    // Return an entry for every requested partitionId, even if it wasn't found
+    const results = partitionIds.map(pid => {
+        const found = rows.find(r => r.partition_id === pid);
+        return {
+            partitionId: pid,
+            totalRows: found ? Number(found.total_rows) : 0,
+        };
     });
+
+    const allRecovered = results.every(r => r.totalRows > 0);
 
     return { recovered: allRecovered, partitions: results };
 };
