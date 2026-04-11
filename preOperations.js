@@ -45,11 +45,10 @@ const getDateRangeStart = (config) => {
     ${constants.DATE_COLUMN}
 )
 select
-  max(${constants.DATE_COLUMN})+1 as ${constants.DATE_RANGE_START_VARIABLE}
-from
-  days
-where
-  data_is_final = true`;
+  coalesce(
+    (select max(${constants.DATE_COLUMN})+1 from days where data_is_final = true),
+    (select min(${constants.DATE_COLUMN}) from days where data_is_final = false)
+  ) as ${constants.DATE_RANGE_START_VARIABLE}`;
   } else {
     const dateRangeStartFullRefresh = config.test ? config.testConfig.dateRangeStart : config.preOperations.dateRangeStartFullRefresh;
     return `select ${dateRangeStartFullRefresh}`;

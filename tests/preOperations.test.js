@@ -172,6 +172,20 @@ test('All three, incremental: base + fresh_date_range_start + fresh_max_event_ti
   assert.strictEqual(hasDeleteStatement(sql), true);
 });
 
+test('date_range_start includes COALESCE fallback for non-final rows', () => {
+  const sql = setPreOperations(ga4Config({
+    includedExportTypes: { daily: true, fresh: false, intraday: false },
+  }));
+  assert.ok(
+    sql.includes('coalesce'),
+    'date_range_start should use COALESCE for fallback when no finalized rows exist'
+  );
+  assert.ok(
+    sql.includes('data_is_final = false'),
+    'date_range_start should fall back to min(event_date) where data_is_final = false'
+  );
+});
+
 // ---------------------------------------------------------------------------
 
 console.log('\n2. Full refresh mode - variable declarations\n');
