@@ -136,7 +136,7 @@ const validateDataFreshness = async (bigquery, project, dataset, tableName, maxA
  * @returns {Promise<{deletedPartitions: string[], deletedRows: number}>}
  */
 const deleteRecentPartitions = async (bigquery, project, dataset, tableName, count) => {
-    // First, find the most recent partitions
+    // Find the most recent partitions, fetching one extra to ensure we never delete all of them
     const findQuery = `
         SELECT partition_id, total_rows
         FROM \`${project}.${dataset}.INFORMATION_SCHEMA.PARTITIONS\`
@@ -144,20 +144,23 @@ const deleteRecentPartitions = async (bigquery, project, dataset, tableName, cou
           AND partition_id != '__NULL__'
           AND total_rows > 0
         ORDER BY partition_id DESC
-        LIMIT @count`;
+        LIMIT @fetchCount`;
 
     const [partitions] = await bigquery.query({
         query: findQuery,
-        params: { tableName, count },
+        params: { tableName, fetchCount: count + 1 },
         location: process.env.BIGQUERY_LOCATION || 'EU',
     });
 
-    if (partitions.length === 0) {
+    // Keep at least the oldest partition so the table is never fully emptied
+    const toDelete = partitions.length > count ? partitions.slice(0, count) : partitions.slice(0, -1);
+
+    if (toDelete.length === 0) {
         return { deletedPartitions: [], deletedRows: 0 };
     }
 
-    const partitionIds = partitions.map(p => p.partition_id);
-    const totalRows = partitions.reduce((sum, p) => sum + Number(p.total_rows), 0);
+    const partitionIds = toDelete.map(p => p.partition_id);
+    const totalRows = toDelete.reduce((sum, p) => sum + Number(p.total_rows), 0);
 
     // Convert partition IDs (YYYYMMDD) to date strings for the WHERE clause
     const dateStrings = partitionIds.map(id =>
