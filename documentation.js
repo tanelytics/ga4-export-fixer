@@ -1,4 +1,5 @@
 const constants = require('./constants');
+const { version } = require('./package.json');
 
 /**
  * Composes a multi-section column description string from individual sections.
@@ -195,7 +196,7 @@ const buildTableDescription = (config, tableSections) => {
     const sections = [...tableSections];
 
     // Package Attribution
-    sections.push(`${constants.TABLE_DESCRIPTION_SUFFIX}\n${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}`);
+    sections.push(`${constants.TABLE_DESCRIPTION_SUFFIX} Version: ${version}\n${constants.TABLE_DESCRIPTION_DOCUMENTATION_LINK}`);
 
     // Config JSON dump
     const configForDump = Object.fromEntries(
