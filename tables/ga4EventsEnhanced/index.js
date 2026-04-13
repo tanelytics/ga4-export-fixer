@@ -226,7 +226,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
             ecommerce: helpers.fixEcommerceStruct('ecommerce'),
             items: 'items',
             // unique row id for item list attribution join
-            _event_row_id: itemListAttribution ? 'row_number() over()' : undefined,
+            _event_row_id: itemListAttribution ? `farm_fingerprint(concat(user_pseudo_id, cast(event_timestamp as string), event_name, to_json_string(items)))` : undefined,
             // flag if the data is "final" and is not expected to change anymore
             data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
             export_type: helpers.getGa4ExportType('_table_suffix'),
