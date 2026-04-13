@@ -29,10 +29,11 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 # npm auth check
-if ! npm whoami &>/dev/null; then
+NPM_USER=$(npm whoami 2>&1) || {
   echo "Error: not logged in to npm (run 'npm login' first)"
+  echo "       npm whoami returned: $NPM_USER"
   exit 1
-fi
+}
 
 echo "Pre-flight checks passed"
 
