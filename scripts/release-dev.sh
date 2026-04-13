@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Ensure Git's bash is found before WSL's bash (Windows system32)
-GIT_BASH_DIR="$(cd "$(dirname "$(which bash)")" && pwd)"
-export PATH="$GIT_BASH_DIR:$PATH"
-
 # Dev prerelease script
 # Usage: bash scripts/release-dev.sh
 #   --dry-run    Run checks and tests but skip publish and integration tests
