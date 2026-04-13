@@ -275,13 +275,13 @@ ${excludedEventsSQL}`,
             name: 'item_list_data',
             columns: {
                 '_event_row_id': '_event_row_id',
-                '[sql]items': `array_agg(
+                'items': `array_agg(
       (select as struct item.* replace(
         coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
         coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)') as item_list_id,
         coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index)) as item_list_index
       ))
-    ) as items`,
+    )`,
             },
             from: `(select _event_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceFilter}))`,
             groupBy: ['_event_row_id'],
