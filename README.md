@@ -74,48 +74,56 @@ The goal of the package is to **speed up development** when building data models
   Nullifies placeholder <code>transaction_id</code>; corrects <code>purchase_revenue</code> bugs
 </td>
 <td valign="top">
-  <b>⚙️ Event Parameter Handling</b><br>
-  Promote event params to columns; include or exclude by name
+  <b>🏷️ Item List Attribution</b><br>
+  Attributes <code>item_list_name</code>, <code>item_list_id</code>, and <code>item_list_index</code> from item selection events to downstream ecommerce events
 </td>
 </tr>
 <tr>
+<td valign="top">
+  <b>⚙️ Event Parameter Handling</b><br>
+  Promote event params to columns; include or exclude by name
+</td>
 <td valign="top">
   <b>📊 Session Parameters</b><br>
   Promote selected event parameters as <code>session_params</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>⏱️ Custom Timestamp</b><br>
   Use a custom event parameter as primary timestamp with automatic fallback
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🔒 Schema Lock</b><br>
   Lock table schema to a specific GA4 export date to prevent schema drift
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>✅ Data Freshness Tracking</b><br>
   <code>data_is_final</code> flag and <code>export_type</code> label on every row
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🔃 Selective Re-processing</b><br>
   Re-process a date range without full table rebuild using <code>incrementalStartOverride</code> and <code>incrementalEndOverride</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>📑 Batch Processing</b><br>
   Process large exports in smaller batches via <code>numberOfDaysToProcess</code>
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🕐 Timezone-Aware Datetime</b><br>
   <code>event_datetime</code> converted to a configurable IANA timezone
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🛡️ Zero Dependencies</b><br>
   No additional external dependencies added to your Dataform repository
+</td>
+<td valign="top">
 </td>
 </tr>
 </table>
@@ -125,7 +133,6 @@ The goal of the package is to **speed up development** when building data models
 Features under consideration for future releases:
 
 - Web and app specific default configurations
-- Ecommerce item list attribution
 - Custom channel grouping
 - Data enrichment (item-level, session-level, event-level)
 - Custom processing steps (additional CTEs)
@@ -238,6 +245,10 @@ const config = {
   // use export type for data_is_final instead of the default DAY_THRESHOLD
   dataIsFinal: {
     detectionMethod: 'EXPORT_TYPE',
+  },
+  // attribute item lists to downstream ecommerce events within the same session
+  itemListAttribution: {
+    lookbackType: 'SESSION',
   },
 };
 
