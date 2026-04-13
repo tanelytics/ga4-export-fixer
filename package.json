@@ -26,7 +26,7 @@
     "test:validation": "node tests/inputValidation.test.js",
     "test:createTable": "node tests/createTable.test.js",
     "test:integration": "node tests/integration/integration.test.js",
-    "release:dev": "bash scripts/release-dev.sh",
+    "release:dev": "./scripts/release-dev.sh",
     "readme": "node scripts/updateReadme.js",
     "prepublishOnly": "node scripts/updateReadme.js"
   },
