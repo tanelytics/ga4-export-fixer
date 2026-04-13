@@ -36,6 +36,8 @@ const ga4EventsEnhancedConfig = {
         // according to GA4 documentation, the data up to 72 hours old is subject to possible changes
         // in reality, there have been cases where the data has changed even after 72 hours (4 day window would have covered these)
     },
+    // optional item list attribution - disabled by default (compute-heavy, only useful for ecommerce sites)
+    itemListAttribution: undefined,
     // number of additional days to take in for taking into account sessions that overlap days
     bufferDays: 1,
     // these parameters are excluded by default because they've been made available in other columns

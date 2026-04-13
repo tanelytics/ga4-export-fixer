@@ -159,6 +159,17 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
     // the most accurate available timestamp column
     const timestampColumn = mergedConfig.customTimestampParam ? 'event_custom_timestamp' : 'event_timestamp';
 
+    // item list attribution config
+    const itemListAttribution = mergedConfig.itemListAttribution;
+
+    // auto-adjust bufferDays for time-based item list attribution lookback
+    const effectiveBufferDays = (itemListAttribution && itemListAttribution.lookbackType === 'TIME')
+        ? Math.max(mergedConfig.bufferDays, Math.ceil(itemListAttribution.lookbackTimeMs / (24 * 60 * 60 * 1000)))
+        : mergedConfig.bufferDays;
+    const dateFilterConfig = effectiveBufferDays !== mergedConfig.bufferDays
+        ? { ...mergedConfig, bufferDays: effectiveBufferDays }
+        : mergedConfig;
+
     // exlude these events from the table
     const excludedEvents = mergedConfig.excludedEvents;
     const excludedEventsSQL = excludedEvents.length > 0 ? `and event_name not in (${excludedEvents.map(event => `'${event}'`).join(',')})` : '';
@@ -214,6 +225,8 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
             // ecommerce
             ecommerce: helpers.fixEcommerceStruct('ecommerce'),
             items: 'items',
+            // unique row id for item list attribution join
+            _event_row_id: itemListAttribution ? 'row_number() over()' : undefined,
             // flag if the data is "final" and is not expected to change anymore
             data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
             export_type: helpers.getGa4ExportType('_table_suffix'),
@@ -227,7 +240,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
             },
         },
         from: mergedConfig.sourceTable,
-        where: `${helpers.ga4ExportDateFilters(mergedConfig)}
+        where: `${helpers.ga4ExportDateFilters(dateFilterConfig)}
 ${excludedEventsSQL}`,
     };
 
@@ -248,7 +261,41 @@ ${excludedEventsSQL}`,
         groupBy: ['session_id']
     };
 
+    // item list attribution CTE: unnest items, attribute via window function, re-aggregate
+    const itemListDataStep = itemListAttribution ? (() => {
+        const attrExpr = helpers.itemListAttributionExpr(
+            itemListAttribution.lookbackType,
+            timestampColumn,
+            itemListAttribution.lookbackTimeMs
+        );
+        const passthroughEvents = `event_name in ('view_item_list', 'select_item', 'view_promotion', 'select_promotion')`;
+        const ecommerceFilter = helpers.ga4EcommerceEvents.filter(e => e !== 'refund').map(e => `'${e}'`).join(', ');
+
+        return {
+            name: 'item_list_data',
+            columns: {
+                '_event_row_id': '_event_row_id',
+                '[sql]items': `array_agg(
+      (select as struct item.* replace(
+        coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
+        coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)') as item_list_id,
+        coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index)) as item_list_index
+      ))
+    ) as items`,
+            },
+            from: `(select _event_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceFilter}))`,
+            groupBy: ['_event_row_id'],
+        };
+    })() : null;
+
     const finalColumnOrder = getFinalColumnOrder(eventDataStep, sessionDataStep);
+
+    // When item list attribution is enabled, override the items column and exclude _event_row_id
+    // COALESCE handles events without items (not in ecommerce filter) where the LEFT JOIN returns NULL
+    const itemListOverrides = itemListDataStep ? {
+        items: 'coalesce(item_list_data.items, event_data.items)',
+    } : {};
+    const itemListExcludedColumns = itemListDataStep ? ['_event_row_id'] : [];
 
     // Join event_data and session_data, include additional logic
     const finalStep = {
@@ -256,20 +303,22 @@ ${excludedEventsSQL}`,
         columns: {
             // get the most important columns in the correct order
             ...finalColumnOrder,
+            ...itemListOverrides,
             // get the rest of the event_data columns
             '[sql]event_data': utils.selectOtherColumns(
-                eventDataStep, 
+                eventDataStep,
                 Object.keys(finalColumnOrder),
                 [
                     'entrances',
                     mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
                     'data_is_final',
                     'export_type',
+                    ...itemListExcludedColumns,
                 ]
             ),
-            // get the rest of the session_data columns 
+            // get the rest of the session_data columns
             '[sql]session_data': utils.selectOtherColumns(
-                sessionDataStep, 
+                sessionDataStep,
                 Object.keys(finalColumnOrder),
                 []
             ),
@@ -280,6 +329,10 @@ ${excludedEventsSQL}`,
         },
         from: 'event_data',
         leftJoin: [
+            ...(itemListDataStep ? [{
+                table: 'item_list_data',
+                condition: 'using(_event_row_id)'
+            }] : []),
             {
                 table: 'session_data',
                 condition: 'using(session_id)'
@@ -290,6 +343,7 @@ ${excludedEventsSQL}`,
 
     const steps = [
         eventDataStep,
+        ...(itemListDataStep ? [itemListDataStep] : []),
         sessionDataStep,
         finalStep,
     ];

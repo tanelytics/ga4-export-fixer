@@ -137,6 +137,36 @@ const testDifferentConfigurations = async () => {
         excludedEvents: ['event1', 'event2'], // Example: exclude these events
       },
     },
+    {
+      name: 'Item list attribution - session lookback',
+      config: {
+        ...testConfig,
+        itemListAttribution: { lookbackType: 'SESSION' },
+      },
+    },
+    {
+      name: 'Item list attribution - time lookback (24h)',
+      config: {
+        ...testConfig,
+        itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 },
+      },
+    },
+    {
+      name: 'Item list attribution - time lookback with bufferDays auto-adjustment',
+      config: {
+        ...testConfig,
+        itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 172800000 },
+        bufferDays: 1,
+      },
+    },
+    {
+      name: 'Item list attribution - session lookback with customTimestampParam',
+      config: {
+        ...testConfig,
+        itemListAttribution: { lookbackType: 'SESSION' },
+        customTimestampParam: 'custom_event_timestamp',
+      },
+    },
   ];
   
   const queries = configurations.map(({ name, config }) => ({

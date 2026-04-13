@@ -157,10 +157,71 @@ const getGa4ExportType = (tableSuffix) => {
     end`;
 };
 
+/**
+ * Generates a SQL LAST_VALUE window function that attributes item list fields
+ * (item_list_name, item_list_id, item_list_index) from select_item/select_promotion
+ * events to downstream ecommerce events using a lookback window.
+ *
+ * Returns a struct containing all three attributed fields via a single window sort.
+ *
+ * @param {'SESSION'|'TIME'} lookbackType - Window scope: session-based or time-based
+ * @param {string} timestampColumn - Column to order by ('event_timestamp' or 'event_custom_timestamp')
+ * @param {number} [lookbackTimeMs] - Lookback window in milliseconds (required when lookbackType is 'TIME')
+ * @returns {string} SQL expression that evaluates to a struct with item_list_name, item_list_id, item_list_index
+ */
+const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) => {
+  const selectEvents = `event_name in ('select_item', 'select_promotion')`;
+  const structExpr = `struct(item.item_list_name, item.item_list_id, item.item_list_index)`;
+
+  let partitionBy;
+  let frameBounds;
+
+  if (lookbackType === 'SESSION') {
+    partitionBy = 'session_id, item.item_id';
+    frameBounds = 'rows between unbounded preceding and current row';
+  } else {
+    // TIME-based: range window in microseconds
+    const lookbackMicros = lookbackTimeMs * 1000;
+    partitionBy = 'user_pseudo_id, item.item_id';
+    frameBounds = `range between ${lookbackMicros} preceding and current row`;
+  }
+
+  return `last_value(
+      if(${selectEvents}, ${structExpr}, null) ignore nulls
+    ) over(
+      partition by ${partitionBy}
+      order by ${timestampColumn} asc
+      ${frameBounds}
+    )`;
+};
+
+/**
+ * Official GA4 ecommerce events that carry item data.
+ * Based on: https://developers.google.com/analytics/devguides/collection/ga4/ecommerce
+ */
+const ga4EcommerceEvents = [
+  'view_item_list',
+  'select_item',
+  'view_promotion',
+  'select_promotion',
+  'view_item',
+  'add_to_wishlist',
+  'add_to_cart',
+  'remove_from_cart',
+  'view_cart',
+  'begin_checkout',
+  'add_shipping_info',
+  'add_payment_info',
+  'purchase',
+  'refund',
+];
+
 module.exports = {
   sessionId,
   fixEcommerceStruct,
   isFinalData,
   isGa4ExportColumn,
-  getGa4ExportType
+  getGa4ExportType,
+  itemListAttributionExpr,
+  ga4EcommerceEvents
 };

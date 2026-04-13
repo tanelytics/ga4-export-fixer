@@ -294,7 +294,8 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `schemaLock`           | string                  | `undefined`                        | Lock the table schema to a specific GA4 export table suffix. Accepts `"YYYYMMDD"` (daily), `"intraday_YYYYMMDD"`, or `"fresh_YYYYMMDD"`. Date must be >= `"20241009"`                                                                                                                                                        |
 | `timezone`             | string                  | `'Etc/UTC'`                        | IANA timezone for event datetime (e.g. `'Europe/Helsinki'`)                                                                                                                                                                                                                                                                  |
 | `customTimestampParam` | string                  | `undefined`                        | Name of a custom event parameter containing a JS timestamp in milliseconds (e.g. collected via `Date.now()`)                                                                                                                                                                                                                 |
-| `bufferDays`           | integer                 | `1`                                | Extra days to include for sessions that span midnight                                                                                                                                                                                                                                                                        |
+| `bufferDays`           | integer                 | `1`                                | Extra days to include for sessions that span midnight. Auto-adjusted when `itemListAttribution.lookbackType` is `'TIME'` and the lookback exceeds `bufferDays`                                                                                                                                                               |
+| `itemListAttribution`  | object                  | `undefined`                        | Enable item list attribution. See [Item List Attribution](#item-list-attribution)                                                                                                                                                                                                                                            |
 | `test`                 | boolean                 | `false`                            | Enable test mode (uses `testConfig` date range instead of pre-operations)                                                                                                                                                                                                                                                    |
 | `excludedEventParams`  | string[]                | `[]`                               | Event parameter names to exclude from the `event_params` array                                                                                                                                                                                                                                                               |
 | `excludedEvents`       | string[]                | `['session_start', 'first_visit']` | Event names to exclude from the table. These events are excluded by default because they have no use for analysis purposes. Override this to include them if needed                                                                                                                                                          |
@@ -411,6 +412,25 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 | `type`       | string | No       | Data type: `'string'`, `'int'`, `'int64'`, `'double'`, `'float'`, or `'float64'`. If omitted, returns the value converted to a string |
 | `columnName` | string | No       | Column name in the output. Defaults to the parameter `name`                                                                           |
 
+
+<a id="item-list-attribution"></a>
+
+**`itemListAttribution`** — when set to an object, enables attribution of `item_list_name`, `item_list_id`, and `item_list_index` from `select_item`/`select_promotion` events to downstream ecommerce events (e.g. `add_to_cart`, `purchase`). Disabled by default.
+
+| Field            | Type    | Required                    | Description                                                           |
+| ---------------- | ------- | --------------------------- | --------------------------------------------------------------------- |
+| `lookbackType`   | string  | Yes                         | `'SESSION'` (partition by session) or `'TIME'` (time-based window)    |
+| `lookbackTimeMs` | integer | When `lookbackType: 'TIME'` | Lookback window in milliseconds (e.g. `86400000` for 24h)            |
+
+```javascript
+// Session-based: attribute within the same session
+itemListAttribution: { lookbackType: 'SESSION' }
+
+// Time-based: attribute within a 24-hour window across sessions
+itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
+```
+
+> **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
 
 Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 

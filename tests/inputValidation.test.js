@@ -861,10 +861,88 @@ test('accepts positive bufferDays', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 14. validateEnhancedEventsConfig — string array fields
+// 14. validateEnhancedEventsConfig — itemListAttribution
 // ---------------------------------------------------------------------------
 
-console.log('\n14. validateEnhancedEventsConfig — string array fields\n');
+console.log('\n14. validateEnhancedEventsConfig — itemListAttribution\n');
+
+test('accepts undefined itemListAttribution (disabled by default)', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: undefined }));
+});
+
+test('rejects non-object itemListAttribution', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: 'SESSION' })),
+        /itemListAttribution must be an object when provided/
+    );
+});
+
+test('rejects array itemListAttribution', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: [] })),
+        /itemListAttribution must be an object when provided/
+    );
+});
+
+test('rejects empty object (missing lookbackType)', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: {} })),
+        /lookbackType is required/
+    );
+});
+
+test('rejects invalid lookbackType', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'INVALID' } })),
+        /lookbackType must be 'SESSION' or 'TIME'/
+    );
+});
+
+test('accepts SESSION lookbackType', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'SESSION' } }));
+});
+
+test('accepts TIME lookbackType with lookbackTimeMs', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 } }));
+});
+
+test('rejects TIME lookbackType without lookbackTimeMs', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'TIME' } })),
+        /lookbackTimeMs is required when lookbackType is 'TIME'/
+    );
+});
+
+test('rejects non-integer lookbackTimeMs', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 1.5 } })),
+        /lookbackTimeMs must be a positive integer/
+    );
+});
+
+test('rejects zero lookbackTimeMs', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 0 } })),
+        /lookbackTimeMs must be a positive integer/
+    );
+});
+
+test('rejects negative lookbackTimeMs', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: -1000 } })),
+        /lookbackTimeMs must be a positive integer/
+    );
+});
+
+test('accepts SESSION with lookbackTimeMs (ignored)', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ itemListAttribution: { lookbackType: 'SESSION', lookbackTimeMs: 86400000 } }));
+});
+
+// ---------------------------------------------------------------------------
+// 15. validateEnhancedEventsConfig — string array fields
+// ---------------------------------------------------------------------------
+
+console.log('\n15. validateEnhancedEventsConfig — string array fields\n');
 
 const stringArrayFields = [
     'defaultExcludedEventParams',
@@ -907,10 +985,10 @@ for (const field of stringArrayFields) {
 }
 
 // ---------------------------------------------------------------------------
-// 15. validateEnhancedEventsConfig — eventParamsToColumns
+// 16. validateEnhancedEventsConfig — eventParamsToColumns
 // ---------------------------------------------------------------------------
 
-console.log('\n15. validateEnhancedEventsConfig — eventParamsToColumns\n');
+console.log('\n16. validateEnhancedEventsConfig — eventParamsToColumns\n');
 
 test('rejects missing eventParamsToColumns', () => {
     assert.throws(
@@ -995,10 +1073,10 @@ test('accepts empty eventParamsToColumns array', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 16. validateEnhancedEventsConfig — valid full config
+// 17. validateEnhancedEventsConfig — valid full config
 // ---------------------------------------------------------------------------
 
-console.log('\n16. validateEnhancedEventsConfig — valid full config\n');
+console.log('\n17. validateEnhancedEventsConfig — valid full config\n');
 
 test('accepts fully valid enhanced config', () => {
     validateEnhancedEventsConfig(validEnhancedConfig());

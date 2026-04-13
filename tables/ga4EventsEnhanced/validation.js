@@ -129,6 +129,29 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
         throw new Error(`config.dataIsFinal.detectionMethod must be 'DAY_THRESHOLD' when daily export is not enabled (config.includedExportTypes.daily is false). A dayThreshold of 1 is recommended for intraday only setups. With fresh export, the GA4 data is subject to possible changes for up to 72 hours. Received: ${JSON.stringify(config.dataIsFinal.detectionMethod)}`);
     }
 
+    // itemListAttribution - optional; must be undefined or a valid config object
+    if (typeof config.itemListAttribution !== 'undefined') {
+        if (!config.itemListAttribution || typeof config.itemListAttribution !== 'object' || Array.isArray(config.itemListAttribution)) {
+            throw new Error(`config.itemListAttribution must be an object when provided. Received: ${JSON.stringify(config.itemListAttribution)}`);
+        }
+        if (typeof config.itemListAttribution.lookbackType === 'undefined') {
+            throw new Error("config.itemListAttribution.lookbackType is required. Must be 'SESSION' or 'TIME'.");
+        }
+        if (config.itemListAttribution.lookbackType !== 'SESSION' && config.itemListAttribution.lookbackType !== 'TIME') {
+            throw new Error(`config.itemListAttribution.lookbackType must be 'SESSION' or 'TIME'. Received: ${JSON.stringify(config.itemListAttribution.lookbackType)}`);
+        }
+        if (config.itemListAttribution.lookbackType === 'TIME') {
+            if (typeof config.itemListAttribution.lookbackTimeMs === 'undefined') {
+                throw new Error("config.itemListAttribution.lookbackTimeMs is required when lookbackType is 'TIME'.");
+            }
+        }
+        if (typeof config.itemListAttribution.lookbackTimeMs !== 'undefined') {
+            if (typeof config.itemListAttribution.lookbackTimeMs !== 'number' || !Number.isInteger(config.itemListAttribution.lookbackTimeMs) || config.itemListAttribution.lookbackTimeMs <= 0) {
+                throw new Error(`config.itemListAttribution.lookbackTimeMs must be a positive integer. Received: ${JSON.stringify(config.itemListAttribution.lookbackTimeMs)}`);
+            }
+        }
+    }
+
     // bufferDays - required
     if (typeof config.bufferDays !== 'number' || !Number.isInteger(config.bufferDays) || config.bufferDays < 0) {
         throw new Error(`config.bufferDays must be a non-negative integer. Received: ${JSON.stringify(config.bufferDays)}`);
