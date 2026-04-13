@@ -61,7 +61,7 @@ npm run readme
 
 # --- Commit + tag ---
 
-git add package.json README.md
+git add package.json package-lock.json README.md
 git commit -m "$NEW_VERSION"
 git tag "v$NEW_VERSION"
 
