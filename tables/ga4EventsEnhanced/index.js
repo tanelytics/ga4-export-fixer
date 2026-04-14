@@ -161,6 +161,9 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
 
     // item list attribution config
     const itemListAttribution = mergedConfig.itemListAttribution;
+    const ecommerceEventsFilter = itemListAttribution
+        ? helpers.ga4EcommerceEvents.filter(e => e !== 'refund').map(e => `'${e}'`).join(', ')
+        : null;
 
     // auto-adjust bufferDays for time-based item list attribution lookback
     const effectiveBufferDays = (itemListAttribution && itemListAttribution.lookbackType === 'TIME')
@@ -225,11 +228,12 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
             // ecommerce
             ecommerce: helpers.fixEcommerceStruct('ecommerce'),
             items: 'items',
-            // unique row id for item list attribution join.
-            // row_number() over() breaks hash collisions for batched events with identical data.
+            // unique row id for item list attribution join. Only computed for ecommerce events.
+            // row_number() breaks hash collisions for batched events with identical data.
+            // partition by event_name avoids a single-partition bottleneck in the window function.
             // Non-determinism is safe: colliding rows have identical items (to_json_string(items) is in the hash),
             // so swapping row numbers between them produces the same final result.
-            _event_row_id: itemListAttribution ? `farm_fingerprint(concat(user_pseudo_id, cast(event_timestamp as string), event_name, to_json_string(items), cast(row_number() over() as string)))` : undefined,
+            _event_row_id: itemListAttribution ? `if(event_name in (${ecommerceEventsFilter}), farm_fingerprint(concat(user_pseudo_id, cast(event_timestamp as string), event_name, to_json_string(items), cast(row_number() over(partition by event_name) as string))), null)` : undefined,
             // flag if the data is "final" and is not expected to change anymore
             data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
             export_type: helpers.getGa4ExportType('_table_suffix'),
@@ -272,7 +276,6 @@ ${excludedEventsSQL}`,
             itemListAttribution.lookbackTimeMs
         );
         const passthroughEvents = `event_name in ('view_item_list', 'select_item', 'view_promotion', 'select_promotion')`;
-        const ecommerceFilter = helpers.ga4EcommerceEvents.filter(e => e !== 'refund').map(e => `'${e}'`).join(', ');
 
         return {
             name: 'item_list_data',
@@ -286,7 +289,7 @@ ${excludedEventsSQL}`,
       ))
     )`,
             },
-            from: `(select _event_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceFilter}))`,
+            from: `(select _event_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceEventsFilter}))`,
             groupBy: ['_event_row_id'],
         };
     })() : null;
