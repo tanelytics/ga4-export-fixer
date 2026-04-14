@@ -233,7 +233,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
             // partition by event_name avoids a single-partition bottleneck in the window function.
             // Non-determinism is safe: colliding rows have identical items (to_json_string(items) is in the hash),
             // so swapping row numbers between them produces the same final result.
-            _event_row_id: itemListAttribution ? `if(event_name in (${ecommerceEventsFilter}), farm_fingerprint(concat(user_pseudo_id, cast(event_timestamp as string), event_name, to_json_string(items), cast(row_number() over(partition by event_name) as string))), null)` : undefined,
+            _item_list_attribution_row_id: itemListAttribution ? `if(event_name in (${ecommerceEventsFilter}), farm_fingerprint(concat(user_pseudo_id, cast(event_timestamp as string), event_name, to_json_string(items), cast(row_number() over(partition by event_name) as string))), null)` : undefined,
             // flag if the data is "final" and is not expected to change anymore
             data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
             export_type: helpers.getGa4ExportType('_table_suffix'),
@@ -280,7 +280,7 @@ ${excludedEventsSQL}`,
         return {
             name: 'item_list_data',
             columns: {
-                '_event_row_id': '_event_row_id',
+                '_item_list_attribution_row_id': '_item_list_attribution_row_id',
                 'items': `array_agg(
       (select as struct item.* replace(
         coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
@@ -289,19 +289,19 @@ ${excludedEventsSQL}`,
       ))
     )`,
             },
-            from: `(select _event_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceEventsFilter}))`,
-            groupBy: ['_event_row_id'],
+            from: `(select _item_list_attribution_row_id, event_name, item, ${attrExpr} as _item_list_attr from event_data, unnest(items) as item where event_name in (${ecommerceEventsFilter}))`,
+            groupBy: ['_item_list_attribution_row_id'],
         };
     })() : null;
 
     const finalColumnOrder = getFinalColumnOrder(eventDataStep, sessionDataStep);
 
-    // When item list attribution is enabled, override the items column and exclude _event_row_id
+    // When item list attribution is enabled, override the items column and exclude _item_list_attribution_row_id
     // COALESCE handles events without items (not in ecommerce filter) where the LEFT JOIN returns NULL
     const itemListOverrides = itemListDataStep ? {
         items: 'coalesce(item_list_data.items, event_data.items)',
     } : {};
-    const itemListExcludedColumns = itemListDataStep ? ['_event_row_id'] : [];
+    const itemListExcludedColumns = itemListDataStep ? ['_item_list_attribution_row_id'] : [];
 
     // Join event_data and session_data, include additional logic
     const finalStep = {
@@ -337,7 +337,7 @@ ${excludedEventsSQL}`,
         leftJoin: [
             ...(itemListDataStep ? [{
                 table: 'item_list_data',
-                condition: 'using(_event_row_id)'
+                condition: 'using(_item_list_attribution_row_id)'
             }] : []),
             {
                 table: 'session_data',
