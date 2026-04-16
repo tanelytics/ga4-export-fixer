@@ -88,48 +88,43 @@ raw_daily as (
         ${excludedEventsSQL}
         and cast(event_date as date format 'YYYYMMDD') >= date_sub(current_date(), interval 5 day)
     group by event_date, data_is_final
+),
+daily_comparison as (
+    select
+        coalesce(e.event_date, r.event_date) as event_date,
+        coalesce(e.data_is_final, r.data_is_final) as data_is_final,
+        e.session_count as enhanced_sessions,
+        r.session_count as raw_sessions,
+        e.event_count as enhanced_events,
+        r.event_count as raw_events,
+        round(e.total_item_revenue, 2) as enhanced_revenue,
+        round(r.total_item_revenue, 2) as raw_revenue
+    from
+        enhanced_daily e
+    full outer join
+        raw_daily r using(event_date, data_is_final)
 )
 select
-    coalesce(e.event_date, r.event_date) as event_date,
-    coalesce(e.data_is_final, r.data_is_final) as data_is_final,
-    e.session_count as enhanced_sessions,
-    r.session_count as raw_sessions,
-    e.event_count as enhanced_events,
-    r.event_count as raw_events,
-    round(e.total_item_revenue, 2) as enhanced_revenue,
-    round(r.total_item_revenue, 2) as raw_revenue,
-    case
-        when e.event_date is null and r.event_count > 0
-            then 'MISSING_DAY'
-        when coalesce(e.data_is_final, r.data_is_final) = true
-            and e.session_count != r.session_count
-            then 'SESSION_COUNT_MISMATCH'
-        when coalesce(e.data_is_final, r.data_is_final) = true
-            and e.event_count != r.event_count
-            then 'EVENT_COUNT_MISMATCH'
-        when coalesce(e.data_is_final, r.data_is_final) = true
-            and round(coalesce(e.total_item_revenue, 0), 2) != round(coalesce(r.total_item_revenue, 0), 2)
-            then 'REVENUE_MISMATCH'
-        when coalesce(e.data_is_final, r.data_is_final) = false
-            and coalesce(e.event_count, 0) > coalesce(r.event_count, 0)
-            then 'NON_FINAL_EXCESS_EVENTS'
-    end as violation_type
+    event_date,
+    data_is_final,
+    enhanced_sessions,
+    raw_sessions,
+    enhanced_events,
+    raw_events,
+    enhanced_revenue,
+    raw_revenue,
+    violation_type
 from
-    enhanced_daily e
-full outer join
-    raw_daily r using(event_date, data_is_final)
+    daily_comparison,
+    unnest([
+        if(enhanced_events is null and raw_events > 0, 'MISSING_DAY', null),
+        if(data_is_final = true and enhanced_sessions != raw_sessions, 'SESSION_COUNT_MISMATCH', null),
+        if(data_is_final = true and enhanced_events != raw_events, 'EVENT_COUNT_MISMATCH', null),
+        if(data_is_final = true and enhanced_revenue != raw_revenue, 'REVENUE_MISMATCH', null),
+        if(data_is_final = false and coalesce(enhanced_events, 0) > coalesce(raw_events, 0), 'NON_FINAL_EXCESS_EVENTS', null)
+    ]) as violation_type
 where
-    (coalesce(e.data_is_final, r.data_is_final) = true and (
-        e.session_count != r.session_count
-        or e.event_count != r.event_count
-        or round(coalesce(e.total_item_revenue, 0), 2) != round(coalesce(r.total_item_revenue, 0), 2)
-        or e.event_date is null
-    ))
-    or
-    (e.event_date is null and r.event_count > 0)
-    or
-    (coalesce(e.data_is_final, r.data_is_final) = false
-        and coalesce(e.event_count, 0) > coalesce(r.event_count, 0))`;
+    violation_type is not null`;
 };
 
 /**
