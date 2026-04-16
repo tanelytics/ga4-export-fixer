@@ -253,6 +253,40 @@ const getActionResults = async (client, invocationName) => {
 };
 
 /**
+ * Discover assertion actions in a compilation result that match a given tag.
+ * Returns assertion targets (dataset + assertion name).
+ *
+ * @param {DataformClient} client
+ * @param {string} compilationResultName
+ * @param {string} tag
+ * @returns {Promise<Array<{dataset: string, name: string}>>}
+ */
+const discoverTaggedAssertions = async (client, compilationResultName, tag) => {
+    const assertions = [];
+
+    const iterable = client.queryCompilationResultActionsAsync({
+        name: compilationResultName,
+    });
+
+    for await (const action of iterable) {
+        if (!action.target) continue;
+
+        const assertionTags = action.assertion?.tags || [];
+        const hasTag = assertionTags.includes(tag);
+        const isAssertion = action.assertion != null;
+
+        if (hasTag && isAssertion) {
+            assertions.push({
+                dataset: action.target.schema || action.target.database,
+                name: action.target.name,
+            });
+        }
+    }
+
+    return assertions;
+};
+
+/**
  * Delete a workspace (for cleanup).
  *
  * @param {DataformClient} client
@@ -268,6 +302,7 @@ module.exports = {
     updatePackageVersion,
     compileWorkspace,
     discoverTaggedActions,
+    discoverTaggedAssertions,
     runWorkflowInvocation,
     getActionResults,
     deleteTestWorkspace,

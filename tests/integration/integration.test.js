@@ -30,6 +30,29 @@ const fail = (phase, detail) => {
     console.log(`  ❌ ${detail}`);
 };
 
+/**
+ * Report assertion results from a workflow invocation's action results.
+ * @param {number} phase - Current test phase number
+ * @param {Array} actionResults - All action results from getActionResults()
+ * @param {Array} assertionTargets - Discovered assertion targets [{dataset, name}]
+ */
+const reportAssertionResults = (phase, actionResults, assertionTargets) => {
+    if (assertionTargets.length === 0) return;
+
+    const assertionResults = actionResults.filter(a =>
+        assertionTargets.some(assertion => a.target.endsWith(`.${assertion.name}`))
+    );
+    const passed_ = assertionResults.filter(a => a.state === 'SUCCEEDED');
+    const failed_ = assertionResults.filter(a => a.state === 'FAILED');
+
+    if (passed_.length > 0) {
+        pass(phase, `${passed_.length} assertion(s) passed: ${passed_.map(a => a.target).join(', ')}`);
+    }
+    failed_.forEach(a => {
+        fail(phase, `Assertion ${a.target} FAILED: ${a.failureReason}`);
+    });
+};
+
 const formatElapsed = (ms) => {
     if (ms < 60000) return `${Math.round(ms / 1000)}s`;
     const m = Math.floor(ms / 60000);
@@ -83,6 +106,7 @@ const run = async () => {
     let workspacePath = null;
     let compilationResultName = null;
     let tables = [];
+    let assertions = [];
     let phaseFailed = false;
 
     try {
@@ -137,6 +161,20 @@ const run = async () => {
                 fail(1, `Action discovery failed: ${err.message}`);
                 phaseFailed = true;
             }
+
+            // Discover assertions with the same tag
+            try {
+                assertions = await dataform.discoverTaggedAssertions(
+                    dfClient, compilationResultName, config.tableTag
+                );
+                if (assertions.length > 0) {
+                    pass(1, `Found ${assertions.length} assertion(s) with '${config.tableTag}' tag: ${assertions.map(a => a.name).join(', ')}`);
+                } else {
+                    console.log(`  ℹ️  No assertions found with '${config.tableTag}' tag`);
+                }
+            } catch (err) {
+                fail(1, `Assertion discovery failed: ${err.message}`);
+            }
         }
 
         if (phaseFailed) {
@@ -169,6 +207,8 @@ const run = async () => {
                 pass(2, `Workflow completed: ${succeeded.length} succeeded, ${failed_.length} failed, ${skipped.length} skipped (${formatElapsed(result.elapsedMs)})`);
                 failed_.forEach(a => fail(2, `Action ${a.target} FAILED: ${a.failureReason}`));
             }
+
+            reportAssertionResults(2, actions, assertions);
 
             // Track which of our tagged tables succeeded for post-run validation
             succeededTables = tables.filter(t =>
@@ -266,6 +306,8 @@ const run = async () => {
                 failed_.forEach(a => fail(3, `Action ${a.target} FAILED: ${a.failureReason}`));
             }
 
+            reportAssertionResults(3, actions, assertions);
+
             fullRefreshSucceededTables = tables.filter(t =>
                 succeeded.some(a => a.target.endsWith(`.${t.name}`))
             );
@@ -336,6 +378,8 @@ const run = async () => {
                     pass(4, `Recovery completed: ${succeeded.length} succeeded, ${failed_.length} failed (${formatElapsed(result.elapsedMs)})`);
                     failed_.forEach(a => fail(4, `Action ${a.target} FAILED: ${a.failureReason}`));
                 }
+
+                reportAssertionResults(4, actions, assertions);
 
                 recoverySucceededTables = fullRefreshSucceededTables.filter(t =>
                     succeeded.some(a => a.target.endsWith(`.${t.name}`))
