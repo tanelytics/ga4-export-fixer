@@ -31,9 +31,9 @@ const getTestConfig = () => {
 const testConfig = getTestConfig();
 
 // The raw export table lacks columns that exist in the enhanced table
-// (data_is_final, event_date as DATE not STRING). Wrap it in a subquery
+// (data_is_final, event_date as DATE not STRING, session_id). Wrap it in a subquery
 // that transforms the schema so BigQuery dry-run can validate the full SQL.
-const testTableRef = `(select * replace(cast(event_date as date format 'YYYYMMDD') as event_date), true as data_is_final from ${testConfig.sourceTable} where _table_suffix >= cast(current_date()-5 as string format 'YYYYMMDD'))`;
+const testTableRef = `(select * replace(cast(event_date as date format 'YYYYMMDD') as event_date), true as data_is_final, concat(user_pseudo_id, cast((select value.int_value from unnest(event_params) where key = 'ga_session_id') as string)) as session_id from ${testConfig.sourceTable} where _table_suffix >= cast(current_date()-5 as string format 'YYYYMMDD'))`;
 
 /**
  * Test: Validate assertion SQL generation with various configurations
@@ -109,6 +109,79 @@ const testAssertionConfigurations = async () => {
 };
 
 /**
+ * Test: Validate dailyQuality assertion SQL generation with various configurations
+ */
+const testDailyQualityConfigurations = async () => {
+    const configurations = [
+        {
+            name: 'Default config (daily + intraday, DAY_THRESHOLD)',
+            config: testConfig,
+        },
+        {
+            name: 'Daily only',
+            config: {
+                ...testConfig,
+                includedExportTypes: { daily: true, fresh: false, intraday: false },
+            },
+        },
+        {
+            name: 'Daily + fresh + intraday',
+            config: {
+                ...testConfig,
+                includedExportTypes: { daily: true, fresh: true, intraday: true },
+            },
+        },
+        {
+            name: 'Fresh only',
+            config: {
+                ...testConfig,
+                includedExportTypes: { daily: false, fresh: true, intraday: false },
+                dataIsFinal: { detectionMethod: 'DAY_THRESHOLD', dayThreshold: 1 },
+            },
+        },
+        {
+            name: 'EXPORT_TYPE detection method',
+            config: {
+                ...testConfig,
+                dataIsFinal: { detectionMethod: 'EXPORT_TYPE' },
+            },
+        },
+        {
+            name: 'DAY_THRESHOLD with custom threshold',
+            config: {
+                ...testConfig,
+                dataIsFinal: { detectionMethod: 'DAY_THRESHOLD', dayThreshold: 7 },
+            },
+        },
+        {
+            name: 'With excluded ecommerce event (purchase)',
+            config: {
+                ...testConfig,
+                excludedEvents: ['session_start', 'first_visit', 'purchase'],
+            },
+        },
+        {
+            name: 'With custom timezone',
+            config: {
+                ...testConfig,
+                timezone: 'Europe/Helsinki',
+            },
+        },
+    ];
+
+    const queries = configurations.map(({ name, config }) => ({
+        name,
+        sql: ga4EventsEnhanced.assertions.dailyQuality(testTableRef, config),
+    }));
+
+    const results = await validateMultipleSQL(queries, {
+        location: process.env.BIGQUERY_LOCATION || 'US',
+    });
+
+    return results;
+};
+
+/**
  * Run all tests
  */
 const runAllTests = async () => {
@@ -124,10 +197,16 @@ const runAllTests = async () => {
     const results = [];
 
     try {
-        console.log('\n\n📝 TEST: Assertion SQL Generation\n');
+        console.log('\n\n📝 TEST: Item Revenue Assertion SQL Generation\n');
         const configResults = await testAssertionConfigurations();
         configResults.forEach(r => {
-            results.push({ test: `Config: ${r.name}`, result: r });
+            results.push({ test: `itemRevenue: ${r.name}`, result: r });
+        });
+
+        console.log('\n\n📝 TEST: Daily Quality Assertion SQL Generation\n');
+        const dailyQualityResults = await testDailyQualityConfigurations();
+        dailyQualityResults.forEach(r => {
+            results.push({ test: `dailyQuality: ${r.name}`, result: r });
         });
 
         // Summary
@@ -174,5 +253,6 @@ if (require.main === module) {
 
 module.exports = {
     testAssertionConfigurations,
+    testDailyQualityConfigurations,
     runAllTests,
 };
