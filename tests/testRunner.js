@@ -9,6 +9,7 @@ const { execSync } = require('child_process');
 
 const suites = [
     { name: 'ga4EventsEnhanced', cmd: 'node tests/ga4EventsEnhanced.test.js' },
+    { name: 'assertions', cmd: 'node tests/assertions.test.js' },
     { name: 'mergeSQLConfigurations', cmd: 'node tests/mergeSQLConfigurations.test.js' },
     { name: 'preOperations', cmd: 'node tests/preOperations.test.js' },
     { name: 'documentation', cmd: 'node tests/documentation.test.js' },

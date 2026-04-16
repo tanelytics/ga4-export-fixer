@@ -7,6 +7,7 @@ const { validateEnhancedEventsConfig } = require('./validation.js');
 const documentation = require('../../documentation.js');
 const { createTable } = require('../../createTable.js');
 const { getTableDescriptionSections } = require('./tableDescription.js');
+const assertions = require('./assertions/index.js');
 
 // Column metadata for the GA4 Events Enhanced table
 const columnMetadata = {
@@ -421,5 +422,6 @@ module.exports = {
     generateSql: generateEnhancedEventsSQL,
     setPreOperations: setPreOperations,
     getColumnDescriptions: getColumnDescriptions,
-    getTableDescription: getTableDescription
+    getTableDescription: getTableDescription,
+    assertions,
 }
