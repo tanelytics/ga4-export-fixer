@@ -128,6 +128,20 @@ const generateItemRevenueAssertionSql = (tableRef, config) => {
         throw new Error('assertions.itemRevenue: tableRef is required and must be a non-empty string (e.g., ctx.ref(\'table_name\') or \'`project.dataset.table`\').');
     }
     const mergedConfig = utils.mergeSQLConfigurations(defaultConfig, config);
+
+    // The assertion interpolates sourceTable directly into SQL (no Dataform ctx available).
+    // If sourceTable is still a Dataform reference object, it would render as [object Object].
+    if (utils.isDataformTableReferenceObject(mergedConfig.sourceTable)) {
+        throw new Error(
+            'assertions.itemRevenue: config.sourceTable is a Dataform table reference object, but assertions do not have access to Dataform context to resolve it. ' +
+            'Resolve it with ctx.ref() before passing it to the assertion:\n\n' +
+            '  .query(ctx => ga4EventsEnhanced.assertions.itemRevenue(\n' +
+            '    ctx.ref(\'enhanced_table_name\'),\n' +
+            '    { ...config, sourceTable: ctx.ref(config.sourceTable) }\n' +
+            '  ))'
+        );
+    }
+
     validateEnhancedEventsConfig(mergedConfig, { skipDataformContextFields: true });
     return _generateItemRevenueAssertionSql(tableRef, mergedConfig);
 };
