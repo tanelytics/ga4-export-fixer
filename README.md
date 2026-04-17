@@ -411,6 +411,7 @@ The boundary between fresh and intraday is timestamp-based because the fresh exp
 | `preOperations.incrementalEndOverride`     | string (SQL date) | `undefined`          | Override the incremental end date to re-process a specific range                                                                                                                                    |
 | `preOperations.numberOfDaysToProcess`      | integer           | `undefined`          | Limit each run to N days of data. When set, the end date becomes `start + N - 1` (capped at `current_date()`). When `undefined`, `dateRangeEnd` is used as-is. `incrementalEndOverride` takes priority  |
 
+Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 
 <a id="eventParamsToColumns"></a>
 
@@ -442,8 +443,6 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 ```
 
 > **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
-
-Date fields (`dateRangeStart`, `dateRangeEnd`, etc.) accept string dates in `YYYYMMDD` or `YYYY-MM-DD` format, or BigQuery SQL expressions (e.g. `'current_date()'`, `'date(2026, 1, 1)'`).
 
 ### Creating Incremental Downstream Tables from ga4_events_enhanced
 
