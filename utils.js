@@ -33,53 +33,87 @@ const mergeUniqueArrays = (...arrays) => {
  * @returns {string} Generated SQL query
  */
 const queryBuilder = (steps) => {
+    const INDENT = 2;
+    const pad = ' '.repeat(INDENT);
+
+    // Re-indents a multi-line SQL fragment so that continuation lines
+    // (lines after the first) have a consistent base indentation.
+    // Preserves relative indentation within the fragment.
+    const reindent = (sql, targetIndent) => {
+        if (!sql.includes('\n')) return sql;
+        const lines = sql.split('\n');
+        const continuationLines = lines.slice(1).filter(l => l.trim());
+        if (continuationLines.length === 0) return sql;
+        const minIndent = Math.min(
+            ...continuationLines.map(l => l.match(/^ */)[0].length)
+        );
+        const p = ' '.repeat(targetIndent);
+        return lines[0] + '\n' + lines.slice(1)
+            .map(l => l.trim() ? p + l.slice(minIndent) : '')
+            .join('\n');
+    };
+
+    // Shifts an entire SQL block right by the given number of spaces.
+    // Preserves relative indentation within the block.
+    const indentBlock = (sql, spaces) => {
+        const p = ' '.repeat(spaces);
+        return sql.split('\n')
+            .map(l => l.trim() ? p + l : '')
+            .join('\n');
+    };
+
     // Helper function to turn step.columns into SQL string
     const columnsToSQL = (columns) => {
         return Object.entries(columns)
             // exclude all columns that have been explicitly set to undefined
             .filter(([key, value]) => value !== undefined)
             .map(([key, value]) => {
+                let entry;
                 // if the key and value are the same, return the value as is (i.e. no alias)
                 if (key === value) {
-                    return value;
-                }
+                    entry = value;
                 // if the key starts with '[sql]', return the value as is (i.e. no alias)
-                if (key.startsWith('[sql]')) {
-                    return value;
+                } else if (key.startsWith('[sql]')) {
+                    entry = value;
+                } else {
+                    entry = `${value} as ${key}`;
                 }
-                return `${value} as ${key}`;
+                return reindent(entry, INDENT);
             })
-            .join(',\n    ');
+            .join(',\n' + pad);
     };
 
     const selectSQL = (step) => {
-        const leftJoinClauses = step.leftJoin ? step.leftJoin.map(join => `left join\n    ${join.table} ${join.condition}`) : [];
-        const whereClause = step.where ? `where\n    ${step.where}` : '';
-        const groupByClause = step.groupBy ? `group by\n    ${step.groupBy.join(', ')}` : '';
+        const parts = [`select\n${pad}${columnsToSQL(step.columns)}`];
+        parts.push(`from\n${pad}${step.from}`);
 
-        return `select
-    ${columnsToSQL(step.columns)}
-from
-    ${step.from}
-${leftJoinClauses.join('\n')}
-${whereClause}
-${groupByClause}`;
+        if (step.leftJoin) {
+            step.leftJoin.forEach(join => {
+                parts.push(`left join\n${pad}${join.table} ${join.condition}`);
+            });
+        }
+
+        if (step.where) {
+            parts.push(`where\n${pad}${reindent(step.where, INDENT)}`);
+        }
+
+        if (step.groupBy) {
+            parts.push(`group by\n${pad}${step.groupBy.join(', ')}`);
+        }
+
+        return parts.join('\n');
     };
 
-    let sql = "";
     if (steps.length === 1) {
-        // Only one step, no CTE needed
-        const step = steps[0];
-        sql = selectSQL(step);
-    } else {
-        // Multiple steps, all but last are CTEs
-        const ctes = steps.slice(0, -1).map(step => {
-            return `${step.name} as (${selectSQL(step)})`;
-        });
-        const lastStep = steps[steps.length - 1];
-        sql = `with ${ctes.join(',\n    ')}\n${selectSQL(lastStep)}`;
+        return selectSQL(steps[0]);
     }
-    return sql;
+
+    const ctes = steps.slice(0, -1).map(step => {
+        const body = indentBlock(selectSQL(step), INDENT);
+        return `${step.name} as (\n${body}\n)`;
+    });
+    const lastStep = steps[steps.length - 1];
+    return `with ${ctes.join(',\n')}\n${selectSQL(lastStep)}`;
 };
 
 /**
