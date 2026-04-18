@@ -62,9 +62,12 @@ const buildDedupedRawSource = (mergedConfig, lookbackDays) => {
         )`
         : '';
 
+    // _table_suffix is a pseudo-column and not propagated by SELECT *; select it
+    // explicitly so downstream CTEs (e.g., isFinalData('EXPORT_TYPE')) can still reference it.
     return `(
     select
-        *
+        *,
+        _table_suffix
     from
         ${mergedConfig.sourceTable}
     where
