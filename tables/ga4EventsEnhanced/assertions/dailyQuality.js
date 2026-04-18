@@ -160,4 +160,4 @@ const generateDailyQualityAssertionSql = (tableRef, config) => {
     return _generateDailyQualityAssertionSql(tableRef, mergedConfig);
 };
 
-module.exports = { generateDailyQualityAssertionSql };
+module.exports = { generateDailyQualityAssertionSql, _generateDailyQualityAssertionSql };

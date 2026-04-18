@@ -17,9 +17,15 @@ const preOperations = require('./preOperations.js');
  *   @param {Function} tableModule.generateSql - (mergedConfig) => string.
  *   @param {Function} tableModule.getColumnDescriptions - (mergedConfig) => Dataform columns object.
  *   @param {Function} tableModule.getTableDescription - (mergedConfig) => string.
+ *   @param {Object}   [tableModule.assertions] - Optional assertion definitions keyed by name.
+ *     Each value: { generate: (tableRef, mergedConfig) => string, defaultName: string }.
+ * @param {Object} [options] - Optional Dataform runtime options.
+ *   @param {Function} [options.assert] - Dataform assert() function. When provided, creates assertions for the table.
+ *   @param {Object}   [options.assertions] - Per-assertion overrides. Set a key to false to disable,
+ *     or to an object to override assertion Dataform config (name, schema, tags).
  * @returns {Object} The Dataform publish() object for the table.
  */
-const createTable = (dataformPublish, userConfig, tableModule) => {
+const createTable = (dataformPublish, userConfig, tableModule, options) => {
     const mergedConfig = utils.mergeSQLConfigurations(tableModule.defaultConfig, userConfig);
     tableModule.validate(mergedConfig, { skipDataformContextFields: true });
 
@@ -48,11 +54,38 @@ const createTable = (dataformPublish, userConfig, tableModule) => {
     }
 
     // Create the table using Dataform publish()
-    return dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
+    const tableResult = dataformPublish(dataformTableConfig.name, dataformTableConfig).preOps(ctx => {
         return preOperations.setPreOperations(utils.setDataformContext(ctx, mergedConfig));
     }).query(ctx => {
         return tableModule.generateSql(utils.setDataformContext(ctx, mergedConfig));
     });
+
+    // Create assertions when options.assert is provided and the table module defines assertions
+    if (options?.assert && tableModule.assertions) {
+        const tableName = dataformTableConfig.name;
+
+        for (const [key, assertionDef] of Object.entries(tableModule.assertions)) {
+            const assertionOption = options.assertions?.[key];
+            if (assertionOption === false) continue;
+
+            const assertionName = `${tableName}_${assertionDef.defaultName}`;
+            const assertionDataformConfig = {
+                schema: dataformTableConfig.schema,
+                tags: dataformTableConfig.tags || [],
+                ...(typeof assertionOption === 'object' ? assertionOption : {}),
+            };
+
+            options.assert(assertionDataformConfig.name || assertionName, assertionDataformConfig).query(ctx => {
+                const resolvedConfig = { ...mergedConfig };
+                if (utils.isDataformTableReferenceObject(resolvedConfig.sourceTable)) {
+                    resolvedConfig.sourceTable = ctx.ref(resolvedConfig.sourceTable);
+                }
+                return assertionDef.generate(ctx.ref(tableName), resolvedConfig);
+            });
+        }
+    }
+
+    return tableResult;
 };
 
 module.exports = { createTable };

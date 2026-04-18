@@ -401,6 +401,195 @@ test('default tags remain intact after createTable with user tags', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 7. Assertion wiring
+// ---------------------------------------------------------------------------
+
+console.log('\n7. Assertion wiring\n');
+
+/**
+ * Creates a mock Dataform assert() function that captures all calls.
+ * Returns { assertFn, captured } where captured is an array of
+ * { name, config, queryFn } objects, one per assert() call.
+ */
+const mockAssert = () => {
+    const captured = [];
+    const assertFn = (name, config) => {
+        const entry = { name, config, queryFn: null };
+        captured.push(entry);
+        return {
+            query: (fn) => {
+                entry.queryFn = fn;
+                return entry;
+            }
+        };
+    };
+    return { assertFn, captured };
+};
+
+/**
+ * Creates a mock table module with assertion definitions.
+ */
+const mockTableModuleWithAssertions = (overrides = {}) => {
+    const { module, calls } = mockTableModule({
+        ...overrides,
+    });
+    module.assertions = {
+        dailyQuality: {
+            generate: (tableRef, config) => `DQ: ${tableRef} FROM ${config.sourceTable}`,
+            defaultName: 'daily_quality',
+        },
+        itemRevenue: {
+            generate: (tableRef, config) => `IR: ${tableRef} FROM ${config.sourceTable}`,
+            defaultName: 'item_revenue',
+        },
+    };
+    return { module, calls };
+};
+
+test('createTable without options creates no assertions', () => {
+    const { publish } = mockPublish();
+    const { module } = mockTableModuleWithAssertions();
+    // No fourth argument — backward compatible
+    createTable(publish, minimalUserConfig(), module);
+    // No way to verify assert wasn't called (it wasn't passed), but no error = pass
+});
+
+test('createTable with empty options creates no assertions', () => {
+    const { publish } = mockPublish();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {});
+});
+
+test('createTable with { assert } creates all assertions', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    assert.strictEqual(captured.length, 2, 'should create 2 assertions');
+    const names = captured.map(a => a.name);
+    assert.ok(names.includes('ga4_events_enhanced_298233330_daily_quality'));
+    assert.ok(names.includes('ga4_events_enhanced_298233330_item_revenue'));
+});
+
+test('assertions inherit schema from dataformTableConfig', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    captured.forEach(a => {
+        assert.strictEqual(a.config.schema, 'analytics_298233330');
+    });
+});
+
+test('assertions inherit tags from dataformTableConfig', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    captured.forEach(a => {
+        assert.deepStrictEqual(a.config.tags, ['ga4_export_fixer']);
+    });
+});
+
+test('assertions: { dailyQuality: false } disables dailyQuality', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {
+        assert: assertFn,
+        assertions: { dailyQuality: false },
+    });
+    assert.strictEqual(captured.length, 1);
+    assert.strictEqual(captured[0].name, 'ga4_events_enhanced_298233330_item_revenue');
+});
+
+test('assertions config override applies to assertion Dataform config', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {
+        assert: assertFn,
+        assertions: { dailyQuality: { schema: 'custom_schema', tags: ['custom'] } },
+    });
+    const dq = captured.find(a => a.name.includes('daily_quality'));
+    assert.strictEqual(dq.config.schema, 'custom_schema');
+    assert.deepStrictEqual(dq.config.tags, ['custom']);
+});
+
+test('assertion name can be overridden via assertions config', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {
+        assert: assertFn,
+        assertions: { dailyQuality: { name: 'my_custom_assertion' } },
+    });
+    const dq = captured.find(a => a.name === 'my_custom_assertion');
+    assert.ok(dq, 'should use custom assertion name');
+});
+
+test('assertion query callback resolves Dataform ref sourceTable via ctx.ref()', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    // Use a Dataform reference object as sourceTable
+    createTable(publish, minimalUserConfig({
+        sourceTable: { name: 'events_*', dataset: 'analytics_298233330', schema: 'analytics_298233330' },
+    }), module, { assert: assertFn });
+    const dq = captured.find(a => a.name.includes('daily_quality'));
+    const ctx = mockCtx();
+    const sql = dq.queryFn(ctx);
+    // ctx.ref() resolves Dataform ref objects to `resolved.dataset.name`
+    assert.ok(sql.includes('`resolved.analytics_298233330.events_*`'), `sourceTable should be resolved via ctx.ref(), got: ${sql}`);
+});
+
+test('assertion query callback uses string sourceTable as-is', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    const dq = captured.find(a => a.name.includes('daily_quality'));
+    const ctx = mockCtx();
+    const sql = dq.queryFn(ctx);
+    assert.ok(sql.includes('`project.analytics_298233330.events_*`'), `string sourceTable should be used as-is, got: ${sql}`);
+});
+
+test('assertion query callback passes correct tableRef via ctx.ref(tableName)', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    const dq = captured.find(a => a.name.includes('daily_quality'));
+    // Mock ctx.ref to track what it's called with for string args
+    let refCalledWith = null;
+    const ctx = {
+        ...mockCtx(),
+        ref: (arg) => {
+            if (typeof arg === 'string') refCalledWith = arg;
+            return `\`resolved.ref.${typeof arg === 'string' ? arg : arg.name}\``;
+        },
+    };
+    dq.queryFn(ctx);
+    assert.strictEqual(refCalledWith, 'ga4_events_enhanced_298233330', 'should call ctx.ref with the table name');
+});
+
+test('table module without assertions property works with { assert }', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModule(); // no assertions property
+    createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    assert.strictEqual(captured.length, 0, 'should not create any assertions');
+});
+
+test('createTable with { assert } still returns the publish result', () => {
+    const { publish, captured } = mockPublish();
+    const { assertFn } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    const result = createTable(publish, minimalUserConfig(), module, { assert: assertFn });
+    assert.strictEqual(result.name, 'ga4_events_enhanced_298233330');
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

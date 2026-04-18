@@ -146,4 +146,4 @@ const generateItemRevenueAssertionSql = (tableRef, config) => {
     return _generateItemRevenueAssertionSql(tableRef, mergedConfig);
 };
 
-module.exports = { generateItemRevenueAssertionSql };
+module.exports = { generateItemRevenueAssertionSql, _generateItemRevenueAssertionSql };

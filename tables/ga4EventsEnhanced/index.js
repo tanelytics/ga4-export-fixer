@@ -410,10 +410,11 @@ const tableModule = {
     generateSql: _generateEnhancedEventsSQL,
     getColumnDescriptions: (config) => documentation.getColumnDescriptions(config, columnMetadata),
     getTableDescription: (config) => documentation.buildTableDescription(config, getTableDescriptionSections(config)),
+    assertions: assertions._internal,
 };
 
-const createEnhancedEventsTable = (dataformPublish, config) => {
-    return createTable(dataformPublish, config, tableModule);
+const createEnhancedEventsTable = (dataformPublish, config, options) => {
+    return createTable(dataformPublish, config, tableModule, options);
 };
 
 // Exported wrapper: merge config, validate, then delegate to preOperations module

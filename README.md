@@ -20,6 +20,7 @@ The goal of the package is to **speed up development** when building data models
 - [Usage](#usage)
   - [Create GA4 Events Enhanced Table](#create-ga4-events-enhanced-table)
   - [Configuration Object](#configuration-object)
+  - [Assertions](#assertions)
   - [Creating Incremental Downstream Tables from ga4_events_enhanced](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
   - [Helpers](#helpers)
 - [License](#license)
@@ -443,6 +444,65 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 ```
 
 > **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
+
+### Assertions
+
+The package includes built-in data quality assertions that can be automatically created alongside the enhanced events table. Pass Dataform's `assert` function as the third argument to `createTable`:
+
+```javascript
+ga4EventsEnhanced.createTable(publish, config, { assert });
+```
+
+This creates the table and the following assertions using the same configuration:
+
+| Assertion | Name | Description |
+| --------- | ---- | ----------- |
+| `dailyQuality` | `{tableName}_daily_quality` | Compares session count, event count, and item revenue per day between the enhanced table and raw export. Detects missing days, count mismatches, and non-final data inflation |
+| `itemRevenue` | `{tableName}_item_revenue` | Reconciles item_revenue at the (event_date, item_id) grain between the enhanced table and raw export |
+
+Assertions inherit the table's schema and tags from `dataformTableConfig`. Each assertion queries the last 5 days of data.
+
+#### Selective Assertions
+
+Disable individual assertions by setting them to `false`:
+
+```javascript
+ga4EventsEnhanced.createTable(publish, config, {
+    assert,
+    assertions: { dailyQuality: true, itemRevenue: false },
+});
+```
+
+#### Assertion Config Overrides
+
+Override the assertion's Dataform configuration (name, schema, tags):
+
+```javascript
+ga4EventsEnhanced.createTable(publish, config, {
+    assert,
+    assertions: {
+        dailyQuality: { tags: ['data_quality', 'ga4_export_fixer'] },
+    },
+});
+```
+
+#### Standalone Assertions (SQLX Deployment)
+
+For SQLX deployments or when you need full control, assertions can also be used as standalone SQL generators:
+
+```javascript
+const { ga4EventsEnhanced } = require('ga4-export-fixer');
+
+assert('daily_quality_check', {
+    schema: 'analytics_123456789',
+    tags: ['ga4_export_fixer'],
+}).query(ctx => {
+    return ga4EventsEnhanced.assertions.dailyQuality(
+        ctx.ref('ga4_events_enhanced_123456789'),
+        { ...config, sourceTable: ctx.ref(config.sourceTable) }
+    );
+});
+```
 
 ### Creating Incremental Downstream Tables from ga4_events_enhanced
 
