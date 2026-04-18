@@ -2,32 +2,11 @@ const helpers = require('../../../helpers/index.js');
 const utils = require('../../../utils.js');
 const { ga4EventsEnhancedConfig } = require('../config.js');
 const { validateEnhancedEventsConfig } = require('../validation.js');
+const { buildDedupedRawSource } = require('./shared.js');
 
 const defaultConfig = { ...ga4EventsEnhancedConfig };
 
-/**
- * Builds a _table_suffix date filter for the assertion's raw-side query.
- *
- * Uses the low-level ga4ExportDateFilter() helper per enabled export type
- * with a fixed 5-day lookback window. This is intentionally separate from
- * the pipeline's ga4ExportDateFilters() which depends on incremental state
- * and BigQuery pre-operation variables.
- *
- * @param {Object} includedExportTypes - { daily: boolean, fresh: boolean, intraday: boolean }
- * @returns {string} SQL fragment for a WHERE clause
- */
-const buildAssertionDateFilter = (includedExportTypes) => {
-    const start = 'date_sub(current_date(), interval 5 day)';
-    const end = 'current_date()';
-
-    const filters = [
-        includedExportTypes.daily ? helpers.ga4ExportDateFilter('daily', start, end) : null,
-        includedExportTypes.fresh ? helpers.ga4ExportDateFilter('fresh', start, end) : null,
-        includedExportTypes.intraday ? helpers.ga4ExportDateFilter('intraday', start, end) : null,
-    ].filter(Boolean);
-
-    return filters.join(' or ');
-};
+const ASSERTION_LOOKBACK_DAYS = 5;
 
 /**
  * Generates a SQL assertion query that validates daily data quality between the
@@ -51,15 +30,15 @@ const buildAssertionDateFilter = (includedExportTypes) => {
 const _generateDailyQualityAssertionSql = (tableRef, mergedConfig) => {
     const excludedEvents = mergedConfig.excludedEvents;
     const excludedEventsSQL = excludedEvents.length > 0
-        ? `and event_name not in (${excludedEvents.map(e => `'${e}'`).join(', ')})`
-        : '';
+        ? `event_name not in (${excludedEvents.map(e => `'${e}'`).join(', ')})`
+        : 'true';
 
     const dataIsFinalCondition = helpers.isFinalData(
         mergedConfig.dataIsFinal.detectionMethod,
         mergedConfig.dataIsFinal.dayThreshold
     );
 
-    const dateFilter = buildAssertionDateFilter(mergedConfig.includedExportTypes);
+    const dedupedRawSource = buildDedupedRawSource(mergedConfig, ASSERTION_LOOKBACK_DAYS);
 
     return `with enhanced_daily as (
     select
@@ -71,7 +50,7 @@ const _generateDailyQualityAssertionSql = (tableRef, mergedConfig) => {
     from
         ${tableRef}
     where
-        event_date >= date_sub(current_date(), interval 5 day)
+        event_date >= date_sub(current_date(), interval ${ASSERTION_LOOKBACK_DAYS} day)
     group by event_date, data_is_final
 ),
 raw_daily as (
@@ -82,11 +61,9 @@ raw_daily as (
         count(*) as event_count,
         coalesce(sum((select sum(item.item_revenue) from unnest(items) as item)), 0) as total_item_revenue
     from
-        ${mergedConfig.sourceTable}
+        ${dedupedRawSource}
     where
-        (${dateFilter})
         ${excludedEventsSQL}
-        and cast(event_date as date format 'YYYYMMDD') >= date_sub(current_date(), interval 5 day)
     group by event_date, data_is_final
 ),
 daily_comparison as (

@@ -2,37 +2,16 @@ const helpers = require('../../../helpers/index.js');
 const utils = require('../../../utils.js');
 const { ga4EventsEnhancedConfig } = require('../config.js');
 const { validateEnhancedEventsConfig } = require('../validation.js');
+const { buildDedupedRawSource } = require('./shared.js');
 
 const defaultConfig = { ...ga4EventsEnhancedConfig };
+
+const ASSERTION_LOOKBACK_DAYS = 5;
 
 // Ecommerce events that carry item data (excluding refund — refunds reverse revenue
 // and are handled separately in some pipelines, but item_revenue on refund rows
 // should still reconcile 1:1 between enhanced and raw).
 const ecommerceEvents = helpers.ga4EcommerceEvents.map(e => `'${e}'`).join(', ');
-
-/**
- * Builds a _table_suffix date filter for the assertion's raw-side query.
- *
- * Uses the low-level ga4ExportDateFilter() helper per enabled export type
- * with a fixed 5-day lookback window. This is intentionally separate from
- * the pipeline's ga4ExportDateFilters() which depends on incremental state
- * and BigQuery pre-operation variables.
- *
- * @param {Object} includedExportTypes - { daily: boolean, fresh: boolean, intraday: boolean }
- * @returns {string} SQL fragment for a WHERE clause
- */
-const buildAssertionDateFilter = (includedExportTypes) => {
-    const start = 'date_sub(current_date(), interval 5 day)';
-    const end = 'current_date()';
-
-    const filters = [
-        includedExportTypes.daily ? helpers.ga4ExportDateFilter('daily', start, end) : null,
-        includedExportTypes.fresh ? helpers.ga4ExportDateFilter('fresh', start, end) : null,
-        includedExportTypes.intraday ? helpers.ga4ExportDateFilter('intraday', start, end) : null,
-    ].filter(Boolean);
-
-    return filters.join(' or ');
-};
 
 /**
  * Generates a SQL assertion query that reconciles item_revenue between the
@@ -51,8 +30,8 @@ const _generateItemRevenueAssertionSql = (tableRef, mergedConfig) => {
     // excluded events filter (same logic as the enhanced table pipeline)
     const excludedEvents = mergedConfig.excludedEvents;
     const excludedEventsSQL = excludedEvents.length > 0
-        ? `and event_name not in (${excludedEvents.map(e => `'${e}'`).join(', ')})`
-        : '';
+        ? `event_name not in (${excludedEvents.map(e => `'${e}'`).join(', ')})`
+        : 'true';
 
     // data_is_final condition for the raw side
     const dataIsFinalCondition = helpers.isFinalData(
@@ -60,8 +39,8 @@ const _generateItemRevenueAssertionSql = (tableRef, mergedConfig) => {
         mergedConfig.dataIsFinal.dayThreshold
     );
 
-    // date filter for the raw side (per-export-type, fixed 5-day window)
-    const dateFilter = buildAssertionDateFilter(mergedConfig.includedExportTypes);
+    // deduplicated raw-source subquery (mirrors pipeline setPreOperations dedup)
+    const dedupedRawSource = buildDedupedRawSource(mergedConfig, ASSERTION_LOOKBACK_DAYS);
 
     return `with enhanced_revenue as (
     select
@@ -74,7 +53,7 @@ const _generateItemRevenueAssertionSql = (tableRef, mergedConfig) => {
         unnest(items) as item
     where
         data_is_final = true
-        and event_date >= date_sub(current_date(), interval 5 day)
+        and event_date >= date_sub(current_date(), interval ${ASSERTION_LOOKBACK_DAYS} day)
         and event_name in (${ecommerceEvents})
     group by event_date, item.item_id
 ),
@@ -85,14 +64,12 @@ raw_revenue as (
         sum(item.item_revenue) as total_item_revenue,
         count(*) as item_count
     from
-        ${mergedConfig.sourceTable},
+        ${dedupedRawSource},
         unnest(items) as item
     where
-        (${dateFilter})
         ${excludedEventsSQL}
         and event_name in (${ecommerceEvents})
         and ${dataIsFinalCondition}
-        and cast(event_date as date format 'YYYYMMDD') >= date_sub(current_date(), interval 5 day)
     group by event_date, item.item_id
 )
 select
