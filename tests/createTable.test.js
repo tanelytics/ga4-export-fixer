@@ -441,6 +441,7 @@ const mockTableModuleWithAssertions = (overrides = {}) => {
         itemRevenue: {
             generate: (tableRef, config) => `IR: ${tableRef} FROM ${config.sourceTable}`,
             defaultName: 'item_revenue',
+            enabledByDefault: false,
         },
     };
     return { module, calls };
@@ -460,15 +461,39 @@ test('createTable with empty options creates no assertions', () => {
     createTable(publish, minimalUserConfig(), module, {});
 });
 
-test('createTable with { assert } creates all assertions', () => {
+test('createTable with { assert } creates only default-enabled assertions', () => {
     const { publish } = mockPublish();
     const { assertFn, captured } = mockAssert();
     const { module } = mockTableModuleWithAssertions();
     createTable(publish, minimalUserConfig(), module, { assert: assertFn });
-    assert.strictEqual(captured.length, 2, 'should create 2 assertions');
+    assert.strictEqual(captured.length, 1, 'should only create default-enabled assertions');
+    assert.strictEqual(captured[0].name, 'ga4_events_enhanced_298233330_daily_quality');
+});
+
+test('assertion with enabledByDefault: false requires explicit opt-in via true', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {
+        assert: assertFn,
+        assertions: { itemRevenue: true },
+    });
     const names = captured.map(a => a.name);
     assert.ok(names.includes('ga4_events_enhanced_298233330_daily_quality'));
     assert.ok(names.includes('ga4_events_enhanced_298233330_item_revenue'));
+});
+
+test('assertion with enabledByDefault: false can be opted in via config object', () => {
+    const { publish } = mockPublish();
+    const { assertFn, captured } = mockAssert();
+    const { module } = mockTableModuleWithAssertions();
+    createTable(publish, minimalUserConfig(), module, {
+        assert: assertFn,
+        assertions: { itemRevenue: { tags: ['ecom'] } },
+    });
+    const ir = captured.find(a => a.name.includes('item_revenue'));
+    assert.ok(ir, 'itemRevenue should be created');
+    assert.deepStrictEqual(ir.config.tags, ['ecom']);
 });
 
 test('assertions inherit schema from dataformTableConfig', () => {
@@ -499,8 +524,7 @@ test('assertions: { dailyQuality: false } disables dailyQuality', () => {
         assert: assertFn,
         assertions: { dailyQuality: false },
     });
-    assert.strictEqual(captured.length, 1);
-    assert.strictEqual(captured[0].name, 'ga4_events_enhanced_298233330_item_revenue');
+    assert.strictEqual(captured.length, 0, 'dailyQuality disabled + itemRevenue opt-in = no assertions');
 });
 
 test('assertions config override applies to assertion Dataform config', () => {

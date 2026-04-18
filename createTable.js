@@ -67,6 +67,7 @@ const createTable = (dataformPublish, userConfig, tableModule, options) => {
         for (const [key, assertionDef] of Object.entries(tableModule.assertions)) {
             const assertionOption = options.assertions?.[key];
             if (assertionOption === false) continue;
+            if (assertionOption === undefined && assertionDef.enabledByDefault === false) continue;
 
             const assertionName = `${tableName}_${assertionDef.defaultName}`;
             const assertionDataformConfig = {

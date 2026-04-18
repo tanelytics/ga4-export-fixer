@@ -6,6 +6,6 @@ module.exports = {
     dailyQuality: generateDailyQualityAssertionSql,
     _internal: {
         dailyQuality: { generate: _generateDailyQualityAssertionSql, defaultName: 'daily_quality' },
-        itemRevenue: { generate: _generateItemRevenueAssertionSql, defaultName: 'item_revenue' },
+        itemRevenue: { generate: _generateItemRevenueAssertionSql, defaultName: 'item_revenue', enabledByDefault: false },
     },
 };
