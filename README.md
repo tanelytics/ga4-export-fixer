@@ -457,7 +457,7 @@ This creates the table along with the default-enabled assertions, using the same
 
 | Assertion | Name | Enabled by default | Description |
 | --------- | ---- | ------------------ | ----------- |
-| `dailyQuality` | `{tableName}_daily_quality` | Yes | Compares session count, event count, and item revenue per day between the enhanced table and raw export. Detects missing days, count mismatches, and non-final data inflation |
+| `dailyQuality` | `{tableName}_daily_quality` | Yes | Compares session count, event count, item revenue, and ecommerce purchase revenue per day between the enhanced table and raw export. Detects missing days, count mismatches, and non-final data inflation |
 | `itemRevenue` | `{tableName}_item_revenue` | No (opt-in) | Reconciles item_revenue at the (event_date, item_id) grain between the enhanced table and raw export |
 
 Assertions inherit the table's schema and tags from `dataformTableConfig`. Each assertion queries the last 5 days of data.

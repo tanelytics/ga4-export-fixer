@@ -12,15 +12,17 @@ const ASSERTION_LOOKBACK_DAYS = 5;
  * Generates a SQL assertion query that validates daily data quality between the
  * enhanced events table and the raw GA4 export data.
  *
- * The query compares session count, event count, and total item_revenue
- * aggregated per (event_date, data_is_final) for the last 5 days.
- * Returns violating rows -- 0 rows means the assertion passes.
+ * The query compares session count, event count, total item_revenue, and total
+ * purchase_revenue aggregated per (event_date, data_is_final) for the last 5
+ * days. Returns violating rows -- 0 rows means the assertion passes.
  *
- * Five violation types are detected:
+ * Six violation types are detected:
  * - MISSING_DAY: Raw data has events but enhanced table has none for this day
  * - SESSION_COUNT_MISMATCH: Final data session count differs
  * - EVENT_COUNT_MISMATCH: Final data event count differs
- * - REVENUE_MISMATCH: Final data total item_revenue differs
+ * - ITEM_REVENUE_MISMATCH: Final data total item_revenue differs
+ * - PURCHASE_REVENUE_MISMATCH: Final data total ecommerce.purchase_revenue differs
+ *   (raw side applies fixEcommerceStruct() to mirror the enhanced pipeline's fix)
  * - NON_FINAL_EXCESS_EVENTS: Non-final enhanced data has more events than raw
  *
  * @param {string} tableRef - Fully qualified reference to the enhanced table
@@ -46,7 +48,8 @@ const _generateDailyQualityAssertionSql = (tableRef, mergedConfig) => {
         data_is_final,
         count(distinct session_id) as session_count,
         count(*) as event_count,
-        coalesce(sum((select sum(item.item_revenue) from unnest(items) as item)), 0) as total_item_revenue
+        coalesce(sum((select sum(item.item_revenue) from unnest(items) as item)), 0) as total_item_revenue,
+        coalesce(sum(ecommerce.purchase_revenue), 0) as total_purchase_revenue
     from
         ${tableRef}
     where
@@ -59,7 +62,8 @@ raw_daily as (
         ${dataIsFinalCondition} as data_is_final,
         count(distinct concat(user_pseudo_id, cast((select value.int_value from unnest(event_params) where key = 'ga_session_id') as string))) as session_count,
         count(*) as event_count,
-        coalesce(sum((select sum(item.item_revenue) from unnest(items) as item)), 0) as total_item_revenue
+        coalesce(sum((select sum(item.item_revenue) from unnest(items) as item)), 0) as total_item_revenue,
+        coalesce(sum(${helpers.fixEcommerceStruct()}.purchase_revenue), 0) as total_purchase_revenue
     from
         ${dedupedRawSource}
     where
@@ -74,8 +78,10 @@ daily_comparison as (
         r.session_count as raw_sessions,
         e.event_count as enhanced_events,
         r.event_count as raw_events,
-        round(e.total_item_revenue, 2) as enhanced_revenue,
-        round(r.total_item_revenue, 2) as raw_revenue
+        round(e.total_item_revenue, 2) as enhanced_item_revenue,
+        round(r.total_item_revenue, 2) as raw_item_revenue,
+        round(e.total_purchase_revenue, 2) as enhanced_purchase_revenue,
+        round(r.total_purchase_revenue, 2) as raw_purchase_revenue
     from
         enhanced_daily e
     full outer join
@@ -88,8 +94,10 @@ select
     raw_sessions,
     enhanced_events,
     raw_events,
-    enhanced_revenue,
-    raw_revenue,
+    enhanced_item_revenue,
+    raw_item_revenue,
+    enhanced_purchase_revenue,
+    raw_purchase_revenue,
     violation_type
 from
     daily_comparison,
@@ -97,7 +105,8 @@ from
         if(enhanced_events is null and raw_events > 0, 'MISSING_DAY', null),
         if(data_is_final = true and enhanced_sessions != raw_sessions, 'SESSION_COUNT_MISMATCH', null),
         if(data_is_final = true and enhanced_events != raw_events, 'EVENT_COUNT_MISMATCH', null),
-        if(data_is_final = true and enhanced_revenue != raw_revenue, 'REVENUE_MISMATCH', null),
+        if(data_is_final = true and enhanced_item_revenue != raw_item_revenue, 'ITEM_REVENUE_MISMATCH', null),
+        if(data_is_final = true and enhanced_purchase_revenue != raw_purchase_revenue, 'PURCHASE_REVENUE_MISMATCH', null),
         if(data_is_final = false and coalesce(enhanced_events, 0) > coalesce(raw_events, 0), 'NON_FINAL_EXCESS_EVENTS', null)
     ]) as violation_type
 where
@@ -108,9 +117,9 @@ where
  * Generates a daily quality assertion SQL query.
  *
  * Merges the provided config with defaults, validates, then generates a SQL
- * query comparing daily aggregates (session count, event count, item_revenue)
- * between the enhanced table and raw export data, and checks for missing days
- * and non-final data inflation.
+ * query comparing daily aggregates (session count, event count, item_revenue,
+ * ecommerce.purchase_revenue) between the enhanced table and raw export data,
+ * and checks for missing days and non-final data inflation.
  *
  * @param {string} tableRef - Fully qualified reference to the enhanced table.
  * @param {Object} config - User-provided table configuration.
