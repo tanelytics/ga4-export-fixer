@@ -138,7 +138,6 @@ Features under consideration for future releases:
 - Data enrichment (item-level, session-level, event-level)
 - Custom processing steps (additional CTEs)
 - Custom traffic source attribution
-- Default assertions
 
 ## Installation
 
