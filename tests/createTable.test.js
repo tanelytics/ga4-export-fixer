@@ -438,9 +438,9 @@ const mockTableModuleWithAssertions = (overrides = {}) => {
             generate: (tableRef, config) => `DQ: ${tableRef} FROM ${config.sourceTable}`,
             defaultName: 'daily_quality',
         },
-        itemRevenue: {
-            generate: (tableRef, config) => `IR: ${tableRef} FROM ${config.sourceTable}`,
-            defaultName: 'item_revenue',
+        optIn: {
+            generate: (tableRef, config) => `OPT: ${tableRef} FROM ${config.sourceTable}`,
+            defaultName: 'opt_in',
             enabledByDefault: false,
         },
     };
@@ -476,11 +476,11 @@ test('assertion with enabledByDefault: false requires explicit opt-in via true',
     const { module } = mockTableModuleWithAssertions();
     createTable(publish, minimalUserConfig(), module, {
         assert: assertFn,
-        assertions: { itemRevenue: true },
+        assertions: { optIn: true },
     });
     const names = captured.map(a => a.name);
     assert.ok(names.includes('ga4_events_enhanced_298233330_daily_quality'));
-    assert.ok(names.includes('ga4_events_enhanced_298233330_item_revenue'));
+    assert.ok(names.includes('ga4_events_enhanced_298233330_opt_in'));
 });
 
 test('assertion with enabledByDefault: false can be opted in via config object', () => {
@@ -489,11 +489,11 @@ test('assertion with enabledByDefault: false can be opted in via config object',
     const { module } = mockTableModuleWithAssertions();
     createTable(publish, minimalUserConfig(), module, {
         assert: assertFn,
-        assertions: { itemRevenue: { tags: ['ecom'] } },
+        assertions: { optIn: { tags: ['custom'] } },
     });
-    const ir = captured.find(a => a.name.includes('item_revenue'));
-    assert.ok(ir, 'itemRevenue should be created');
-    assert.deepStrictEqual(ir.config.tags, ['ecom']);
+    const opt = captured.find(a => a.name.includes('opt_in'));
+    assert.ok(opt, 'optIn assertion should be created');
+    assert.deepStrictEqual(opt.config.tags, ['custom']);
 });
 
 test('assertions inherit schema from dataformTableConfig', () => {
@@ -524,7 +524,7 @@ test('assertions: { dailyQuality: false } disables dailyQuality', () => {
         assert: assertFn,
         assertions: { dailyQuality: false },
     });
-    assert.strictEqual(captured.length, 0, 'dailyQuality disabled + itemRevenue opt-in = no assertions');
+    assert.strictEqual(captured.length, 0, 'dailyQuality disabled + opt-in not requested = no assertions');
 });
 
 test('assertions config override applies to assertion Dataform config', () => {

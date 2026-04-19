@@ -457,19 +457,18 @@ This creates the table along with the default-enabled assertions, using the same
 
 | Assertion | Name | Enabled by default | Description |
 | --------- | ---- | ------------------ | ----------- |
-| `dailyQuality` | `{tableName}_daily_quality` | Yes | Compares session count, event count, item revenue, and ecommerce purchase revenue per day between the enhanced table and raw export. Detects missing days, count mismatches, and non-final data inflation |
-| `itemRevenue` | `{tableName}_item_revenue` | No (opt-in) | Reconciles item_revenue at the (event_date, item_id) grain between the enhanced table and raw export |
+| `dailyQuality` | `{tableName}_daily_quality` | Yes | Compares session count, event count, item revenue, and ecommerce purchase revenue per day between the enhanced table and raw export. Also reconciles item_revenue at the (event_date, item_id) grain on purchase events for days both sides consider final. Detects missing days, count mismatches, and non-final data inflation |
 
-Assertions inherit the table's schema and tags from `dataformTableConfig`. Each assertion queries the last 5 days of data.
+The assertion inherits the table's schema and tags from `dataformTableConfig` and queries the last 5 days of data.
 
 #### Selective Assertions
 
-Enable opt-in assertions by setting them to `true`, or disable default-enabled ones by setting them to `false`:
+Disable the assertion by setting it to `false`:
 
 ```javascript
 ga4EventsEnhanced.createTable(publish, config, {
     assert,
-    assertions: { dailyQuality: true, itemRevenue: true },
+    assertions: { dailyQuality: false },
 });
 ```
 
