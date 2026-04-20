@@ -293,6 +293,8 @@ pre_operations {
 }
 ```
 
+<br>
+
 ---
 
 ### Configuration Object
@@ -448,6 +450,8 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 
 > **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
 
+<br>
+
 ---
 
 ### Assertions
@@ -507,6 +511,8 @@ assert('daily_quality_check', {
     );
 });
 ```
+
+<br>
 
 ---
 
@@ -579,6 +585,8 @@ pre_operations {
   ${setPreOperations(config)}
 }
 ```
+
+<br>
 
 ---
 
