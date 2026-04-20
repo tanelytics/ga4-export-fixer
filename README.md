@@ -10,10 +10,10 @@ The goal of the package is to **speed up development** when building data models
 
 *Example data model built with ga4-export-fixer*
 
-### Table of Contents
+## Table of Contents
 <!-- TOC -->
-  - [Main Features](#main-features)
-  - [Planned, Upcoming Features](#planned-upcoming-features)
+- [Main Features](#main-features)
+- [Planned, Upcoming Features](#planned-upcoming-features)
 - [Installation](#installation)
   - [Bash](#bash)
   - [In Google Cloud Dataform](#in-google-cloud-dataform)
@@ -26,7 +26,7 @@ The goal of the package is to **speed up development** when building data models
 - [License](#license)
 <!-- /TOC -->
 
-### Main Features
+## Main Features
 
 <table>
 <tr>
@@ -131,7 +131,7 @@ The goal of the package is to **speed up development** when building data models
 </tr>
 </table>
 
-### Planned, Upcoming Features
+## Planned, Upcoming Features
 
 Features under consideration for future releases:
 
