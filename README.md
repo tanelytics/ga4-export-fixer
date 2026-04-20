@@ -176,7 +176,7 @@ If your Dataform repository does not have a package.json file, see this guide: [
 
 Creates an **enhanced** version of the GA4 BigQuery export (daily & intraday).
 
-#### JS Deployment (Recommended)
+#### JS Deployment (Recommended) ![.JS](https://img.shields.io/badge/.JS-F7DF1E?style=flat-square)
 
 Create a new **ga4_events_enhanced** table using a **.js** file in your repository's **definitions** folder.
 
@@ -257,7 +257,7 @@ const config = {
 ga4EventsEnhanced.createTable(publish, config);
 ```
 
-#### SQLX Deployment
+#### SQLX Deployment ![.SQLX](https://img.shields.io/badge/.SQLX-4285F4?style=flat-square)
 
 Alternatively, you can create the **ga4_events_enhanced** table using a .SQLX file.
 
