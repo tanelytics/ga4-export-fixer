@@ -105,26 +105,28 @@ The goal of the package is to **speed up development** when building data models
   <code>data_is_final</code> flag and <code>export_type</code> label on every row
 </td>
 <td valign="top">
-  <b>🔃 Selective Re-processing</b><br>
-  Re-process a date range without full table rebuild using <code>incrementalStartOverride</code> and <code>incrementalEndOverride</code>
+  <b>🔍 Data Quality Assertions</b><br>
+  Built-in daily assertion reconciles sessions, events, and revenue between the enhanced table and raw export
 </td>
 </tr>
 <tr>
+<td valign="top">
+  <b>🔃 Selective Re-processing</b><br>
+  Re-process a date range without full table rebuild using <code>incrementalStartOverride</code> and <code>incrementalEndOverride</code>
+</td>
 <td valign="top">
   <b>📑 Batch Processing</b><br>
   Process large exports in smaller batches via <code>numberOfDaysToProcess</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🕐 Timezone-Aware Datetime</b><br>
   <code>event_datetime</code> converted to a configurable IANA timezone
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🛡️ Zero Dependencies</b><br>
   No additional external dependencies added to your Dataform repository
-</td>
-<td valign="top">
 </td>
 </tr>
 </table>
