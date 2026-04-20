@@ -1,6 +1,8 @@
 # ga4-export-fixer
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
+[![License](https://img.shields.io/npm/l/ga4-export-fixer)](https://github.com/tanelytics/ga4-export-fixer/blob/main/LICENSE)
+![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 **ga4-export-fixer** is a **Dataform NPM package** that transforms raw GA4 BigQuery export data into a cleaner, more queryable incremental table. It combines **daily, fresh (360), and intraday exports** so the best available version of each event is always in use, adds session-level fields like `session_id` and `landing_page`, promotes key event parameters to columns, and fixes known GA4 export issues — handling the boilerplate transformations that are otherwise tedious to include in every GA4 query.
 
