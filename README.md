@@ -13,7 +13,7 @@ The goal of the package is to **speed up development** when building data models
 ## Table of Contents
 <!-- TOC -->
 - [Main Features](#main-features)
-- [Planned, Upcoming Features](#planned-upcoming-features)
+- [Planned Features](#planned-features)
 - [Installation](#installation)
   - [Bash](#bash)
   - [In Google Cloud Dataform](#in-google-cloud-dataform)
@@ -21,7 +21,7 @@ The goal of the package is to **speed up development** when building data models
   - [Create GA4 Events Enhanced Table](#create-ga4-events-enhanced-table)
   - [Configuration Object](#configuration-object)
   - [Assertions](#assertions)
-  - [Creating Incremental Downstream Tables from ga4_events_enhanced](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
+  - [Creating Incremental Downstream Tables from `ga4_events_enhanced`](#creating-incremental-downstream-tables-from-ga4_events_enhanced)
   - [Helpers](#helpers)
 - [License](#license)
 <!-- /TOC -->
@@ -131,7 +131,7 @@ The goal of the package is to **speed up development** when building data models
 </tr>
 </table>
 
-## Planned, Upcoming Features
+## Planned Features
 
 Features under consideration for future releases:
 
@@ -504,7 +504,7 @@ assert('daily_quality_check', {
 });
 ```
 
-### Creating Incremental Downstream Tables from ga4_events_enhanced
+### Creating Incremental Downstream Tables from `ga4_events_enhanced`
 
 Setting up incremental updates is easy using the **setPreOperations()** function. Just ensure that your result table includes the **data_is_final** flag from the **ga4_events_enhanced** table.
 
