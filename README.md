@@ -180,7 +180,7 @@ Creates an **enhanced** version of the GA4 BigQuery export (daily & intraday).
 
 Create a new **ga4_events_enhanced** table using a **.js** file in your repository's **definitions** folder.
 
-##### Using Defaults
+**Using Defaults**
 
 **`definitions/ga4/ga4_events_enhanced.js`**
 
@@ -194,7 +194,7 @@ const config = {
 ga4EventsEnhanced.createTable(publish, config);
 ```
 
-##### With Custom Configuration
+**With Custom Configuration**
 
 **`definitions/ga4/ga4_events_enhanced.js`**
 
@@ -292,6 +292,8 @@ pre_operations {
   ${ga4EventsEnhanced.setPreOperations(config)}
 }
 ```
+
+---
 
 ### Configuration Object
 
@@ -446,6 +448,8 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 
 > **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
 
+---
+
 ### Assertions
 
 The package includes built-in data quality assertions that can be automatically created alongside the enhanced events table. Pass Dataform's `assert` function as the third argument to `createTable`:
@@ -503,6 +507,8 @@ assert('daily_quality_check', {
     );
 });
 ```
+
+---
 
 ### Creating Incremental Downstream Tables from `ga4_events_enhanced`
 
@@ -573,6 +579,8 @@ pre_operations {
   ${setPreOperations(config)}
 }
 ```
+
+---
 
 ### Helpers
 
