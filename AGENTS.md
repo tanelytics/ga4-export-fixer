@@ -28,9 +28,17 @@ When asked to generate documentation, only generate the JSDoc comment above the 
 
 ## Column descriptions
 
-Whenever a new column is included in the generated SQL query, the corresponding column description should be added as well. Include the documentation in the files inside the columns folder using the designed format defined in documentation.getColumnDescriptions().
+Whenever a new column is included in the generated SQL query, a matching documentation entry must be added.
 
-Column descriptions should follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic coming from the code base.
+Column metadata lives inside each table module at `tables/<tableName>/columns/` as three JSON files:
+
+- `columnDescriptions.json` — the base description (string, or `{ description, columns: {...} }` for struct columns)
+- `columnLineage.json` — `{ source, note }` describing where the value comes from
+- `columnTypicalUse.json` — a short string describing how the column is typically used
+
+A new column needs an entry in all three files. `documentation.getColumnDescriptions()` (in `documentation.js`) consumes them and composes the multi-section description shown in BigQuery.
+
+Column descriptions should follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic from the code base.
 
 # Setting Dataform pre_operations
 
