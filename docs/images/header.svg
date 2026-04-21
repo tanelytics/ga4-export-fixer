@@ -1,8 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-label="ga4-export-fixer">
   <rect width="1200" height="300" fill="#0E1117"/>
 
+  <!-- Wordmark on the left, vertically centered -->
+  <text x="40" y="184"
+        font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', monospace"
+        font-size="52"
+        font-weight="700"
+        fill="#FFFFFF"
+        letter-spacing="-1.5"
+        dominant-baseline="central">🛠️ ga4-export-fixer</text>
+
   <!-- Messy raw-data shape clusters -->
-  <g transform="translate(40, 92)">
+  <g transform="translate(620, 92)">
     <!-- Cluster 1 -->
     <g>
       <rect x="5" y="6" width="12" height="10" fill="#4A5568"/>
@@ -52,27 +61,27 @@
 
   <!-- Convergent flow: clusters → wrench hub -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 185 120 C 215 120, 215 184, 245 184" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 185 184 L 245 184" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 185 248 C 215 248, 215 184, 245 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 765 120 C 795 120, 795 184, 825 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 765 184 L 825 184" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 765 248 C 795 248, 795 184, 825 184" stroke="#4285F4" opacity="0.85"/>
   </g>
 
   <!-- Wrench hub (the "fixer") -->
-  <circle cx="275" cy="184" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
-  <text x="275" y="184"
+  <circle cx="855" cy="184" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
+  <text x="855" y="184"
         font-size="36"
         text-anchor="middle"
         dominant-baseline="central">🛠️</text>
 
   <!-- Divergent flow: wrench hub → tables -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 305 184 C 340 184, 340 120, 375 120" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 305 184 L 375 184" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 305 184 C 340 184, 340 248, 375 248" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 885 184 C 920 184, 920 120, 955 120" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 885 184 L 955 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 885 184 C 920 184, 920 248, 955 248" stroke="#F9AB00" opacity="0.85"/>
   </g>
 
   <!-- Clean tables -->
-  <g transform="translate(380, 92)">
+  <g transform="translate(960, 92)">
     <!-- Table 1 -->
     <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
     <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>
@@ -122,13 +131,4 @@
       <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
     </g>
   </g>
-
-  <!-- Wordmark aligned to right of the flow, vertically centered -->
-  <text x="640" y="184"
-        font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', monospace"
-        font-size="44"
-        font-weight="700"
-        fill="#FFFFFF"
-        letter-spacing="-1.5"
-        dominant-baseline="central">🛠️ ga4-export-fixer</text>
 </svg>
