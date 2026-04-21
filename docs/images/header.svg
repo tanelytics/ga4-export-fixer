@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-label="ga4-export-fixer">
+  <rect width="1200" height="300" fill="#0E1117"/>
+
+  <!-- Messy raw-data shape clusters -->
+  <g transform="translate(40, 92)">
+    <!-- Cluster 1 -->
+    <g>
+      <rect x="5" y="6" width="12" height="10" fill="#4A5568"/>
+      <polygon points="28,22 42,6 48,22" fill="#718096"/>
+      <circle cx="62" cy="12" r="5" fill="#2D3748"/>
+      <rect x="78" y="16" width="14" height="8" fill="#4A5568"/>
+      <polygon points="104,8 118,16 110,24" fill="#718096"/>
+      <rect x="128" y="12" width="9" height="9" fill="#2D3748"/>
+      <circle cx="15" cy="40" r="4" fill="#718096"/>
+      <polygon points="32,46 44,34 50,46" fill="#4A5568"/>
+      <rect x="62" y="40" width="14" height="7" fill="#2D3748"/>
+      <circle cx="90" cy="42" r="3" fill="#4A5568"/>
+      <rect x="104" y="38" width="10" height="8" fill="#718096"/>
+      <circle cx="128" cy="42" r="4" fill="#2D3748"/>
+    </g>
+    <!-- Cluster 2 -->
+    <g transform="translate(0, 64)">
+      <circle cx="10" cy="12" r="4" fill="#4A5568"/>
+      <rect x="22" y="6" width="12" height="10" fill="#2D3748"/>
+      <polygon points="46,20 58,4 64,22" fill="#718096"/>
+      <rect x="74" y="10" width="10" height="8" fill="#4A5568"/>
+      <circle cx="98" cy="16" r="5" fill="#718096"/>
+      <polygon points="114,8 126,18 116,24" fill="#2D3748"/>
+      <rect x="5" y="38" width="9" height="9" fill="#718096"/>
+      <circle cx="30" cy="42" r="4" fill="#4A5568"/>
+      <polygon points="46,46 56,34 62,46" fill="#2D3748"/>
+      <rect x="72" y="40" width="14" height="7" fill="#4A5568"/>
+      <circle cx="100" cy="42" r="3" fill="#718096"/>
+      <rect x="114" y="40" width="12" height="7" fill="#2D3748"/>
+    </g>
+    <!-- Cluster 3 -->
+    <g transform="translate(0, 128)">
+      <polygon points="8,20 22,4 26,22" fill="#4A5568"/>
+      <rect x="36" y="10" width="10" height="9" fill="#718096"/>
+      <circle cx="58" cy="14" r="5" fill="#2D3748"/>
+      <rect x="74" y="8" width="12" height="8" fill="#4A5568"/>
+      <polygon points="100,22 112,6 120,20" fill="#718096"/>
+      <circle cx="132" cy="12" r="3" fill="#4A5568"/>
+      <circle cx="12" cy="42" r="3" fill="#2D3748"/>
+      <rect x="24" y="38" width="14" height="7" fill="#4A5568"/>
+      <polygon points="50,46 60,34 66,48" fill="#718096"/>
+      <circle cx="80" cy="42" r="4" fill="#4A5568"/>
+      <rect x="96" y="38" width="10" height="8" fill="#2D3748"/>
+      <polygon points="118,46 128,36 132,46" fill="#718096"/>
+    </g>
+  </g>
+
+  <!-- Convergent flow: clusters → wrench hub -->
+  <g fill="none" stroke-width="2.5" stroke-linecap="round">
+    <path d="M 185 120 C 215 120, 215 184, 245 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 185 184 L 245 184" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 185 248 C 215 248, 215 184, 245 184" stroke="#4285F4" opacity="0.85"/>
+  </g>
+
+  <!-- Wrench hub (the "fixer") -->
+  <circle cx="275" cy="184" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
+  <text x="275" y="184"
+        font-size="36"
+        text-anchor="middle"
+        dominant-baseline="central">🛠️</text>
+
+  <!-- Divergent flow: wrench hub → tables -->
+  <g fill="none" stroke-width="2.5" stroke-linecap="round">
+    <path d="M 305 184 C 340 184, 340 120, 375 120" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 305 184 L 375 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 305 184 C 340 184, 340 248, 375 248" stroke="#F9AB00" opacity="0.85"/>
+  </g>
+
+  <!-- Clean tables -->
+  <g transform="translate(380, 92)">
+    <!-- Table 1 -->
+    <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
+    <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>
+    <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
+    <rect x="144" y="8" width="70" height="10" rx="2" fill="#4285F4"/>
+    <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
+    <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
+    <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
+    <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
+    <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
+    <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
+    <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
+    <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
+    <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+
+    <!-- Table 2 -->
+    <g transform="translate(0, 64)">
+      <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
+      <rect x="6" y="8" width="64" height="10" rx="2" fill="#4285F4"/>
+      <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
+      <rect x="144" y="8" width="70" height="10" rx="2" fill="#F9AB00"/>
+      <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+    </g>
+
+    <!-- Table 3 -->
+    <g transform="translate(0, 128)">
+      <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
+      <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>
+      <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
+      <rect x="144" y="8" width="70" height="10" rx="2" fill="#4285F4"/>
+      <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
+      <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
+      <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+    </g>
+  </g>
+
+  <!-- Wordmark aligned to right of the flow, vertically centered -->
+  <text x="640" y="184"
+        font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', monospace"
+        font-size="44"
+        font-weight="700"
+        fill="#FFFFFF"
+        letter-spacing="-1.5"
+        dominant-baseline="central">🛠️ ga4-export-fixer</text>
+</svg>
