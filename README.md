@@ -1,4 +1,4 @@
-![ga4-export-fixer](docs/images/header.svg)
+<img src="docs/images/header.svg" alt="ga4-export-fixer">
 
 # An enhanced, incremental GA4 events table, built with Dataform
 
