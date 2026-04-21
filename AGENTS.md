@@ -12,8 +12,6 @@ After editing `README.md`, run `npm run readme` to regenerate the table of conte
 
 Validation functions in `inputValidation.js` **throw** on invalid input. They do not return booleans. When wrapping a validation call, use try/catch — not a truthy check on the return value.
 
-`validateBaseConfig` in `inputValidation.js` covers fields from `baseConfig` in `defaultConfig.js`. Table-specific validators live inside their table module directory (e.g. `tables/ga4EventsEnhanced/validation.js`). Each table-specific validator calls `validateBaseConfig` internally.
-
 ## Helpers structure
 
 `helpers/` is a shared, flat library — do not spread helpers into individual table module directories. Code that's reusable across tables belongs in `helpers/`; only table-specific logic (validators, assertion builders, schema overrides) belongs inside `tables/<name>/`.
@@ -22,37 +20,18 @@ Validation functions in `inputValidation.js` **throw** on invalid input. They do
 
 When renaming or moving a function, search the entire codebase for all occurrences: definition, `module.exports`, `require()` calls, `index.js` re-exports, comments, and README references.
 
-## Generating documentation
+## JSDoc maintenance
 
-When asked to generate documentation, only generate the JSDoc comment above the function. When making updates to a function's definitions, make sure that the JSDoc is also updated accordingly.
+When asked to generate documentation, only generate the JSDoc comment above the function. When updating a function's definition, update its JSDoc in the same change.
 
 ## Column descriptions
 
-Whenever a new column is included in the generated SQL query, a matching documentation entry must be added.
+Adding a column to the generated SQL requires a matching entry in **all three** JSON files under `tables/<tableName>/columns/`: `columnDescriptions.json`, `columnLineage.json`, `columnTypicalUse.json`. Missing entries silently produce incomplete documentation. Follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic as the source of truth.
 
-Column metadata lives inside each table module at `tables/<tableName>/columns/` as three JSON files:
+## Dataform pre_operations
 
-- `columnDescriptions.json` — the base description (string, or `{ description, columns: {...} }` for struct columns)
-- `columnLineage.json` — `{ source, note }` describing where the value comes from
-- `columnTypicalUse.json` — a short string describing how the column is typically used
+GA4 export priority is daily > fresh > intraday. When export types overlap on a given day, the highest-priority one wins.
 
-A new column needs an entry in all three files. `documentation.getColumnDescriptions()` (in `documentation.js`) consumes them and composes the multi-section description shown in BigQuery.
+Pre-operation date filters must work for all 7 combinations of enabled export types.
 
-Column descriptions should follow the GA4 documentation, GA4 BigQuery export documentation, and the transformation SQL logic from the code base.
-
-# Setting Dataform pre_operations
-
-When querying GA4 export data the priority order of the exports is daily > fresh > intraday. The exports can overlap on specific days. In case of overlap, the data from the highest priority export table should be used.
-
-The pre_operation date filters should work with all possible 7 combinations of export types enabled.
-
-Some of the pre_operations check the status of the GA4 generated export tables. These pre_operations should only be set if the configuration declares that it's querying GA4 export data (sourceTableType: 'GA4_EXPORT').
-
-# Writing tests
-
-Test should cover the most important table generation logic:
-1. Generating the main SQL, without errors
-2. Generating the merged configuration and validating inputs
-3. Generating and validating the pre_operations
-
-Check that the test are updated accordingly if code is updated.
+Pre-operations that inspect GA4-generated export table status should only run when the configuration declares `sourceTableType: 'GA4_EXPORT'`.
