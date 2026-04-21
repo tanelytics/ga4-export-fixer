@@ -1,6 +1,6 @@
 ![ga4-export-fixer](docs/images/header.svg)
 
-# ga4-export-fixer
+# An enhanced, incremental GA4 events table, built with Dataform
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
 [![License](https://img.shields.io/npm/l/ga4-export-fixer)](https://github.com/tanelytics/ga4-export-fixer/blob/main/LICENSE)
