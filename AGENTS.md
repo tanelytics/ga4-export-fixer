@@ -14,6 +14,10 @@ Validation functions in `inputValidation.js` **throw** on invalid input. They do
 
 `validateBaseConfig` in `inputValidation.js` covers fields from `baseConfig` in `defaultConfig.js`. Table-specific validators live inside their table module directory (e.g. `tables/ga4EventsEnhanced/validation.js`). Each table-specific validator calls `validateBaseConfig` internally.
 
+## Helpers structure
+
+`helpers/` is a shared, flat library — do not spread helpers into individual table module directories. Code that's reusable across tables belongs in `helpers/`; only table-specific logic (validators, assertion builders, schema overrides) belongs inside `tables/<name>/`.
+
 ## Refactoring checklist
 
 When renaming or moving a function, search the entire codebase for all occurrences: definition, `module.exports`, `require()` calls, `index.js` re-exports, comments, and README references.
