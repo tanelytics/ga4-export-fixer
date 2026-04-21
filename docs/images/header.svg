@@ -2,7 +2,7 @@
   <rect width="1200" height="300" fill="#0E1117"/>
 
   <!-- Wordmark on the left, vertically centered -->
-  <text x="40" y="184"
+  <text x="40" y="150"
         font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', monospace"
         font-size="52"
         font-weight="700"
@@ -11,7 +11,7 @@
         dominant-baseline="central">🛠️ ga4-export-fixer</text>
 
   <!-- Messy raw-data shape clusters -->
-  <g transform="translate(620, 92)">
+  <g transform="translate(600, 58)">
     <!-- Cluster 1 -->
     <g>
       <rect x="5" y="6" width="12" height="10" fill="#4A5568"/>
@@ -61,27 +61,27 @@
 
   <!-- Convergent flow: clusters → wrench hub -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 765 120 C 795 120, 795 184, 825 184" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 765 184 L 825 184" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 765 248 C 795 248, 795 184, 825 184" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 745 86 C 775 86, 775 150, 805 150" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 745 150 L 805 150" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 745 214 C 775 214, 775 150, 805 150" stroke="#4285F4" opacity="0.85"/>
   </g>
 
   <!-- Wrench hub (the "fixer") -->
-  <circle cx="855" cy="184" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
-  <text x="855" y="184"
+  <circle cx="835" cy="150" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
+  <text x="835" y="150"
         font-size="36"
         text-anchor="middle"
         dominant-baseline="central">🛠️</text>
 
   <!-- Divergent flow: wrench hub → tables -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 885 184 C 920 184, 920 120, 955 120" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 885 184 L 955 184" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 885 184 C 920 184, 920 248, 955 248" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 865 150 C 900 150, 900 86, 935 86" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 865 150 L 935 150" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 865 150 C 900 150, 900 214, 935 214" stroke="#F9AB00" opacity="0.85"/>
   </g>
 
   <!-- Clean tables -->
-  <g transform="translate(960, 92)">
+  <g transform="translate(940, 58)">
     <!-- Table 1 -->
     <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
     <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>

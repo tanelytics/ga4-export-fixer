@@ -1,3 +1,5 @@
+![ga4-export-fixer](docs/images/header.svg)
+
 # ga4-export-fixer
 
 [![npm version](https://img.shields.io/npm/v/ga4-export-fixer)](https://www.npmjs.com/package/ga4-export-fixer)
