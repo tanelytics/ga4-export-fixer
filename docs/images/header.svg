@@ -4,14 +4,14 @@
   <!-- Wordmark on the left, vertically centered -->
   <text x="40" y="150"
         font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', monospace"
-        font-size="52"
+        font-size="56"
         font-weight="700"
         fill="#FFFFFF"
         letter-spacing="-1.5"
         dominant-baseline="central">🛠️ ga4-export-fixer</text>
 
   <!-- Messy raw-data shape clusters -->
-  <g transform="translate(600, 58)">
+  <g transform="translate(680, 58)">
     <!-- Cluster 1 -->
     <g>
       <rect x="5" y="6" width="12" height="10" fill="#4A5568"/>
@@ -61,74 +61,74 @@
 
   <!-- Convergent flow: clusters → wrench hub -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 745 86 C 775 86, 775 150, 805 150" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 745 150 L 805 150" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 745 214 C 775 214, 775 150, 805 150" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 825 86 C 848 86, 848 150, 870 150" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 825 150 L 870 150" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 825 214 C 848 214, 848 150, 870 150" stroke="#4285F4" opacity="0.85"/>
   </g>
 
   <!-- Wrench hub (the "fixer") -->
-  <circle cx="835" cy="150" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
-  <text x="835" y="150"
+  <circle cx="900" cy="150" r="30" fill="#1A1F2A" stroke="#F9AB00" stroke-width="2.5"/>
+  <text x="900" y="150"
         font-size="36"
         text-anchor="middle"
         dominant-baseline="central">🛠️</text>
 
   <!-- Divergent flow: wrench hub → tables -->
   <g fill="none" stroke-width="2.5" stroke-linecap="round">
-    <path d="M 865 150 C 900 150, 900 86, 935 86" stroke="#F9AB00" opacity="0.85"/>
-    <path d="M 865 150 L 935 150" stroke="#4285F4" opacity="0.85"/>
-    <path d="M 865 150 C 900 150, 900 214, 935 214" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 930 150 C 955 150, 955 86, 980 86" stroke="#F9AB00" opacity="0.85"/>
+    <path d="M 930 150 L 980 150" stroke="#4285F4" opacity="0.85"/>
+    <path d="M 930 150 C 955 150, 955 214, 980 214" stroke="#F9AB00" opacity="0.85"/>
   </g>
 
   <!-- Clean tables -->
-  <g transform="translate(940, 58)">
+  <g transform="translate(980, 58)">
     <!-- Table 1 -->
-    <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
-    <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>
-    <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
-    <rect x="144" y="8" width="70" height="10" rx="2" fill="#4285F4"/>
-    <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
-    <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
-    <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
-    <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
-    <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
-    <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
-    <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
-    <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
-    <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+    <rect x="0" y="0" width="180" height="56" rx="6" fill="#1A1F2A"/>
+    <rect x="6" y="8" width="52" height="10" rx="2" fill="#F9AB00"/>
+    <rect x="62" y="8" width="54" height="10" rx="2" fill="#4285F4"/>
+    <rect x="120" y="8" width="54" height="10" rx="2" fill="#4285F4"/>
+    <rect x="6" y="22" width="52" height="7" rx="2" fill="#2D3748"/>
+    <rect x="62" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+    <rect x="120" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+    <rect x="6" y="33" width="52" height="7" rx="2" fill="#2D3748"/>
+    <rect x="62" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+    <rect x="120" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+    <rect x="6" y="44" width="52" height="7" rx="2" fill="#2D3748"/>
+    <rect x="62" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
+    <rect x="120" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
 
     <!-- Table 2 -->
     <g transform="translate(0, 64)">
-      <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
-      <rect x="6" y="8" width="64" height="10" rx="2" fill="#4285F4"/>
-      <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
-      <rect x="144" y="8" width="70" height="10" rx="2" fill="#F9AB00"/>
-      <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
-      <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
-      <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="0" y="0" width="180" height="56" rx="6" fill="#1A1F2A"/>
+      <rect x="6" y="8" width="52" height="10" rx="2" fill="#4285F4"/>
+      <rect x="62" y="8" width="54" height="10" rx="2" fill="#4285F4"/>
+      <rect x="120" y="8" width="54" height="10" rx="2" fill="#F9AB00"/>
+      <rect x="6" y="22" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="33" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="44" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
     </g>
 
     <!-- Table 3 -->
     <g transform="translate(0, 128)">
-      <rect x="0" y="0" width="220" height="56" rx="6" fill="#1A1F2A"/>
-      <rect x="6" y="8" width="64" height="10" rx="2" fill="#F9AB00"/>
-      <rect x="74" y="8" width="66" height="10" rx="2" fill="#4285F4"/>
-      <rect x="144" y="8" width="70" height="10" rx="2" fill="#4285F4"/>
-      <rect x="6" y="22" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="22" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="22" width="70" height="7" rx="2" fill="#2D3748"/>
-      <rect x="6" y="33" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="33" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="33" width="70" height="7" rx="2" fill="#2D3748"/>
-      <rect x="6" y="44" width="64" height="7" rx="2" fill="#2D3748"/>
-      <rect x="74" y="44" width="66" height="7" rx="2" fill="#2D3748"/>
-      <rect x="144" y="44" width="70" height="7" rx="2" fill="#2D3748"/>
+      <rect x="0" y="0" width="180" height="56" rx="6" fill="#1A1F2A"/>
+      <rect x="6" y="8" width="52" height="10" rx="2" fill="#F9AB00"/>
+      <rect x="62" y="8" width="54" height="10" rx="2" fill="#4285F4"/>
+      <rect x="120" y="8" width="54" height="10" rx="2" fill="#4285F4"/>
+      <rect x="6" y="22" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="22" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="33" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="33" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="6" y="44" width="52" height="7" rx="2" fill="#2D3748"/>
+      <rect x="62" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
+      <rect x="120" y="44" width="54" height="7" rx="2" fill="#2D3748"/>
     </g>
   </g>
 </svg>
