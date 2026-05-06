@@ -1105,6 +1105,85 @@ test('accepts valid config with skipDataformContextFields', () => {
 });
 
 // ---------------------------------------------------------------------------
+// customSteps — Layer 1 config-shape validation
+// (Layer 2 collision check is in tests/customSteps.test.js since it requires
+//  generateSql to derive the package's reserved-name set at runtime.)
+// ---------------------------------------------------------------------------
+
+console.log('\nN. customSteps Layer 1 validation\n');
+
+test('accepts undefined customSteps', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: undefined }));
+});
+
+test('accepts empty customSteps array', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [] }));
+});
+
+test('accepts valid customSteps entries', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({
+        customSteps: [
+            { name: 'extra_a', query: 'select 1' },
+            { name: 'extra_b', query: 'select 2' },
+        ],
+    }));
+});
+
+test('rejects non-array customSteps', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: 'nope' })),
+        /config\.customSteps must be an array/
+    );
+});
+
+test('rejects null entry in customSteps', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [null] })),
+        /config\.customSteps\[0\] must be a non-null object/
+    );
+});
+
+test('rejects array entry in customSteps', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [['a', 'b']] })),
+        /config\.customSteps\[0\] must be a non-null object/
+    );
+});
+
+test('rejects entry missing name', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [{ query: 'select 1' }] })),
+        /config\.customSteps\[0\]\.name must be a non-empty string/
+    );
+});
+
+test('rejects entry with empty/whitespace name', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [{ name: '   ', query: 'select 1' }] })),
+        /config\.customSteps\[0\]\.name must be a non-empty string/
+    );
+});
+
+test('rejects entry with non-string name', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: [{ name: 42, query: 'select 1' }] })),
+        /config\.customSteps\[0\]\.name must be a non-empty string/
+    );
+});
+
+test('rejects duplicate names within customSteps', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            customSteps: [
+                { name: 'dup', query: 'select 1' },
+                { name: 'dup', query: 'select 2' },
+            ],
+        })),
+        /config\.customSteps contains duplicate name 'dup'/
+    );
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

@@ -65,6 +65,9 @@ const ga4EventsEnhancedConfig = {
     ],
     // exclude these columns when extracting raw data from the export tables
     excludedColumns: [],
+    // user-defined CTEs appended to the pipeline after enhanced_events
+    // each entry is a queryBuilder step (raw {name, query} or structured {name, select, from, ...})
+    customSteps: [],
 };
 
 module.exports = { ga4EventsEnhancedConfig };

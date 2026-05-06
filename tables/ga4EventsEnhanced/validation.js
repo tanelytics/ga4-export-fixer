@@ -200,6 +200,31 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
             }
         }
     }
+
+    // customSteps - optional array of queryBuilder step objects appended to the pipeline
+    // Layer 1 (config shape): array, objects with non-empty name, no duplicates within customSteps.
+    // Step-shape validation (clause keys, etc.) deferred to queryBuilder.
+    // Collision-with-package-names check deferred to _generateEnhancedEventsSQL (Layer 2),
+    // since the reserved set is config-dependent (e.g. item_list_* only exist when itemListAttribution is on).
+    if (config.customSteps !== undefined) {
+        if (!Array.isArray(config.customSteps)) {
+            throw new Error(`config.customSteps must be an array. Received: ${JSON.stringify(config.customSteps)}`);
+        }
+        const seenNames = new Set();
+        for (let i = 0; i < config.customSteps.length; i++) {
+            const step = config.customSteps[i];
+            if (!step || typeof step !== 'object' || Array.isArray(step)) {
+                throw new Error(`config.customSteps[${i}] must be a non-null object. Received: ${JSON.stringify(step)}`);
+            }
+            if (typeof step.name !== 'string' || !step.name.trim()) {
+                throw new Error(`config.customSteps[${i}].name must be a non-empty string. Received: ${JSON.stringify(step.name)}`);
+            }
+            if (seenNames.has(step.name)) {
+                throw new Error(`config.customSteps contains duplicate name '${step.name}'. Each customSteps entry must have a unique name.`);
+            }
+            seenNames.add(step.name);
+        }
+    }
   } catch (e) {
     e.message = `Config validation: ${e.message}`;
     throw e;

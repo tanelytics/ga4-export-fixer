@@ -324,8 +324,9 @@ ${excludedEventsSQL}`,
     const itemListExcludedColumns = itemListSteps ? ['_item_list_attribution_row_id'] : [];
 
     // Join event_data and session_data, include additional logic
-    const finalStep = {
-        name: 'final',
+    // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
+    const enhancedEventsStep = {
+        name: 'enhanced_events',
         select: {
             columns: {
                 // get the most important columns in the correct order
@@ -371,12 +372,30 @@ ${excludedEventsSQL}`,
         where: helpers.incrementalDateFilter(mergedConfig)
     };
 
-    const steps = [
+    const packageSteps = [
         eventDataStep,
         ...(itemListSteps ?? []),
         sessionDataStep,
-        finalStep,
+        enhancedEventsStep,
     ];
+
+    // Layer 2 validation: customSteps name must not collide with package step names.
+    // Reserved set is derived from packageSteps at runtime (single source of truth) — what
+    // is reserved depends on config (e.g. item_list_* exist only when itemListAttribution is on).
+    const customSteps = mergedConfig.customSteps ?? [];
+    if (customSteps.length > 0) {
+        const reservedNames = new Set(packageSteps.map(s => s.name));
+        for (const [i, step] of customSteps.entries()) {
+            if (reservedNames.has(step.name)) {
+                throw new Error(
+                    `config.customSteps[${i}].name '${step.name}' collides with a reserved package CTE name. ` +
+                    `Reserved names (active for this config): ${[...reservedNames].join(', ')}. Choose a different name.`
+                );
+            }
+        }
+    }
+
+    const steps = [...packageSteps, ...customSteps];
 
     return utils.queryBuilder(steps);
 };

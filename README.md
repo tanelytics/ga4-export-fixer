@@ -327,6 +327,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `testConfig`           | object                  | [See details](#testConfig)          | Date range used when `test` is `true`                                                                                                                                                                                                                                                                                        |
 | `preOperations`        | object                  | [See details](#preOperations)       | Date range and incremental refresh configuration                                                                                                                                                                                                                                                                             |
 | `eventParamsToColumns` | object[]                | `[]`                                | Event parameters to promote to columns. [See item schema](#eventParamsToColumns)                                                                                                                                                                                                                                             |
+| `customSteps`          | object[]                | `[]`                                | User-defined CTEs appended to the pipeline after `enhanced_events`. [See Custom CTEs](#custom-ctes)                                                                                                                                                                                                                          |
 
 <a id="default-dataformtableconfig"></a>
 <details>
@@ -453,6 +454,43 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 ```
 
 > **Note:** This feature adds a compute-heavy CTE with a window function over unnested items. Only enable it if you need item list attribution for ecommerce analysis.
+
+<a id="custom-ctes"></a>
+
+**`customSteps`** — append CTEs after `enhanced_events`. Each entry is either a raw `{name, query}` or a structured `{name, select, from, ...}`. The last entry becomes the table's final SELECT; earlier entries become CTEs.
+
+**Stable CTE names you can reference from your custom steps:**
+
+| Name                     | Always present?                       | Contents                                                                                                                                            |
+| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `event_data`             | yes                                   | Extracted and shaped events from `sourceTable`, with date filtering and column promotions applied. *Unfiltered for the buffer-days range.*           |
+| `session_data`           | yes                                   | Session-level aggregations (grouped by `session_id`).                                                                                                |
+| `item_list_attribution`  | only when `itemListAttribution` is on | Per-event item attribution rows.                                                                                                                    |
+| `item_list_data`         | only when `itemListAttribution` is on | Re-aggregated items with attributed list fields.                                                                                                    |
+| `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + item_list_data, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
+
+
+```javascript
+// Add a content_group column derived from page.path
+customSteps: [
+    {
+        name: 'final',
+        query: `select
+  enhanced_events.*,
+  case
+    when page.path like '/blog/%' then 'blog'
+    when page.path like '/products/%' then 'product'
+    when page.path = '/' then 'home'
+    else 'other'
+  end as content_group
+from enhanced_events`,
+    },
+],
+```
+
+> **Note:** Custom columns aren't auto-documented. Use `dataformTableConfig.columns` to add descriptions — it's deep-merged with the package's defaults, so your keys are added or override matching defaults, and untouched defaults stay.
+
+> **Note:** Built-in assertions assume the package's standard schema. If your custom CTEs rename, drop, or filter rows in ways that break those assumptions, disable the affected assertions explicitly via the `assertions` config option.
 
 <br>
 
