@@ -74,8 +74,5 @@ build/
 # SQL diff output
 tests/sql-diff-output/
 
-# design docs
-design_docs/
-
 # sprint state
 .sprint-state
