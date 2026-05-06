@@ -20,15 +20,34 @@ const mergeUniqueArrays = (...arrays) => {
 
 /**
  * Build SQL query from an array of steps with support for CTEs.
- * 
- * Each step should have:
- * - name: CTE name (required for CTEs)
- * - columns: Object with column definitions { alias: 'expression' }
- * - from: Source table/CTE
- * - where: Optional WHERE clause
- * - groupBy: Optional array of GROUP BY columns
- * - leftJoin: Optional array of join definitions { table, condition }
- * 
+ *
+ * Each step is one of two shapes — structured (clause-keyed) or raw (`{name, query}`).
+ *
+ * STRUCTURED SHAPE:
+ *   { name, select, from, joins?, where?, 'group by'?, having?, qualify?, 'order by'?, limit? }
+ *
+ *   - name: CTE name (required for non-final steps)
+ *   - select: Either a string (raw select list) or { columns?: {alias: expr}, sql?: string }
+ *       - columns: alias -> expression map. `key === value` skips the alias;
+ *         keys starting with `[sql]` emit raw values with no alias; `undefined` values are filtered out.
+ *       - sql: optional raw column-list tail appended after columns
+ *   - from: Source table/CTE (string)
+ *   - joins: Either an array of { type, table, on? } or a string fallback
+ *       - type: 'left', 'inner', 'cross', 'right', 'full'
+ *       - on omitted for cross joins
+ *   - where, having, qualify, 'order by', 'group by', limit: string clauses (limit may be a number)
+ *
+ *   Clauses are emitted in canonical SQL order regardless of input key order.
+ *
+ * RAW SHAPE:
+ *   { name, query }
+ *
+ *   - name: CTE name
+ *   - query: Entire CTE body as raw SQL, emitted verbatim
+ *
+ * Detection: a step is raw iff it has a top-level `query` key. Mixing raw and structured
+ * keys within a single step throws.
+ *
  * @param {Array<Object>} steps - Array of step objects defining the query structure
  * @returns {string} Generated SQL query
  */
@@ -62,7 +81,7 @@ const queryBuilder = (steps) => {
             .join('\n');
     };
 
-    // Helper function to turn step.columns into SQL string
+    // Helper function to turn step.select.columns into SQL string
     const columnsToSQL = (columns) => {
         return Object.entries(columns)
             // exclude all columns that have been explicitly set to undefined
@@ -83,37 +102,115 @@ const queryBuilder = (steps) => {
             .join(',\n' + pad);
     };
 
-    const selectSQL = (step) => {
-        const parts = [`select\n${pad}${columnsToSQL(step.columns)}`];
-        parts.push(`from\n${pad}${step.from}`);
-
-        if (step.leftJoin) {
-            step.leftJoin.forEach(join => {
-                parts.push(`left join\n${pad}${join.table} ${join.condition}`);
-            });
+    // Renderer for the SELECT clause. Accepts a string (sugar for {sql: <string>})
+    // or an object with columns and/or sql fields.
+    const renderSelect = (value) => {
+        const v = typeof value === 'string' ? { sql: value } : value;
+        const hasColumns = v.columns !== undefined && Object.keys(v.columns).length > 0;
+        const hasSql = typeof v.sql === 'string' && v.sql.length > 0;
+        if (!hasColumns && !hasSql) {
+            throw new Error('queryBuilder: select must include at least one of `columns` or `sql`');
         }
+        const parts = [];
+        if (hasColumns) parts.push(columnsToSQL(v.columns));
+        if (hasSql) parts.push(reindent(v.sql, INDENT));
+        return `select\n${pad}${parts.join(',\n' + pad)}`;
+    };
 
-        if (step.where) {
-            parts.push(`where\n${pad}${reindent(step.where, INDENT)}`);
+    // Renderer for the JOINS clause. Accepts an array of {type, table, on}
+    // entries (rendered in array order) or a string fallback.
+    const renderJoins = (value) => {
+        if (typeof value === 'string') {
+            return reindent(value, 0);
         }
+        return value
+            .map(j => j.type === 'cross'
+                ? `cross join\n${pad}${j.table}`
+                : `${j.type} join\n${pad}${j.table} ${j.on}`)
+            .join('\n');
+    };
 
-        if (step.groupBy) {
-            parts.push(`group by\n${pad}${step.groupBy.join(', ')}`);
+    // Renderer factory for inline string clauses (where, having, group by, ...).
+    // Coerces non-strings (e.g. limit: 100) via String().
+    const renderInline = (keyword) => (value) =>
+        `${keyword}\n${pad}${reindent(String(value), INDENT)}`;
+
+    // Registry of clause renderers. Declaration order is the canonical SQL order
+    // — clauses are always emitted in this order regardless of input key order.
+    const CLAUSE_RENDERERS = [
+        { key: 'select',   render: renderSelect             },
+        { key: 'from',     render: renderInline('from')     },
+        { key: 'joins',    render: renderJoins              },
+        { key: 'where',    render: renderInline('where')    },
+        { key: 'group by', render: renderInline('group by') },
+        { key: 'having',   render: renderInline('having')   },
+        { key: 'qualify',  render: renderInline('qualify')  },
+        { key: 'order by', render: renderInline('order by') },
+        { key: 'limit',    render: renderInline('limit')    },
+    ];
+
+    const STRUCTURED_KEYS = new Set(['name', ...CLAUSE_RENDERERS.map(c => c.key)]);
+    const RAW_KEYS = new Set(['name', 'query']);
+
+    const validateStep = (step) => {
+        if (!step || typeof step !== 'object' || Array.isArray(step)) {
+            throw new Error(`queryBuilder: each step must be a non-null object, received: ${JSON.stringify(step)}`);
         }
+        const isRaw = 'query' in step;
+        const allowed = isRaw ? RAW_KEYS : STRUCTURED_KEYS;
+        const allowedList = [...allowed].map(k => `\`${k}\``).join(', ');
+        const stepLabel = step.name ? `\`${step.name}\`` : '<unnamed>';
+        for (const key of Object.keys(step)) {
+            if (!allowed.has(key)) {
+                if (isRaw && STRUCTURED_KEYS.has(key) && key !== 'name') {
+                    throw new Error(
+                        `queryBuilder: step ${stepLabel} has both \`query\` (raw shape) and \`${key}\` (structured key). ` +
+                        `Raw and structured shapes are mutually exclusive within a single step. ` +
+                        `Allowed raw-shape keys: ${allowedList}.`
+                    );
+                }
+                throw new Error(
+                    `queryBuilder: unknown key \`${key}\` in ${isRaw ? 'raw' : 'structured'} step ${stepLabel}. ` +
+                    `Allowed keys: ${allowedList}.`
+                );
+            }
+        }
+        if (isRaw) {
+            if (typeof step.query !== 'string' || step.query.length === 0) {
+                throw new Error(`queryBuilder: raw step ${stepLabel} requires a non-empty \`query\` string`);
+            }
+        } else {
+            if (step.select === undefined) {
+                throw new Error(`queryBuilder: structured step ${stepLabel} requires \`select\``);
+            }
+            if (step.from === undefined) {
+                throw new Error(`queryBuilder: structured step ${stepLabel} requires \`from\``);
+            }
+        }
+    };
 
-        return parts.join('\n');
+    const renderStep = (step) => {
+        validateStep(step);
+        if ('query' in step) {
+            // Raw shape: emit body verbatim, normalized to col 0 of the step.
+            return reindent(step.query, 0);
+        }
+        return CLAUSE_RENDERERS
+            .filter(c => step[c.key] !== undefined)
+            .map(c => c.render(step[c.key]))
+            .join('\n');
     };
 
     if (steps.length === 1) {
-        return selectSQL(steps[0]);
+        return renderStep(steps[0]);
     }
 
     const ctes = steps.slice(0, -1).map(step => {
-        const body = indentBlock(selectSQL(step), INDENT);
+        const body = indentBlock(renderStep(step), INDENT);
         return `${step.name} as (\n${body}\n)`;
     });
     const lastStep = steps[steps.length - 1];
-    return `with ${ctes.join(',\n')}\n${selectSQL(lastStep)}`;
+    return `with ${ctes.join(',\n')}\n${renderStep(lastStep)}`;
 };
 
 /**
@@ -373,14 +470,14 @@ const mergeDataformTableConfigurations = (defaultConfig, inputConfig = {}) => {
  *
  * This utility is helpful when joining tables/CTEs to avoid selecting duplicate or already-present columns.
  * 
- * @param {Object} step - The step object containing a `name` (CTE/table alias) and a `columns` object.
+ * @param {Object} step - A queryBuilder structured step containing a `name` (CTE/table alias) and a `select.columns` object.
  * @param {string[]} [alreadyDefinedColumns=[]] - Columns that have already been defined and should be excluded from selection.
  * @param {string[]} [excludedColumns=[]] - Additional columns to explicitly exclude from selection.
  * @returns {string|undefined} A SQL select string (e.g. 'stepName.*' or 'stepName.* except (col1, col2)'), or undefined if all columns are excluded.
  */
 const selectOtherColumns = (step, alreadyDefinedColumns = [], excludedColumns = []) => {
     const stepName = step.name;
-    const stepColumns = Object.keys(step.columns);
+    const stepColumns = Object.keys(step.select.columns);
 
     // Determine which columns to exclude: those already defined or explicitly excluded
     const exceptColumns = stepColumns.filter(

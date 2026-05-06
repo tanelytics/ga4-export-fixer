@@ -106,9 +106,9 @@ const getFinalColumnOrder = (eventDataStep, sessionDataStep) => {
     // Construct the columns object: key is column name, value is {step.name}.{column}
     const columnOrder = {};
     for (const col of finalColumnOrder) {
-        if (sessionDataStep?.columns?.hasOwnProperty(col) && sessionDataStep.columns[col] !== undefined) {
+        if (sessionDataStep?.select?.columns?.hasOwnProperty(col) && sessionDataStep.select.columns[col] !== undefined) {
             columnOrder[col] = `${sessionDataStep.name}.${col}`;
-        } else if (eventDataStep?.columns?.hasOwnProperty(col) && eventDataStep.columns[col] !== undefined) {
+        } else if (eventDataStep?.select?.columns?.hasOwnProperty(col) && eventDataStep.select.columns[col] !== undefined) {
             columnOrder[col] = `${eventDataStep.name}.${col}`;
         }
     }
@@ -200,46 +200,48 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
     // initial step: extract data from the export tables
     const eventDataStep = {
         name: 'event_data',
-        columns: {
-            // exclude default export columns that are not needed
-            // do this first so that the columns defined later are not excluded
-            ...getExcludedColumns(),
-            // date and time
-            event_date: helpers.eventDate,
-            event_datetime: `extract(datetime from timestamp_micros(${helpers.getEventTimestampMicros(mergedConfig.customTimestampParam)}) at time zone '${mergedConfig.timezone}')`,
-            event_timestamp: 'event_timestamp',
-            event_custom_timestamp: mergedConfig.customTimestampParam ? helpers.getEventTimestampMicros(mergedConfig.customTimestampParam) : undefined,
-            // event name
-            event_name: 'event_name',
-            // identifiers
-            session_id: helpers.sessionId,
-            user_pseudo_id: 'user_pseudo_id',
-            user_id: 'user_id',
-            // page
-            page_location: helpers.unnestEventParam('page_location', 'string'),
-            page: helpers.extractPageDetails(),
-            // event parameters and user properties
-            ...promotedEventParameters(),
-            event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
-            user_properties: 'user_properties',
-            // traffic source
-            collected_traffic_source: 'collected_traffic_source',
-            session_traffic_source_last_click: 'session_traffic_source_last_click',
-            user_traffic_source: 'traffic_source',
-            // ecommerce
-            ecommerce: helpers.fixEcommerceStruct('ecommerce'),
-            items: 'items',
-            _item_list_attribution_row_id: itemListAttribution ? helpers.itemListAttributionRowId(ecommerceEventsFilter) : undefined,
-            // flag if the data is "final" and is not expected to change anymore
-            data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
-            export_type: helpers.getGa4ExportType('_table_suffix'),
-            // prep columns for later steps
-            entrances: helpers.unnestEventParam('entrances', 'int'),
-            session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
-            // include all other columns from the export data
-            get '[sql]other_columns'() {
-                const definedColumns = Object.keys(this);
-                return `* except (${definedColumns.filter(column => helpers.isGa4ExportColumn(column)).join(', ')})`;
+        select: {
+            columns: {
+                // exclude default export columns that are not needed
+                // do this first so that the columns defined later are not excluded
+                ...getExcludedColumns(),
+                // date and time
+                event_date: helpers.eventDate,
+                event_datetime: `extract(datetime from timestamp_micros(${helpers.getEventTimestampMicros(mergedConfig.customTimestampParam)}) at time zone '${mergedConfig.timezone}')`,
+                event_timestamp: 'event_timestamp',
+                event_custom_timestamp: mergedConfig.customTimestampParam ? helpers.getEventTimestampMicros(mergedConfig.customTimestampParam) : undefined,
+                // event name
+                event_name: 'event_name',
+                // identifiers
+                session_id: helpers.sessionId,
+                user_pseudo_id: 'user_pseudo_id',
+                user_id: 'user_id',
+                // page
+                page_location: helpers.unnestEventParam('page_location', 'string'),
+                page: helpers.extractPageDetails(),
+                // event parameters and user properties
+                ...promotedEventParameters(),
+                event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
+                user_properties: 'user_properties',
+                // traffic source
+                collected_traffic_source: 'collected_traffic_source',
+                session_traffic_source_last_click: 'session_traffic_source_last_click',
+                user_traffic_source: 'traffic_source',
+                // ecommerce
+                ecommerce: helpers.fixEcommerceStruct('ecommerce'),
+                items: 'items',
+                _item_list_attribution_row_id: itemListAttribution ? helpers.itemListAttributionRowId(ecommerceEventsFilter) : undefined,
+                // flag if the data is "final" and is not expected to change anymore
+                data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
+                export_type: helpers.getGa4ExportType('_table_suffix'),
+                // prep columns for later steps
+                entrances: helpers.unnestEventParam('entrances', 'int'),
+                session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
+                // include all other columns from the export data
+                get '[sql]other_columns'() {
+                    const definedColumns = Object.keys(this);
+                    return `* except (${definedColumns.filter(column => helpers.isGa4ExportColumn(column)).join(', ')})`;
+                },
             },
         },
         from: mergedConfig.sourceTable,
@@ -250,18 +252,20 @@ ${excludedEventsSQL}`,
     // Do session-level data aggregation
     const sessionDataStep = {
         name: 'session_data',
-        columns: {
-            session_id: 'session_id',
-            user_id: helpers.aggregateValue('user_id', 'last', timestampColumn),
-            merged_user_id: `ifnull(${helpers.aggregateValue('user_id', 'last', timestampColumn)}, any_value(user_pseudo_id))`,
-            session_params: helpers.aggregateSessionParams(mergedConfig.sessionParams, 'session_params_prep', timestampColumn),
-            session_traffic_source_last_click: helpers.aggregateValue('session_traffic_source_last_click', 'first', timestampColumn),
-            session_first_traffic_source: `array_agg(collected_traffic_source order by ${timestampColumn} limit 1)[safe_offset(0)]`, // don't ignore nulls
-            landing_page: helpers.aggregateValue(`if(entrances > 0, page, null)`, 'first', timestampColumn),
+        select: {
+            columns: {
+                session_id: 'session_id',
+                user_id: helpers.aggregateValue('user_id', 'last', timestampColumn),
+                merged_user_id: `ifnull(${helpers.aggregateValue('user_id', 'last', timestampColumn)}, any_value(user_pseudo_id))`,
+                session_params: helpers.aggregateSessionParams(mergedConfig.sessionParams, 'session_params_prep', timestampColumn),
+                session_traffic_source_last_click: helpers.aggregateValue('session_traffic_source_last_click', 'first', timestampColumn),
+                session_first_traffic_source: `array_agg(collected_traffic_source order by ${timestampColumn} limit 1)[safe_offset(0)]`, // don't ignore nulls
+                landing_page: helpers.aggregateValue(`if(entrances > 0, page, null)`, 'first', timestampColumn),
+            },
         },
         from: 'event_data',
         where: `session_id is not null`,
-        groupBy: ['session_id']
+        'group by': 'session_id',
     };
 
     // item list attribution CTEs:
@@ -277,11 +281,13 @@ ${excludedEventsSQL}`,
 
         const attributionStep = {
             name: 'item_list_attribution',
-            columns: {
-                '_item_list_attribution_row_id': '_item_list_attribution_row_id',
-                'event_name': 'event_name',
-                'item': 'item',
-                '_item_list_attr': attrExpr,
+            select: {
+                columns: {
+                    '_item_list_attribution_row_id': '_item_list_attribution_row_id',
+                    'event_name': 'event_name',
+                    'item': 'item',
+                    '_item_list_attr': attrExpr,
+                },
             },
             from: 'event_data, unnest(items) as item',
             where: `event_name in (${ecommerceEventsFilter})`,
@@ -289,18 +295,20 @@ ${excludedEventsSQL}`,
 
         const dataStep = {
             name: 'item_list_data',
-            columns: {
-                '_item_list_attribution_row_id': '_item_list_attribution_row_id',
-                'items': `array_agg(
+            select: {
+                columns: {
+                    '_item_list_attribution_row_id': '_item_list_attribution_row_id',
+                    'items': `array_agg(
       (select as struct item.* replace(
         coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
         coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)') as item_list_id,
         coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index)) as item_list_index
       ))
     )`,
+                },
             },
             from: 'item_list_attribution',
-            groupBy: ['_item_list_attribution_row_id'],
+            'group by': '_item_list_attribution_row_id',
         };
 
         return [attributionStep, dataStep];
@@ -318,42 +326,46 @@ ${excludedEventsSQL}`,
     // Join event_data and session_data, include additional logic
     const finalStep = {
         name: 'final',
-        columns: {
-            // get the most important columns in the correct order
-            ...finalColumnOrder,
-            ...itemListOverrides,
-            // get the rest of the event_data columns
-            '[sql]event_data': utils.selectOtherColumns(
-                eventDataStep,
-                Object.keys(finalColumnOrder),
-                [
-                    'entrances',
-                    mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
-                    'data_is_final',
-                    'export_type',
-                    ...itemListExcludedColumns,
-                ]
-            ),
-            // get the rest of the session_data columns
-            '[sql]session_data': utils.selectOtherColumns(
-                sessionDataStep,
-                Object.keys(finalColumnOrder),
-                []
-            ),
-            // include additional columns
-            row_inserted_timestamp: 'current_timestamp()',
-            data_is_final: 'data_is_final',
-            export_type: 'export_type',
+        select: {
+            columns: {
+                // get the most important columns in the correct order
+                ...finalColumnOrder,
+                ...itemListOverrides,
+                // get the rest of the event_data columns
+                '[sql]event_data': utils.selectOtherColumns(
+                    eventDataStep,
+                    Object.keys(finalColumnOrder),
+                    [
+                        'entrances',
+                        mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
+                        'data_is_final',
+                        'export_type',
+                        ...itemListExcludedColumns,
+                    ]
+                ),
+                // get the rest of the session_data columns
+                '[sql]session_data': utils.selectOtherColumns(
+                    sessionDataStep,
+                    Object.keys(finalColumnOrder),
+                    []
+                ),
+                // include additional columns
+                row_inserted_timestamp: 'current_timestamp()',
+                data_is_final: 'data_is_final',
+                export_type: 'export_type',
+            },
         },
         from: 'event_data',
-        leftJoin: [
+        joins: [
             ...(itemListSteps ? [{
+                type: 'left',
                 table: 'item_list_data',
-                condition: 'using(_item_list_attribution_row_id)'
+                on: 'using(_item_list_attribution_row_id)'
             }] : []),
             {
+                type: 'left',
                 table: 'session_data',
-                condition: 'using(session_id)'
+                on: 'using(session_id)'
             }
         ],
         where: helpers.incrementalDateFilter(mergedConfig)

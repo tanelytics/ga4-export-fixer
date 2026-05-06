@@ -1,6 +1,6 @@
 {
   "name": "ga4-export-fixer",
-  "version": "0.7.1",
+  "version": "0.8.0-dev.0",
   "description": "",
   "main": "index.js",
   "files": [
@@ -17,7 +17,7 @@
     "createTable.js"
   ],
   "scripts": {
-    "test": "node tests/ga4EventsEnhanced.test.js && node tests/assertions.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js && node tests/documentation.test.js && node tests/inputValidation.test.js && node tests/createTable.test.js",
+    "test": "node tests/ga4EventsEnhanced.test.js && node tests/assertions.test.js && node tests/mergeSQLConfigurations.test.js && node tests/preOperations.test.js && node tests/documentation.test.js && node tests/inputValidation.test.js && node tests/createTable.test.js && node tests/queryBuilder.test.js",
     "test:summary": "node tests/testRunner.js",
     "test:docs": "node tests/documentation.test.js",
     "test:preops": "node tests/preOperations.test.js",
@@ -26,6 +26,7 @@
     "test:validation": "node tests/inputValidation.test.js",
     "test:assertions": "node tests/assertions.test.js",
     "test:createTable": "node tests/createTable.test.js",
+    "test:queryBuilder": "node tests/queryBuilder.test.js",
     "test:integration": "node tests/integration/integration.test.js",
     "release:dev": "./scripts/release-dev.sh",
     "readme": "node scripts/updateReadme.js",
