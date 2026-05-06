@@ -20,6 +20,10 @@ Validation functions in `inputValidation.js` **throw** on invalid input. They do
 
 When renaming or moving a function, search the entire codebase for all occurrences: definition, `module.exports`, `require()` calls, `index.js` re-exports, comments, and README references.
 
+## Design docs
+
+Before drafting a new design doc, survey `design_docs/implemented/` and `design_docs/planned/` for related work, established terminology, and Future Work items the new doc may fulfill — cross-reference rather than duplicate. Match the existing voice (impersonal, factual, no first-person) and structure. Convention: docs are snapshots — the `Status` header stays `Planned` after shipping, no Implementation Report section is added, and folder placement (`planned/` vs `implemented/`) is the truth signal.
+
 ## Reserved CTE names — stable contract
 
 The package's internal CTE names that `customSteps` may reference (`event_data`, `session_data`, `item_list_attribution`, `item_list_data`, `enhanced_events`) are a documented stable contract under the v0.8.x line. Renaming or removing any of these is a breaking change for users with `customSteps` — bundle such changes into a minor version bump and call them out in the release notes / git tag annotation. The active reserved set is derived at runtime from the `packageSteps` array in `_generateEnhancedEventsSQL`, so adding a new internal CTE doesn't require updating a separate validation list — the new name automatically becomes reserved.
