@@ -139,10 +139,10 @@ The goal of the package is to **speed up development** when building data models
 
 Features under consideration for future releases:
 
+- Data enrichment (item-level, session-level, event-level)
+- Aggregated tables (ga4_session, ga4_ecommerce...)
 - Web and app specific default configurations
 - Custom channel grouping
-- Data enrichment (item-level, session-level, event-level)
-- Custom processing steps (additional CTEs)
 - Custom traffic source attribution
 
 ## Installation
