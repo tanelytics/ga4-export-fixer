@@ -469,6 +469,7 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 | `item_list_data`         | only when `itemListAttribution` is on | Re-aggregated items with attributed list fields.                                                                                                    |
 | `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + item_list_data, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
 
+Example custom step using the raw SQL format:
 
 ```javascript
 // Add a content_group column derived from page.path
@@ -484,6 +485,28 @@ customSteps: [
     else 'other'
   end as content_group
 from enhanced_events`,
+    },
+],
+```
+
+The same example in the structured shape:
+
+```javascript
+customSteps: [
+    {
+        name: 'final',
+        select: {
+            columns: {
+                '[sql]passthrough': 'enhanced_events.*',
+                content_group: `case
+  when page.path like '/blog/%' then 'blog'
+  when page.path like '/products/%' then 'product'
+  when page.path = '/' then 'home'
+  else 'other'
+end`,
+            },
+        },
+        from: 'enhanced_events',
     },
 ],
 ```
