@@ -129,6 +129,12 @@ The goal of the package is to **speed up development** when building data models
   <code>event_datetime</code> converted to a configurable IANA timezone
 </td>
 <td valign="top">
+  <b>🧩 Custom Processing Steps</b><br>
+  Append user-defined CTEs via <code>customSteps</code> to derive new columns or join external tables
+</td>
+</tr>
+<tr>
+<td valign="top">
   <b>🛡️ Zero Dependencies</b><br>
   No additional external dependencies added to your Dataform repository
 </td>
