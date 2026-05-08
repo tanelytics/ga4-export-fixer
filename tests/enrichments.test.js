@@ -311,6 +311,50 @@ test('pure additive enrichment (column does not exist anywhere) just adds a new 
     }));
     assert.ok(sql.includes('enrich_cohorts.custom_cohort_score as custom_cohort_score'),
         'new enrichment column should appear as a fresh column');
+    // Regression: an additive enrichment column must NOT appear in any wildcard EXCEPT list,
+    // otherwise BigQuery rejects with "Column ... in SELECT * EXCEPT list does not exist".
+    const exceptLines = sql.split('\n').filter(l => /\.\* except \(/.test(l));
+    assert.ok(exceptLines.length > 0, 'sanity: SQL should contain at least one wildcard except() clause');
+    for (const line of exceptLines) {
+        assert.ok(!line.includes('custom_cohort_score'),
+            `additive enrichment column must not appear in any wildcard EXCEPT list; got: ${line}`);
+    }
+});
+
+test('enrichment column overrides matching session_data column', () => {
+    // merged_user_id is an explicit column on session_data and is in finalColumnOrder. An
+    // enrichment with the same name should REPLACE it: the enrichment value wins via the
+    // enrichmentColumns spread overriding the finalColumnOrder mapping. Crucially, the
+    // event_data wildcard must NOT carry merged_user_id (it doesn't exist there) — that was
+    // the original bug for purely additive columns and applies equally to session_data overlaps.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'users',
+            source: '`proj.ds.user_overrides`',
+            joinKey: 'user_pseudo_id',
+            columns: ['merged_user_id'],
+        })],
+    }));
+    // Override value lands in the SELECT exactly once (no double-selection from session_data)
+    const mergedUserIdSelectLines = sql.split('\n').filter(
+        l => /\bmerged_user_id as merged_user_id\b/.test(l)
+    );
+    assert.strictEqual(mergedUserIdSelectLines.length, 1,
+        `merged_user_id should appear exactly once in the SELECT; got: ${mergedUserIdSelectLines.length} times`);
+    assert.ok(mergedUserIdSelectLines[0].includes('enrich_users.merged_user_id as merged_user_id'),
+        `enrichment value should win for merged_user_id; got: ${mergedUserIdSelectLines[0]}`);
+    // event_data wildcard EXCEPT must NOT include merged_user_id (it doesn't exist there).
+    const eventWildcardLine = sql.split('\n').find(l => l.includes('event_data.* except'));
+    if (eventWildcardLine) {
+        assert.ok(!eventWildcardLine.includes('merged_user_id'),
+            `event_data.* except must NOT include merged_user_id; got: ${eventWildcardLine}`);
+    }
+    // session_data wildcard EXCEPT, if present, must include merged_user_id (suppress overlap).
+    const sessionWildcardLine = sql.split('\n').find(l => l.includes('session_data.* except'));
+    if (sessionWildcardLine) {
+        assert.ok(sessionWildcardLine.includes('merged_user_id'),
+            `session_data.* except clause should include merged_user_id; got: ${sessionWildcardLine}`);
+    }
 });
 
 test('two enrichments writing the same column throws with both names', () => {

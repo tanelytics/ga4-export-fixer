@@ -385,6 +385,21 @@ ${excludedEventsSQL}`,
     }
     const enrichmentExcludedColumns = [...enrichmentColumnNames];
 
+    // Only forward enrichment columns to each wildcard's EXCEPT input if they would actually
+    // appear in that wildcard's source CTE. Otherwise BigQuery rejects with "Column X in
+    // SELECT * EXCEPT list does not exist". event_data.* expands to its explicit columns plus
+    // GA4 export columns minus user-excluded ones; session_data.* expands only to its explicit
+    // columns. selectOtherColumns dedupes between internalExcept and externalExcept.
+    const eventDataExplicit = new Set(Object.keys(eventDataStep.select.columns));
+    const sessionDataExplicit = new Set(Object.keys(sessionDataStep.select.columns));
+    const userExcluded = new Set(mergedConfig.excludedColumns);
+    const eventDataEnrichmentExcept = enrichmentExcludedColumns.filter(c =>
+        eventDataExplicit.has(c) || (helpers.isGa4ExportColumn(c) && !userExcluded.has(c))
+    );
+    const sessionDataEnrichmentExcept = enrichmentExcludedColumns.filter(c =>
+        sessionDataExplicit.has(c)
+    );
+
     // Join event_data and session_data, include additional logic
     // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
     const enhancedEventsStep = {
@@ -407,14 +422,14 @@ ${excludedEventsSQL}`,
                         'data_is_final',
                         'export_type',
                         ...itemListExcludedColumns,
-                        ...enrichmentExcludedColumns,
+                        ...eventDataEnrichmentExcept,
                     ]
                 ),
                 // get the rest of the session_data columns
                 '[sql]session_data': utils.selectOtherColumns(
                     sessionDataStep,
                     Object.keys(finalColumnOrder),
-                    [...enrichmentExcludedColumns],
+                    sessionDataEnrichmentExcept,
                 ),
                 // include additional columns
                 row_inserted_timestamp: 'current_timestamp()',
