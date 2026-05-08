@@ -458,6 +458,50 @@ The existing `itemListSteps` block is generalized into the shared `items_unneste
 
 The most involved part of the implementation. The item-list-attribution code already produces the hard parts (the `LAST_VALUE` over a struct, the deterministic row ID, the coalesce override on `enhanced_events.items`); item-level enrichments are additive transformations inside the same shared scaffold. The CTE renames that prepared this scaffold for multi-feature use shipped in `0.9.0-dev.0`.
 
+## Implementation Phases
+
+The feature ships in two sprints (Sprint A: event-level, Sprint B: item-level) following one prep sprint already shipped. Each phase has a self-contained verification surface, so PRs can be reviewed and verified for one mechanism at a time.
+
+### Phase 0: items-cte prep (shipped in `0.9.0-dev.0`)
+
+Renamed the existing item-array CTEs and helper to neutral multi-purpose names; carried `event_date` through `items_unnested` to enable composite-key item joins. See [items-cte-prep-sprint.md](items-cte-prep-sprint.md). Covered the structural prerequisites from Q16 and Q18 without introducing any new feature behavior.
+
+### Phase 1: Event-level enrichments — Sprint A (proposed)
+
+Ships the event-level slice: any `level: 'event'` enrichment with a flat `LEFT JOIN ... USING(<keys>)` on `enhanced_events`. Most users only need event-level (session-, user-, page-, and custom-key dim joins all use `level: 'event'`), so this phase delivers most of the feature's value while deferring the structurally distinct item-level case.
+
+**In scope:**
+
+- Source-CTE generation at the top of the pipeline (`enrich_<name>` per entry)
+- `enrichments` config field with Layer 1 + Layer 2 validation
+- Event-level join integration into `enhanced_events`
+- Replace-or-add column-overlap behavior (Q13)
+- USING enforcement (Q5)
+- Composite-key support — works automatically for event-level since `enhanced_events` carries the keys natively (Q18)
+- Opt-in `dedupe: true` flag (Q3)
+- `enrich_<name>` CTE name prefix (Q6)
+- Auto-generated column descriptions for event-level enrichments (Q19, event-level slice)
+
+**Q&As covered:** Q1, Q2 (event-level slice), Q3, Q4 (event-level slice), Q5, Q6, Q7, Q8, Q9, Q11, Q12, Q13, Q15 (event level), Q18 (event-level slice), Q19 (event-level slice).
+
+**Defers to Phase 2:** all `level: 'item'` handling. Layer 1 validation accepts `'item'` as a valid value, but at SQL generation time a clear "item-level enrichments not yet supported in this version" error fires, pointing to Phase 2.
+
+### Phase 2: Item-level enrichments — Sprint B (proposed)
+
+Ships the structurally distinct item-level case: `level: 'item'` enrichments that join inside the items array via the existing `items_unnested` / `items_rebuilt` scaffold from Phase 0.
+
+**In scope:**
+
+- `GA4_STANDARD_ITEM_FIELDS` constant in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js) (Q17)
+- Item-level join integration in `items_rebuilt` — adds LEFT JOINs inside the existing scaffold (Q16 application)
+- Replace-or-add column-overlap classification using the standard-fields constant (Q17)
+- Item-level auto-descriptions (Q19, item-level extension)
+- Removal of Phase 1's "not yet supported" guard
+
+**Q&As covered:** Q2 (item-level slice), Q4 (item-level slice), Q14, Q15 (item level), Q17, Q19 (item-level extension).
+
+**Builds on Phase 1:** all source-CTE generation, validation infrastructure, configuration plumbing, and event-level testing patterns are already in place. Phase 2's diff is contained to the items-array path.
+
 ## Files to Modify
 
 | File | Change | Est. LOC |
