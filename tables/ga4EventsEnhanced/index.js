@@ -268,8 +268,7 @@ ${excludedEventsSQL}`,
         'group by': 'session_id',
     };
 
-    // Shared item-array CTEs (currently used by item-list attribution; will also be used by
-    // item-level data enrichments — see design_docs/planned/data-enrichments.md, Q16):
+    // Shared item-array CTEs:
     // 1. items_unnested: unnest items from ecommerce events, compute attribution via window function
     // 2. items_rebuilt: re-aggregate items with attributed list fields
     const itemListSteps = itemListAttribution ? (() => {
@@ -326,6 +325,66 @@ ${excludedEventsSQL}`,
     } : {};
     const itemListExcludedColumns = itemListSteps ? ['_item_row_id'] : [];
 
+    // Build enrichment-source CTEs and gather event-level join/column data.
+    // Item-level enrichments throw "not yet supported" — they will arrive in a later release.
+    const enrichments = mergedConfig.enrichments ?? [];
+    const enrichmentSteps = [];
+    const enrichmentJoins = [];
+    const enrichmentColumns = {};         // column name → SQL expression for select.columns
+    const enrichmentColumnNames = new Set();  // column names for excludedColumns of wildcards
+    const enrichmentColumnOwner = {};     // column name → { i, name } for collision errors
+    for (const [i, e] of enrichments.entries()) {
+        const level = e.level ?? 'event';
+        if (level === 'item') {
+            throw new Error(
+                `config.enrichments[${i}] uses level: 'item', which is not yet supported in this version. ` +
+                `Item-level enrichments will ship in a future release; see design_docs/planned/data-enrichments.md.`
+            );
+        }
+        const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
+        const cteName = `enrich_${e.name}`;
+        // Source CTE selects joinKey columns plus the requested columns. key === value
+        // shape skips the alias clause in queryBuilder's columnsToSQL.
+        const cteCols = {};
+        for (const k of joinKeys) cteCols[k] = k;
+        for (const c of e.columns) cteCols[c] = c;
+        const sourceStep = {
+            name: cteName,
+            select: { columns: cteCols },
+            from: e.source,
+        };
+        // Opt-in dedupe: which row wins is non-deterministic — users with strict needs
+        // pre-aggregate in their source SQL.
+        if (e.dedupe) {
+            sourceStep.qualify = `row_number() over (partition by ${joinKeys.join(', ')}) = 1`;
+        }
+        enrichmentSteps.push(sourceStep);
+
+        enrichmentJoins.push({
+            type: 'left',
+            table: cteName,
+            on: `using(${joinKeys.join(', ')})`,
+        });
+
+        // Replace-or-add: each enrichment column overrides explicit select columns via JS object
+        // spread, AND joins the excludedColumns set so it suppresses overlap with the wildcard
+        // event_data.* / session_data.* expansions below.
+        for (const c of e.columns) {
+            if (enrichmentColumnNames.has(c)) {
+                const owner = enrichmentColumnOwner[c];
+                throw new Error(
+                    `config.enrichments[${i}] (name: '${e.name}') and config.enrichments[${owner.i}] ` +
+                    `(name: '${owner.name}') both target column '${c}'. ` +
+                    `Two enrichments cannot write the same column; rename one in source SQL or pick a different name.`
+                );
+            }
+            enrichmentColumns[c] = `${cteName}.${c}`;
+            enrichmentColumnNames.add(c);
+            enrichmentColumnOwner[c] = { i, name: e.name };
+        }
+    }
+    const enrichmentExcludedColumns = [...enrichmentColumnNames];
+
     // Join event_data and session_data, include additional logic
     // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
     const enhancedEventsStep = {
@@ -335,6 +394,9 @@ ${excludedEventsSQL}`,
                 // get the most important columns in the correct order
                 ...finalColumnOrder,
                 ...itemListOverrides,
+                // event-level enrichment columns: override matching explicit columns; new columns added.
+                // Wildcard-column overlap is handled below via excludedColumns.
+                ...enrichmentColumns,
                 // get the rest of the event_data columns
                 '[sql]event_data': utils.selectOtherColumns(
                     eventDataStep,
@@ -345,13 +407,14 @@ ${excludedEventsSQL}`,
                         'data_is_final',
                         'export_type',
                         ...itemListExcludedColumns,
+                        ...enrichmentExcludedColumns,
                     ]
                 ),
                 // get the rest of the session_data columns
                 '[sql]session_data': utils.selectOtherColumns(
                     sessionDataStep,
                     Object.keys(finalColumnOrder),
-                    []
+                    [...enrichmentExcludedColumns],
                 ),
                 // include additional columns
                 row_inserted_timestamp: 'current_timestamp()',
@@ -370,12 +433,15 @@ ${excludedEventsSQL}`,
                 type: 'left',
                 table: 'session_data',
                 on: 'using(session_id)'
-            }
+            },
+            // Event-level enrichment joins go last so they apply on top of the package's own joins.
+            ...enrichmentJoins,
         ],
         where: helpers.incrementalDateFilter(mergedConfig)
     };
 
     const packageSteps = [
+        ...enrichmentSteps,
         eventDataStep,
         ...(itemListSteps ?? []),
         sessionDataStep,
@@ -384,7 +450,8 @@ ${excludedEventsSQL}`,
 
     // Layer 2 validation: customSteps name must not collide with package step names.
     // Reserved set is derived from packageSteps at runtime (single source of truth) — what
-    // is reserved depends on config (e.g. item_list_* exist only when itemListAttribution is on).
+    // is reserved depends on config (e.g. item_list_* exist only when itemListAttribution is on,
+    // and enrich_* names exist only when enrichments are configured).
     const customSteps = mergedConfig.customSteps ?? [];
     if (customSteps.length > 0) {
         const reservedNames = new Set(packageSteps.map(s => s.name));

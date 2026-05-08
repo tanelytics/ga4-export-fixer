@@ -68,6 +68,10 @@ const ga4EventsEnhancedConfig = {
     // user-defined CTEs appended to the pipeline after enhanced_events
     // each entry is a queryBuilder step (raw {name, query} or structured {name, select, from, ...})
     customSteps: [],
+    // declarative external-data enrichments joined into the pipeline
+    // each entry: { name, level: 'event' | 'item', source, joinKey, columns, dedupe? }
+    // 'item' level is accepted at config time but throws at SQL gen — not yet implemented
+    enrichments: [],
 };
 
 module.exports = { ga4EventsEnhancedConfig };

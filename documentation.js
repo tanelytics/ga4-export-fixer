@@ -169,7 +169,56 @@ const getColumnDescriptions = (config, columnMetadata) => {
         });
     }
 
+    // Add descriptions for columns added or replaced by data enrichments.
+    // Item-level enrichments are not yet supported and throw at SQL gen time — skip here.
+    if (config && Array.isArray(config.enrichments) && config.enrichments.length > 0) {
+        config.enrichments.forEach(e => {
+            const level = e.level ?? 'event';
+            if (level !== 'event') return;
+            const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
+            const joinKeyText = joinKeys.join(', ');
+            const sourceText = renderEnrichmentSource(e.source);
+            for (const c of e.columns) {
+                const existing = descriptions[c];
+                const existingText = typeof existing === 'string'
+                    ? existing
+                    : (existing && typeof existing === 'object' && existing.description)
+                        ? existing.description
+                        : null;
+                const newDesc = existingText
+                    ? `Replaced by enrichment '${e.name}' (joined on ${joinKeyText} from ${sourceText}). Original: ${existingText}`
+                    : `Added by enrichment '${e.name}' (joined on ${joinKeyText} from ${sourceText}).`;
+                // If the original was a struct-shaped entry, preserve the structure but replace the description.
+                // Otherwise, set as a plain string.
+                if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+                    descriptions[c] = { ...existing, description: newDesc };
+                } else {
+                    descriptions[c] = newDesc;
+                }
+            }
+        });
+    }
+
     return descriptions;
+};
+
+/**
+ * Renders an enrichment source for inclusion in column descriptions.
+ *
+ * - Backtick-quoted string: passed through as-is.
+ * - Dataform table reference object: rendered as `<dataset>.<name>` (project not available
+ *   at description-generation time; resolved later via ctx.ref()).
+ *
+ * @param {string|Object} source - The enrichment's source field.
+ * @returns {string} Backtick-quoted source identifier for display.
+ */
+const renderEnrichmentSource = (source) => {
+    if (typeof source === 'string') return source;
+    if (source && typeof source === 'object') {
+        const dataset = source.dataset || source.schema;
+        if (dataset && source.name) return '`' + dataset + '.' + source.name + '`';
+    }
+    return String(source);
 };
 
 /**

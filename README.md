@@ -334,6 +334,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 | `preOperations`        | object                  | [See details](#preOperations)       | Date range and incremental refresh configuration                                                                                                                                                                                                                                                                             |
 | `eventParamsToColumns` | object[]                | `[]`                                | Event parameters to promote to columns. [See item schema](#eventParamsToColumns)                                                                                                                                                                                                                                             |
 | `customSteps`          | object[]                | `[]`                                | User-defined CTEs appended to the pipeline after `enhanced_events`. [See Custom CTEs](#custom-ctes)                                                                                                                                                                                                                          |
+| `enrichments`          | object[]                | `[]`                                | Declarative external-data enrichments joined into `enhanced_events`. [See Data Enrichments](#data-enrichments)                                                                                                                                                                                                               |
 
 <a id="default-dataformtableconfig"></a>
 <details>
@@ -473,7 +474,8 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 | `session_data`           | yes                                   | Session-level aggregations (grouped by `session_id`).                                                                                                |
 | `items_unnested`         | only when `itemListAttribution` is on | Per-event item rows (one row per item per ecommerce event), with attribution window function applied.                                                |
 | `items_rebuilt`          | only when `itemListAttribution` is on | Re-aggregated items with attributed list fields, joined back to events via `_item_row_id`.                                                           |
-| `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + items_rebuilt, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
+| `enrich_<name>`          | only when configured via `enrichments` | One CTE per [enrichment](#data-enrichments) entry, providing dim data for joining into `enhanced_events`.                                              |
+| `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + items_rebuilt + enrich_*, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
 
 Example custom step using the raw SQL format:
 
@@ -520,6 +522,77 @@ end`,
 > **Note:** Custom columns aren't auto-documented. Use `dataformTableConfig.columns` to add descriptions — it's deep-merged with the package's defaults, so your keys are added or override matching defaults, and untouched defaults stay.
 
 > **Note:** Built-in assertions assume the package's standard schema. If your custom CTEs rename, drop, or filter rows in ways that break those assumptions, disable the affected assertions explicitly via the `assertions` config option.
+
+<a id="data-enrichments"></a>
+
+**`enrichments`** — declaratively join external dimension data into `enhanced_events` (cohort labels, page metadata, marketing attribution, etc.). Each entry describes one dim source plus the join — the package generates the source CTE, the `LEFT JOIN`, and column descriptions automatically.
+
+For typical use cases this is the right tool; reach for `customSteps` only when you need a transformation that doesn't fit a flat dim join.
+
+**Per-enrichment shape:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | Used in the generated `enrich_<name>` CTE name. Unique within `enrichments`. |
+| `level` | `'event'` | No, defaults to `'event'` | Join grain. Currently only `'event'` is supported (item-level enrichments will arrive in a later release). |
+| `source` | Dataform `ref()` / string | Yes | Source dim table. Use `ref()` in Dataform or a backtick-quoted ``` `project.dataset.table` ``` string. |
+| `joinKey` | string / string[] | Yes | Column name(s) on `enhanced_events` to join on. Composite keys (array) compile to `USING(col1, col2, ...)`. |
+| `columns` | string[] | Yes | Source columns to add to the output (excluding `joinKey`). Names matching existing columns REPLACE them. |
+| `dedupe` | boolean | No, defaults to `false` | When `true`, wraps the source CTE in `qualify row_number() over (partition by <joinKey>) = 1` for non-unique-key dim sources. Non-deterministic which row wins; for strict needs, pre-aggregate in source SQL. |
+
+**Replace-or-add semantics.** If an enrichment column name matches an existing column on `enhanced_events` (a column promoted via `eventParamsToColumns`, a package-generated column, or a default GA4 column from the export), the enrichment value REPLACES it. If there is no overlap, the column is added.
+
+**Example** — attach user cohort labels by `user_pseudo_id`:
+
+```javascript
+enrichments: [
+    {
+        name: 'cohorts',
+        level: 'event',
+        source: ctx.ref('user_cohorts'),
+        joinKey: 'user_pseudo_id',
+        columns: ['cohort_label', 'lifecycle_stage'],
+    },
+],
+```
+
+**Example** — composite key (date + user) for daily-varying dim data, with dedupe safety net:
+
+```javascript
+enrichments: [
+    {
+        name: 'segments',
+        level: 'event',
+        source: ctx.ref('daily_user_segments'),
+        joinKey: ['event_date', 'user_pseudo_id'],
+        columns: ['segment'],
+        dedupe: true,
+    },
+],
+```
+
+**Example** — fix a promoted event parameter via enrichment (replacement case):
+
+```javascript
+{
+    eventParamsToColumns: [{ name: 'page_title', type: 'string' }],
+    enrichments: [
+        {
+            name: 'titles',
+            level: 'event',
+            source: ctx.ref('page_title_overrides'),
+            joinKey: 'page_location',
+            columns: ['page_title'],   // overlaps the promoted column → replaces it
+        },
+    ],
+}
+```
+
+> **Note:** Each enrichment generates a CTE named `enrich_<name>` at the top of the pipeline. The `enrich_*` namespace is part of the reserved-names contract — `customSteps` cannot use these names. The active reserved set includes only the names of enrichments actually configured.
+
+> **Note:** Enrichment columns get auto-generated descriptions (`Added by enrichment '<name>' (joined on <joinKey> from <source>).` for new columns; `Replaced by enrichment '<name>' (...). Original: <description>` for replacements). User-supplied `dataformTableConfig.columns` overrides win — the auto-generated description is the default.
+
+> **Note:** `joinKey` and `columns` entries must be plain SQL identifiers — inline aliases like `'id as user_id'` are rejected at validation time. If your dim source uses a different column name, alias it in an upstream Dataform view and point `source` at that view.
 
 <br>
 

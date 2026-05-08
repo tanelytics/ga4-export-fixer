@@ -225,6 +225,101 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
             seenNames.add(step.name);
         }
     }
+
+    // enrichments - optional array of declarative external-data enrichment specs.
+    // This block performs Layer 1 (config-shape) checks. Layer 2 checks (reserved-name collision
+    // + item-level deferral throw) live in _generateEnhancedEventsSQL — the reserved set is
+    // config-dependent and the item-level deferral throws there once the SQL is built.
+    if (config.enrichments !== undefined) {
+        if (!Array.isArray(config.enrichments)) {
+            throw new Error(`config.enrichments must be an array. Received: ${JSON.stringify(config.enrichments)}`);
+        }
+        const validLevels = ['event', 'item'];
+        const seenNames = new Set();
+        for (let i = 0; i < config.enrichments.length; i++) {
+            const entry = config.enrichments[i];
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+                throw new Error(`config.enrichments[${i}] must be a non-null object. Received: ${JSON.stringify(entry)}`);
+            }
+            if (typeof entry.name !== 'string' || !entry.name.trim()) {
+                throw new Error(`config.enrichments[${i}].name must be a non-empty string. Received: ${JSON.stringify(entry.name)}`);
+            }
+            if (seenNames.has(entry.name)) {
+                throw new Error(`config.enrichments contains duplicate name '${entry.name}'. Each enrichments entry must have a unique name.`);
+            }
+            seenNames.add(entry.name);
+            if (entry.level !== undefined && !validLevels.includes(entry.level)) {
+                throw new Error(`config.enrichments[${i}].level must be one of: ${validLevels.join(', ')}. Received: ${JSON.stringify(entry.level)}`);
+            }
+            // source: Dataform table reference object or backtick-quoted string
+            if (entry.source === undefined || entry.source === null) {
+                throw new Error(`config.enrichments[${i}].source is required.`);
+            }
+            if (isDataformTableReferenceObject(entry.source)) {
+                // Valid Dataform reference
+            } else if (typeof entry.source === 'string') {
+                if (!entry.source.trim()) {
+                    throw new Error(`config.enrichments[${i}].source must be a non-empty string. Received empty string.`);
+                }
+                if (!/^`[^\.]+\.[^\.]+\.[^\.]+`$/.test(entry.source.trim())) {
+                    throw new Error(`config.enrichments[${i}].source must be in the format '\`project.dataset.table\`' (with backticks) or a Dataform table reference. Received: ${JSON.stringify(entry.source)}`);
+                }
+            } else {
+                throw new Error(`config.enrichments[${i}].source must be a Dataform table reference object or a string in format '\`project.dataset.table\`'. Received: ${JSON.stringify(entry.source)}`);
+            }
+            // joinKey: required, plain SQL identifier OR non-empty array of plain SQL identifiers.
+            // Plain identifier = ^[a-zA-Z_][a-zA-Z0-9_]*$ — no aliases (`id as user_id`), no backticks,
+            // no dotted paths. Users with mismatched dim-column names alias in an upstream Dataform view.
+            const sqlIdentifier = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+            const aliasingHint = ' Aliases like \'id as user_id\' are not supported here; alias in an upstream Dataform view if your dim has a different column name.';
+            if (entry.joinKey === undefined || entry.joinKey === null) {
+                throw new Error(`config.enrichments[${i}].joinKey is required.`);
+            }
+            if (typeof entry.joinKey === 'string') {
+                if (!entry.joinKey.trim()) {
+                    throw new Error(`config.enrichments[${i}].joinKey must be a non-empty string. Received empty string.`);
+                }
+                if (!sqlIdentifier.test(entry.joinKey)) {
+                    throw new Error(`config.enrichments[${i}].joinKey must be a plain SQL identifier. Received: ${JSON.stringify(entry.joinKey)}.${aliasingHint}`);
+                }
+            } else if (Array.isArray(entry.joinKey)) {
+                if (entry.joinKey.length === 0) {
+                    throw new Error(`config.enrichments[${i}].joinKey must be a non-empty array when provided as an array.`);
+                }
+                for (let j = 0; j < entry.joinKey.length; j++) {
+                    const k = entry.joinKey[j];
+                    if (typeof k !== 'string' || !k.trim()) {
+                        throw new Error(`config.enrichments[${i}].joinKey[${j}] must be a non-empty string. Received: ${JSON.stringify(k)}`);
+                    }
+                    if (!sqlIdentifier.test(k)) {
+                        throw new Error(`config.enrichments[${i}].joinKey[${j}] must be a plain SQL identifier. Received: ${JSON.stringify(k)}.${aliasingHint}`);
+                    }
+                }
+            } else {
+                throw new Error(`config.enrichments[${i}].joinKey must be a string or a non-empty array of strings. Received: ${JSON.stringify(entry.joinKey)}`);
+            }
+            // columns: required, non-empty array of plain SQL identifiers (no aliasing).
+            if (!Array.isArray(entry.columns)) {
+                throw new Error(`config.enrichments[${i}].columns must be an array. Received: ${JSON.stringify(entry.columns)}`);
+            }
+            if (entry.columns.length === 0) {
+                throw new Error(`config.enrichments[${i}].columns must be non-empty. List the source columns to add to the output (excluding joinKey).`);
+            }
+            for (let j = 0; j < entry.columns.length; j++) {
+                const c = entry.columns[j];
+                if (typeof c !== 'string' || !c.trim()) {
+                    throw new Error(`config.enrichments[${i}].columns[${j}] must be a non-empty string. Received: ${JSON.stringify(c)}`);
+                }
+                if (!sqlIdentifier.test(c)) {
+                    throw new Error(`config.enrichments[${i}].columns[${j}] must be a plain SQL identifier. Received: ${JSON.stringify(c)}.${aliasingHint}`);
+                }
+            }
+            // dedupe: optional boolean
+            if (entry.dedupe !== undefined && typeof entry.dedupe !== 'boolean') {
+                throw new Error(`config.enrichments[${i}].dedupe must be a boolean when provided. Received: ${JSON.stringify(entry.dedupe)}`);
+            }
+        }
+    }
   } catch (e) {
     e.message = `Config validation: ${e.message}`;
     throw e;

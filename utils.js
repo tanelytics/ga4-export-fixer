@@ -389,6 +389,16 @@ const setDataformContext = (ctx, config) => {
         }
     }
 
+    // resolve Dataform refs in enrichments[].source the same way as sourceTable
+    if (Array.isArray(config.enrichments)) {
+        config.enrichments = config.enrichments.map(e => {
+            if (isDataformTableReferenceObject(e.source)) {
+                return { ...e, source: ctx.ref(e.source) };
+            }
+            return e;
+        });
+    }
+
     config.self = ctx.self();
     config.incremental = ctx.incremental();
 
@@ -479,23 +489,35 @@ const selectOtherColumns = (step, alreadyDefinedColumns = [], excludedColumns = 
     const stepName = step.name;
     const stepColumns = Object.keys(step.select.columns);
 
-    // Determine which columns to exclude: those already defined or explicitly excluded
-    const exceptColumns = stepColumns.filter(
+    // Columns in step.select.columns that should be excluded (already-defined or explicitly listed)
+    const internalExcept = stepColumns.filter(
         column => alreadyDefinedColumns.includes(column) || excludedColumns.includes(column)
     );
 
-    // If none of the columns have been defined or excluded, select them all
-    if (exceptColumns.length === 0) {
+    // Columns in excludedColumns that aren't enumerated in step.select.columns. These are
+    // wildcard-sourced columns (e.g. default GA4 export columns coming through `event_data.*`
+    // inside event_data's own select). The caller knows what to exclude; trust them.
+    // BigQuery throws at dry-run if the column doesn't exist in the source — surfaces typos.
+    // Filter out undefined/null entries (callers can pass conditional values like
+    // `cond ? 'col' : undefined` for ergonomics).
+    const externalExcept = excludedColumns.filter(
+        c => typeof c === 'string' && c.length > 0 && !stepColumns.includes(c)
+    );
+
+    const allExcept = [...internalExcept, ...externalExcept];
+
+    // If nothing is excluded, select everything
+    if (allExcept.length === 0) {
         return `${stepName}.*`;
     }
 
-    // If all columns have been defined or excluded, do not select any
-    if (exceptColumns.length === stepColumns.length) {
+    // If every enumerated column is excluded and there are no external excepts to apply,
+    // there's nothing to select via the wildcard
+    if (internalExcept.length === stepColumns.length && externalExcept.length === 0) {
         return;
     }
 
-    // Otherwise, select all except the excluded/defined ones
-    return `${stepName}.* except (${exceptColumns.join(', ')})`;
+    return `${stepName}.* except (${allExcept.join(', ')})`;
 };
 
 

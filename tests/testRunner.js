@@ -17,6 +17,7 @@ const suites = [
     { name: 'createTable', cmd: 'node tests/createTable.test.js' },
     { name: 'queryBuilder', cmd: 'node tests/queryBuilder.test.js' },
     { name: 'customSteps', cmd: 'node tests/customSteps.test.js' },
+    { name: 'enrichments', cmd: 'node tests/enrichments.test.js' },
 ];
 
 let totalPassed = 0;

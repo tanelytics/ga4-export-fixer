@@ -1184,6 +1184,248 @@ test('rejects duplicate names within customSteps', () => {
 });
 
 // ---------------------------------------------------------------------------
+// enrichments — Layer 1 config-shape validation
+// (Layer 2 collision check + item-level deferral live in tests/enrichments.test.js
+//  since they require generateSql to derive the package's reserved-name set
+//  and surface the deferral throw at SQL generation time.)
+// ---------------------------------------------------------------------------
+
+console.log('\nN+1. enrichments Layer 1 validation\n');
+
+const validEnrichment = (overrides = {}) => ({
+    name: 'cohorts',
+    level: 'event',
+    source: '`proj.ds.user_cohorts`',
+    joinKey: 'user_pseudo_id',
+    columns: ['cohort_label'],
+    ...overrides,
+});
+
+test('accepts undefined enrichments', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: undefined }));
+});
+
+test('accepts empty enrichments array', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [] }));
+});
+
+test('accepts a valid enrichment', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [validEnrichment()] }));
+});
+
+test('accepts level: "item" (deferred to SQL gen, not Layer 1)', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({
+        enrichments: [validEnrichment({ level: 'item', joinKey: 'item_id' })],
+    }));
+});
+
+test('accepts composite joinKey (array of strings)', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({
+        enrichments: [validEnrichment({ joinKey: ['event_date', 'user_pseudo_id'] })],
+    }));
+});
+
+test('accepts dedupe: true', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({
+        enrichments: [validEnrichment({ dedupe: true })],
+    }));
+});
+
+test('accepts a Dataform table reference object as source', () => {
+    validateEnhancedEventsConfig(validEnhancedConfig({
+        enrichments: [validEnrichment({
+            source: { name: 'user_cohorts', dataset: 'analytics_dim' },
+        })],
+    }));
+});
+
+test('rejects non-array enrichments', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: 'nope' })),
+        /config\.enrichments must be an array/
+    );
+});
+
+test('rejects null entry in enrichments', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [null] })),
+        /config\.enrichments\[0\] must be a non-null object/
+    );
+});
+
+test('rejects array entry in enrichments', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [['a', 'b']] })),
+        /config\.enrichments\[0\] must be a non-null object/
+    );
+});
+
+test('rejects entry missing name', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [{ ...validEnrichment(), name: undefined }],
+        })),
+        /config\.enrichments\[0\]\.name must be a non-empty string/
+    );
+});
+
+test('rejects entry with empty/whitespace name', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ name: '   ' })],
+        })),
+        /config\.enrichments\[0\]\.name must be a non-empty string/
+    );
+});
+
+test('rejects duplicate names within enrichments', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [
+                validEnrichment({ name: 'dup' }),
+                validEnrichment({ name: 'dup' }),
+            ],
+        })),
+        /config\.enrichments contains duplicate name 'dup'/
+    );
+});
+
+test('rejects invalid level value', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ level: 'session' })],
+        })),
+        /config\.enrichments\[0\]\.level must be one of: event, item/
+    );
+});
+
+test('rejects missing source', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [{ ...validEnrichment(), source: undefined }],
+        })),
+        /config\.enrichments\[0\]\.source is required/
+    );
+});
+
+test('rejects malformed source string', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ source: 'not-backticked.proj.ds.tbl' })],
+        })),
+        /config\.enrichments\[0\]\.source must be in the format/
+    );
+});
+
+test('rejects non-object non-string source', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ source: 42 })],
+        })),
+        /config\.enrichments\[0\]\.source must be a Dataform table reference object or a string/
+    );
+});
+
+test('rejects missing joinKey', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [{ ...validEnrichment(), joinKey: undefined }],
+        })),
+        /config\.enrichments\[0\]\.joinKey is required/
+    );
+});
+
+test('rejects empty-string joinKey', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ joinKey: '   ' })],
+        })),
+        /config\.enrichments\[0\]\.joinKey must be a non-empty string/
+    );
+});
+
+test('rejects empty array joinKey', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ joinKey: [] })],
+        })),
+        /config\.enrichments\[0\]\.joinKey must be a non-empty array/
+    );
+});
+
+test('rejects non-string element in joinKey array', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ joinKey: ['user_id', 42] })],
+        })),
+        /config\.enrichments\[0\]\.joinKey\[1\] must be a non-empty string/
+    );
+});
+
+test('rejects missing columns', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [{ ...validEnrichment(), columns: undefined }],
+        })),
+        /config\.enrichments\[0\]\.columns must be an array/
+    );
+});
+
+test('rejects empty columns array', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ columns: [] })],
+        })),
+        /config\.enrichments\[0\]\.columns must be non-empty/
+    );
+});
+
+test('rejects non-string element in columns', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ columns: ['valid', 42] })],
+        })),
+        /config\.enrichments\[0\]\.columns\[1\] must be a non-empty string/
+    );
+});
+
+test('rejects inline alias in columns entry', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ columns: ['id as user_id'] })],
+        })),
+        /config\.enrichments\[0\]\.columns\[0\] must be a plain SQL identifier/
+    );
+});
+
+test('rejects inline alias in joinKey string', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ joinKey: 'id as user_id' })],
+        })),
+        /config\.enrichments\[0\]\.joinKey must be a plain SQL identifier/
+    );
+});
+
+test('rejects inline alias in joinKey array element', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ joinKey: ['event_date', 'id as user_id'] })],
+        })),
+        /config\.enrichments\[0\]\.joinKey\[1\] must be a plain SQL identifier/
+    );
+});
+
+test('rejects non-boolean dedupe', () => {
+    assert.throws(
+        () => validateEnhancedEventsConfig(validEnhancedConfig({
+            enrichments: [validEnrichment({ dedupe: 'yes' })],
+        })),
+        /config\.enrichments\[0\]\.dedupe must be a boolean/
+    );
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 
