@@ -314,7 +314,7 @@ All fields are optional except `sourceTable`. Default values are applied automat
 
 | Field                  | Type                    | Default/Required                   | Description                                                                                                                                                                                                                                                                                                                  |
 | ---------------------- | ----------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sourceTable`          | Dataform ref() / string | **required**                       | Source GA4 export table. Use `ref()` in Dataform or a string in format ``project.dataset.table``                                                                                                                                                                                                                             |
+| `sourceTable`          | Dataform ref / object / string | **required**                       | Source GA4 export table. Inside an SQLX `js { }` block use `ref(...)`. From a `.js` definition file use a `{ schema, name }` ref object (resolved later via `ctx.ref()`) or a backtick-quoted ``` `project.dataset.events_*` ``` string for an external table. |
 | `self`                 | Dataform self()         | **required for .SQLX deployment**  | Reference to the table itself. Use `self()` in Dataform                                                                                                                                                                                                                                                                      |
 | `incremental`          | Dataform incremental()  | **required for .SQLX deployment**  | Switch between incremental and full refresh logic. Use `incremental()` in Dataform                                                                                                                                                                                                                                           |
 | `dataformTableConfig`  | object                  | **In JS deployment only.** [See default](#default-dataformtableconfig) | Override the default Dataform table configuration for JS deployment. See: [ITableConfig reference](https://docs.cloud.google.com/dataform/docs/reference/dataform-core-reference#itableconfig) |
@@ -535,35 +535,35 @@ For typical use cases this is the right tool; reach for `customSteps` only when 
 | --- | --- | --- | --- |
 | `name` | string | Yes | Used in the generated `enrich_<name>` CTE name. Unique within `enrichments`. |
 | `level` | `'event'` | No, defaults to `'event'` | Join grain. Currently only `'event'` is supported (item-level enrichments will arrive in a later release). |
-| `source` | Dataform `ref()` / string | Yes | Source dim table. Use `ref()` in Dataform or a backtick-quoted ``` `project.dataset.table` ``` string. |
+| `source` | Dataform ref / object / string | Yes | Source dim table. Inside an SQLX `js { }` block use `ref(...)`. From a `.js` definition file use a `{ schema, name }` ref object (resolved later via `ctx.ref()`) or a backtick-quoted ``` `project.dataset.table` ``` string for an external table. |
 | `joinKey` | string / string[] | Yes | Column name(s) on `enhanced_events` to join on. Composite keys (array) compile to `USING(col1, col2, ...)`. |
 | `columns` | string[] | Yes | Source columns to add to the output (excluding `joinKey`). Names matching existing columns REPLACE them. |
 | `dedupe` | boolean | No, defaults to `false` | When `true`, wraps the source CTE in `qualify row_number() over (partition by <joinKey>) = 1` for non-unique-key dim sources. Non-deterministic which row wins; for strict needs, pre-aggregate in source SQL. |
 
 **Replace-or-add semantics.** If an enrichment column name matches an existing column on `enhanced_events` (a column promoted via `eventParamsToColumns`, a package-generated column, or a default GA4 column from the export), the enrichment value REPLACES it. If there is no overlap, the column is added.
 
-**Example** — attach user cohort labels by `user_pseudo_id`:
+**Example** — attach user cohort labels by `user_pseudo_id` (Dataform-declared table referenced by `{ schema, name }`):
 
 ```javascript
 enrichments: [
     {
         name: 'cohorts',
         level: 'event',
-        source: ctx.ref('user_cohorts'),
+        source: { schema: 'analytics', name: 'user_cohorts' },
         joinKey: 'user_pseudo_id',
         columns: ['cohort_label', 'lifecycle_stage'],
     },
 ],
 ```
 
-**Example** — composite key (date + user) for daily-varying dim data, with dedupe safety net:
+**Example** — composite key (date + user) for daily-varying dim data, with dedupe safety net (external table referenced by backtick-FQN):
 
 ```javascript
 enrichments: [
     {
         name: 'segments',
         level: 'event',
-        source: ctx.ref('daily_user_segments'),
+        source: '`my-project.analytics.daily_user_segments`',
         joinKey: ['event_date', 'user_pseudo_id'],
         columns: ['segment'],
         dedupe: true,
@@ -580,7 +580,7 @@ enrichments: [
         {
             name: 'titles',
             level: 'event',
-            source: ctx.ref('page_title_overrides'),
+            source: { schema: 'analytics', name: 'page_title_overrides' },
             joinKey: 'page_location',
             columns: ['page_title'],   // overlaps the promoted column → replaces it
         },

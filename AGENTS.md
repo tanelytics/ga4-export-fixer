@@ -24,6 +24,15 @@ When renaming or moving a function, search the entire codebase for all occurrenc
 
 Before drafting a new design doc, survey `design_docs/implemented/` and `design_docs/planned/` for related work, established terminology, and Future Work items the new doc may fulfill — cross-reference rather than duplicate. Match the existing voice (impersonal, factual, no first-person) and structure. Convention: docs are snapshots — the `Status` header stays `Planned` after shipping, no Implementation Report section is added, and folder placement (`planned/` vs `implemented/`) is the truth signal.
 
+## Source-table references
+
+Config fields that reference a Dataform-declared table (`sourceTable`, `enrichments[].source`) accept two forms at config-construction time:
+
+1. A `{ schema, name }` ref object — usable from both `.js` definition files and SQLX `js { }` blocks. The package resolves it via `ctx.ref(obj)` later inside its `.preOps(ctx => ...)` and `.query(ctx => ...)` wrappers.
+2. A backtick-quoted `` `project.dataset.table` `` string — passed through as literal SQL.
+
+Inside an SQLX `js { }` block (only), Dataform also exposes `ref(...)` as a global; its return value is a ref object so it interchanges with form 1 there. `ctx.ref(...)` is **never** available at config-construction time — it is bound only inside Dataform callbacks. When writing or reviewing user-facing examples in the README and design docs, prefer the ref-object form for `.js` users and reserve `ref(...)` for SQLX-block examples.
+
 ## Reserved CTE names — stable contract
 
 The package's internal CTE names that `customSteps` may reference (`event_data`, `session_data`, `items_unnested`, `items_rebuilt`, `enhanced_events`) are a documented stable contract under the v0.9.x line. The `enrich_<name>` namespace is also reserved when `enrichments` are configured — each entry produces a CTE named `enrich_<name>`. Renaming or removing any reserved name is a breaking change for users with `customSteps` — bundle such changes into a minor version bump and call them out in the release notes / git tag annotation. The active reserved set is derived at runtime from the `packageSteps` array in `_generateEnhancedEventsSQL`, so adding a new internal CTE or enrichment doesn't require updating a separate validation list — the new name automatically becomes reserved.

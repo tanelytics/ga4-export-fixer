@@ -53,13 +53,13 @@ Mechanically, only two cases need distinguishing. The first three patterns (sess
 
 ```js
 ga4EventsEnhanced.createTable(publish, {
-    sourceTable: ctx.ref('analytics_123', 'events_*'),
+    sourceTable: { schema: 'analytics_123', name: 'events_*' },
     enrichments: [
         // User-grained: join cohort labels onto each event by user_pseudo_id
         {
             name: 'user_cohorts',
             level: 'event',
-            source: ctx.ref('user_cohorts'),
+            source: { schema: 'analytics', name: 'user_cohorts' },
             joinKey: 'user_pseudo_id',
             columns: ['cohort', 'lifecycle_stage'],
         },
@@ -75,7 +75,7 @@ ga4EventsEnhanced.createTable(publish, {
         {
             name: 'product_master',
             level: 'item',
-            source: ctx.ref('product_master'),
+            source: { schema: 'analytics', name: 'product_master' },
             joinKey: 'item_id',
             columns: ['margin_bucket', 'brand_internal'],
         },
@@ -201,7 +201,7 @@ Considered alternatives: `dataEnrichments` (verbose), `enrich` (verb, awkward as
 {
     name: 'user_cohorts',          // string, required — used in the enrich_<name> CTE name
     level: 'event',                // 'event' | 'item' — optional, defaults to 'event'
-    source: ctx.ref('cohorts'),    // Dataform ref or backtick string — required
+    source: { schema: 'dim', name: 'cohorts' },  // ref object, ref() inside SQLX js block, or backtick-FQN — required
     joinKey: 'user_pseudo_id',     // string or string[] — required, no default; arrays compile to USING(col1, col2) (Q18)
     columns: ['cohort'],           // string[] — required, non-empty list of source columns to add to the output (excluding joinKey)
     dedupe: false,                 // boolean, optional — see Q3 (defaults to false)
@@ -221,8 +221,10 @@ Layer 1 / Layer 2 validation split (per [custom-ctes Q6](../implemented/custom-c
 
 **Resolution:** `source` accepts the same two formats as the existing `sourceTable` config field:
 
-- A Dataform table reference object (from `ctx.ref(...)`)
-- A backtick-quoted string in `` `project.dataset.table` `` format
+- A Dataform table reference object — either a manually constructed `{ schema, name }` object (the form usable in `.js` definition files) or the return value of `ref(...)` from inside an SQLX `js { }` block. Resolved at SQL-generation time via `ctx.ref(obj)` inside the package's `setDataformContext`.
+- A backtick-quoted string in `` `project.dataset.table` `` format. Passed through as literal SQL.
+
+Note that `ctx.ref(...)` itself is **not** available at config-construction time — it is bound only inside Dataform callbacks (`.preOps(ctx => ...)`, `.query(ctx => ...)`, `.assert(ctx => ...)`). Likewise `ref(...)` is bound only inside SQLX `js { }` blocks; in `.js` definition files neither is available, and users must use the manually-constructed `{ schema, name }` form or a backtick-FQN.
 
 Reuses `isDataformTableReferenceObject` from [utils.js](../../utils.js) for type detection.
 
@@ -385,7 +387,7 @@ The user's source SQL must produce all join-key columns with the same names (per
 ```js
 ga4EventsEnhanced.createTable(publish, {
     enrichments: [
-        { name: 'cohorts', level: 'event', source: ctx.ref('cohort_dim'), joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
+        { name: 'cohorts', level: 'event', source: { schema: 'dim', name: 'cohort_dim' }, joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
     ],
     dataformTableConfig: {
         columns: {
@@ -422,7 +424,7 @@ const enrichSteps = (mergedConfig.enrichments ?? []).map(e => {
     return {
         name: cteName,
         select: { columns },
-        from: typeof e.source === 'string' ? e.source : '${ref(e.source)}',  // resolved at ctx.ref time
+        from: typeof e.source === 'string' ? e.source : '${ref(e.source)}',  // ref-object form is resolved later via ctx.ref() inside .query(ctx => ...)
     };
 });
 ```
@@ -523,12 +525,12 @@ Ships the structurally distinct item-level case: `level: 'item'` enrichments tha
 
 ```js
 ga4EventsEnhanced.createTable(publish, {
-    sourceTable: ctx.ref('analytics_123', 'events_*'),
+    sourceTable: { schema: 'analytics_123', name: 'events_*' },
     enrichments: [
         {
             name: 'cohorts',
             level: 'event',
-            source: ctx.ref('user_cohorts'),
+            source: { schema: 'analytics', name: 'user_cohorts' },
             joinKey: 'user_pseudo_id',
             columns: ['cohort_label', 'lifecycle_stage'],
         },
@@ -561,7 +563,7 @@ enrichments: [
     {
         name: 'products',
         level: 'item',
-        source: ctx.ref('product_master'),
+        source: { schema: 'dim', name: 'product_master' },
         joinKey: 'item_id',
         columns: ['margin_bucket', 'brand_internal'],
     },
@@ -574,7 +576,7 @@ Reuses the item-list-attribution scaffold. The items array is unnested over the 
 
 ```js
 ga4EventsEnhanced.createTable(publish, {
-    sourceTable: ctx.ref('analytics_123', 'events_*'),
+    sourceTable: { schema: 'analytics_123', name: 'events_*' },
     eventParamsToColumns: [
         { name: 'company_id', type: 'int64' },
     ],
@@ -582,7 +584,7 @@ ga4EventsEnhanced.createTable(publish, {
         {
             name: 'company_dim',
             level: 'event',
-            source: ctx.ref('companies'),
+            source: { schema: 'dim', name: 'companies' },
             joinKey: 'company_id',
             columns: ['company_name', 'company_segment', 'market_id'],
         },
@@ -599,7 +601,7 @@ enrichments: [
     {
         name: 'category_fixes',
         level: 'item',
-        source: ctx.ref('item_category_overrides'),
+        source: { schema: 'dim', name: 'item_category_overrides' },
         joinKey: 'item_id',
         columns: ['item_category'],   // overlaps existing item-struct field
     },
@@ -612,7 +614,7 @@ enrichments: [
 
 ```js
 ga4EventsEnhanced.createTable(publish, {
-    sourceTable: ctx.ref('analytics_123', 'events_*'),
+    sourceTable: { schema: 'analytics_123', name: 'events_*' },
     eventParamsToColumns: [
         { name: 'page_title', type: 'string' },   // promoted to a column on enhanced_events
     ],
@@ -620,7 +622,7 @@ ga4EventsEnhanced.createTable(publish, {
         {
             name: 'clean_titles',
             level: 'event',
-            source: ctx.ref('page_title_cleanup'),
+            source: { schema: 'dim', name: 'page_title_cleanup' },
             joinKey: 'page_location',
             columns: ['page_title'],   // overlaps the promoted page_title column
         },
