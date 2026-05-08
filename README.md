@@ -471,9 +471,9 @@ itemListAttribution: { lookbackType: 'TIME', lookbackTimeMs: 86400000 }
 | ------------------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `event_data`             | yes                                   | Extracted and shaped events from `sourceTable`, with date filtering and column promotions applied. *Unfiltered for the buffer-days range.*           |
 | `session_data`           | yes                                   | Session-level aggregations (grouped by `session_id`).                                                                                                |
-| `item_list_attribution`  | only when `itemListAttribution` is on | Per-event item attribution rows.                                                                                                                    |
-| `item_list_data`         | only when `itemListAttribution` is on | Re-aggregated items with attributed list fields.                                                                                                    |
-| `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + item_list_data, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
+| `items_unnested`         | only when `itemListAttribution` is on | Per-event item rows (one row per item per ecommerce event), with attribution window function applied.                                                |
+| `items_rebuilt`          | only when `itemListAttribution` is on | Re-aggregated items with attributed list fields, joined back to events via `_item_row_id`.                                                           |
+| `enhanced_events`        | yes                                   | The package's standard output shape (joined event_data + session_data + items_rebuilt, columns ordered, incremental date filter applied). The natural starting point for most custom CTEs. |
 
 Example custom step using the raw SQL format:
 

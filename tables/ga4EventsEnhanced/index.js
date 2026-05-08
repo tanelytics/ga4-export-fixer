@@ -230,7 +230,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
                 // ecommerce
                 ecommerce: helpers.fixEcommerceStruct('ecommerce'),
                 items: 'items',
-                _item_list_attribution_row_id: itemListAttribution ? helpers.itemListAttributionRowId(ecommerceEventsFilter) : undefined,
+                _item_row_id: itemListAttribution ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
                 // flag if the data is "final" and is not expected to change anymore
                 data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
                 export_type: helpers.getGa4ExportType('_table_suffix'),
@@ -268,9 +268,10 @@ ${excludedEventsSQL}`,
         'group by': 'session_id',
     };
 
-    // item list attribution CTEs:
-    // 1. item_list_unnest: unnest items from ecommerce events, compute attribution via window function
-    // 2. item_list_data: re-aggregate items with attributed list fields
+    // Shared item-array CTEs (currently used by item-list attribution; will also be used by
+    // item-level data enrichments — see design_docs/planned/data-enrichments.md, Q16):
+    // 1. items_unnested: unnest items from ecommerce events, compute attribution via window function
+    // 2. items_rebuilt: re-aggregate items with attributed list fields
     const itemListSteps = itemListAttribution ? (() => {
         const attrExpr = helpers.itemListAttributionExpr(
             itemListAttribution.lookbackType,
@@ -279,12 +280,14 @@ ${excludedEventsSQL}`,
         );
         const passthroughEvents = `event_name in ('view_item_list', 'select_item', 'view_promotion', 'select_promotion')`;
 
-        const attributionStep = {
-            name: 'item_list_attribution',
+        const unnestedStep = {
+            name: 'items_unnested',
             select: {
                 columns: {
-                    '_item_list_attribution_row_id': '_item_list_attribution_row_id',
+                    '_item_row_id': '_item_row_id',
                     'event_name': 'event_name',
+                    // event_date is carried forward for ability to use it in data enrichment joins
+                    'event_date': 'event_date',
                     'item': 'item',
                     '_item_list_attr': attrExpr,
                 },
@@ -293,11 +296,11 @@ ${excludedEventsSQL}`,
             where: `event_name in (${ecommerceEventsFilter})`,
         };
 
-        const dataStep = {
-            name: 'item_list_data',
+        const rebuiltStep = {
+            name: 'items_rebuilt',
             select: {
                 columns: {
-                    '_item_list_attribution_row_id': '_item_list_attribution_row_id',
+                    '_item_row_id': '_item_row_id',
                     'items': `array_agg(
       (select as struct item.* replace(
         coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
@@ -307,21 +310,21 @@ ${excludedEventsSQL}`,
     )`,
                 },
             },
-            from: 'item_list_attribution',
-            'group by': '_item_list_attribution_row_id',
+            from: 'items_unnested',
+            'group by': '_item_row_id',
         };
 
-        return [attributionStep, dataStep];
+        return [unnestedStep, rebuiltStep];
     })() : null;
 
     const finalColumnOrder = getFinalColumnOrder(eventDataStep, sessionDataStep);
 
-    // When item list attribution is enabled, override the items column and exclude _item_list_attribution_row_id
+    // When item list attribution is enabled, override the items column and exclude _item_row_id
     // COALESCE handles events without items (not in ecommerce filter) where the LEFT JOIN returns NULL
     const itemListOverrides = itemListSteps ? {
-        items: 'coalesce(item_list_data.items, event_data.items)',
+        items: 'coalesce(items_rebuilt.items, event_data.items)',
     } : {};
-    const itemListExcludedColumns = itemListSteps ? ['_item_list_attribution_row_id'] : [];
+    const itemListExcludedColumns = itemListSteps ? ['_item_row_id'] : [];
 
     // Join event_data and session_data, include additional logic
     // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
@@ -360,8 +363,8 @@ ${excludedEventsSQL}`,
         joins: [
             ...(itemListSteps ? [{
                 type: 'left',
-                table: 'item_list_data',
-                on: 'using(_item_list_attribution_row_id)'
+                table: 'items_rebuilt',
+                on: 'using(_item_row_id)'
             }] : []),
             {
                 type: 'left',

@@ -193,38 +193,38 @@ test('collision error message names the offender and lists active reserved set',
 // 4. Conditional reservation (item_list_* depend on itemListAttribution config)
 // ---------------------------------------------------------------------------
 
-console.log('\n4. Conditional reservation of item_list_*\n');
+console.log('\n4. Conditional reservation of items_unnested / items_rebuilt\n');
 
-test('item_list_data NOT reserved when itemListAttribution is off → does NOT throw', () => {
+test('items_rebuilt NOT reserved when itemListAttribution is off → does NOT throw', () => {
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         // itemListAttribution intentionally omitted/undefined
-        customSteps: [{ name: 'item_list_data', query: 'select 1 as fake' }],
+        customSteps: [{ name: 'items_rebuilt', query: 'select 1 as fake' }],
     }));
     assert.ok(sql.includes('select 1 as fake'), 'user step rendered when feature off');
 });
 
-test('item_list_data IS reserved when itemListAttribution is on → throws', () => {
+test('items_rebuilt IS reserved when itemListAttribution is on → throws', () => {
     assert.throws(
         () => ga4EventsEnhanced.generateSql(baseConfig({
             itemListAttribution: { lookbackType: 'SESSION' },
-            customSteps: [{ name: 'item_list_data', query: 'select 1' }],
+            customSteps: [{ name: 'items_rebuilt', query: 'select 1' }],
         })),
         /collides with a reserved package CTE name/
     );
 });
 
-test('item_list_attribution NOT reserved when itemListAttribution is off', () => {
+test('items_unnested NOT reserved when itemListAttribution is off', () => {
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
-        customSteps: [{ name: 'item_list_attribution', query: 'select 2 as fake' }],
+        customSteps: [{ name: 'items_unnested', query: 'select 2 as fake' }],
     }));
     assert.ok(sql.includes('select 2 as fake'));
 });
 
-test('item_list_attribution IS reserved when itemListAttribution is on', () => {
+test('items_unnested IS reserved when itemListAttribution is on', () => {
     assert.throws(
         () => ga4EventsEnhanced.generateSql(baseConfig({
             itemListAttribution: { lookbackType: 'SESSION' },
-            customSteps: [{ name: 'item_list_attribution', query: 'select 1' }],
+            customSteps: [{ name: 'items_unnested', query: 'select 1' }],
         })),
         /collides with a reserved package CTE name/
     );
@@ -238,10 +238,10 @@ test('reserved set in error message reflects active config (item-list-on enlarge
         }));
         assert.fail('should have thrown');
     } catch (e) {
-        assert.ok(e.message.includes('item_list_attribution'),
-            'item_list_attribution should appear in the active reserved set');
-        assert.ok(e.message.includes('item_list_data'),
-            'item_list_data should appear in the active reserved set');
+        assert.ok(e.message.includes('items_unnested'),
+            'items_unnested should appear in the active reserved set');
+        assert.ok(e.message.includes('items_rebuilt'),
+            'items_rebuilt should appear in the active reserved set');
     }
 });
 

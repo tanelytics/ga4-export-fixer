@@ -108,7 +108,7 @@ Notable properties:
 - Enrichment-source CTEs sit at the top, before `event_data`. They're independent of the GA4 export and can be referenced freely by later steps.
 - Event-level enrichments don't add new CTEs after `event_data` — they just extend `enhanced_events`'s join list.
 - Item-level enrichments share the two-CTE item scaffold (`items_unnested`, `items_rebuilt`) with `itemListAttribution`. The scaffold is emitted whenever either feature is active; multiple item-level enrichments add additional joins inside `items_rebuilt` rather than additional CTE pairs (Q16).
-- The reserved-name set from `custom-ctes` automatically expands to include the new `enrich_*` names because it's runtime-derived from `packageSteps`. The `items_unnested` / `items_rebuilt` names replace the previously-reserved `item_list_attribution` / `item_list_data` (breaking change in v0.9.0).
+- The reserved-name set from `custom-ctes` automatically expands to include the new `enrich_*` names because it's runtime-derived from `packageSteps`. The `items_unnested` / `items_rebuilt` names replaced the previously-reserved `item_list_attribution` / `item_list_data` in `0.9.0-dev.0` (see [items-cte-prep-sprint.md](items-cte-prep-sprint.md)).
 
 ## Design Decisions
 
@@ -277,15 +277,15 @@ This design subsumes the "event-level" framing originally listed in the README's
 
 ### Q16. Item-CTE sharing, naming, and generation (RESOLVED)
 
-When item-level enrichments and `itemListAttribution` are configured together, the package needs to choose how the item-array CTEs interact. The package already has two item-array CTEs for attribution (currently named `item_list_attribution` and `item_list_data`). Item-level enrichments need to participate in the same unnest+rebuild scaffold.
+When item-level enrichments and `itemListAttribution` are configured together, the package needs to choose how the item-array CTEs interact. The package has two item-array CTEs for attribution (named `items_unnested` and `items_rebuilt` since `0.9.0-dev.0`). Item-level enrichments participate in the same unnest+rebuild scaffold.
 
 **Resolution:**
 
 - **CTEs are shared.** Item-level enrichments and item-list-attribution use the same two-CTE scaffold; the package doesn't generate a separate scaffold per item-level enrichment.
-- **CTE renames.** The CTE names are repurposed to reflect their multi-feature role:
-  - `item_list_attribution` → `items_unnested` (one row per item per event; window functions for attribution applied here when configured; carries `event_date` so date-grained item joins work — see Q18)
-  - `item_list_data` → `items_rebuilt` (re-aggregation with `array_agg(select as struct item.* replace(...))`; enrichment joins applied here)
-  - The internal `_item_list_attribution_row_id` join column is renamed to `_item_row_id` for the same reason. Underscored, package-private — users haven't been writing customSteps that reference it.
+- **CTE names** (renamed in `0.9.0-dev.0` to reflect their multi-feature role; previously `item_list_attribution` / `item_list_data`):
+  - `items_unnested` (one row per item per event; window functions for attribution applied here when configured; carries `event_date` so date-grained item joins work — see Q18)
+  - `items_rebuilt` (re-aggregation with `array_agg(select as struct item.* replace(...))`; enrichment joins applied here)
+  - The internal `_item_row_id` join column (renamed from `_item_list_attribution_row_id` for the same reason). Underscored, package-private.
 - **Item-level enrichment joins always happen in the last item CTE** (`items_rebuilt`). The LEFT JOIN with `enrich_<name>` is added alongside the `array_agg` re-aggregation; the unnest CTE just produces one row per item without enrichment-specific work.
 - **The two-CTE structure is preserved across all configurations** — even when only item-level enrichments are configured (without `itemListAttribution`), the package still emits both CTEs. Consistent structure beats a slightly leaner enrichment-only path; `items_unnested` is just a plain unnest in that case.
 
@@ -300,7 +300,7 @@ When item-level enrichments and `itemListAttribution` are configured together, t
 
 Multiple item-level enrichments add multiple `LEFT JOIN enrich_<name> USING (joinKey)` clauses to `items_rebuilt`, with each enrichment's columns folded into the same `array_agg(select as struct item.* replace(...), ...)` block. Each enrichment column is classified as REPLACE or ADD per Q17 based on whether its name is in `GA4_STANDARD_ITEM_FIELDS`.
 
-**Backwards-compat note.** The CTE renames (`item_list_attribution` / `item_list_data` → `items_unnested` / `items_rebuilt`, plus `_item_list_attribution_row_id` → `_item_row_id`) are breaking changes for users referencing these names from `customSteps`. They get bundled with the v0.9.0 release — a minor version bump under 0.x semver, which signals breaking changes per the existing convention from [query-builder-v2](../implemented/query-builder-v2.md). The reserved-names contract from [custom-ctes](../implemented/custom-ctes.md) is updated accordingly; AGENTS.md gets a release note.
+**Backwards-compat note.** The CTE renames (`item_list_attribution` / `item_list_data` → `items_unnested` / `items_rebuilt`, plus `_item_list_attribution_row_id` → `_item_row_id`) shipped in `0.9.0-dev.0` as a prep sprint ahead of this feature (see [items-cte-prep-sprint.md](items-cte-prep-sprint.md)). They are breaking changes for users referencing these names from `customSteps`; the minor version bump under 0.x semver signals the break per the existing convention from [query-builder-v2](../implemented/query-builder-v2.md). The reserved-names contract in `customSteps` documentation and AGENTS.md was updated at the same time.
 
 ### Q17. Item-level column overlap behavior and SQL syntax (RESOLVED)
 
@@ -407,7 +407,7 @@ The change is contained — most of the work is in [tables/ga4EventsEnhanced/ind
 2. **Default config** in [tables/ga4EventsEnhanced/config.js](../../tables/ga4EventsEnhanced/config.js): `enrichments: []`.
 3. **Source-CTE generation** in `_generateEnhancedEventsSQL`: build one `enrich_<name>` step per enrichment entry, prepend to `packageSteps`.
 4. **Flat-key join integration** in `_generateEnhancedEventsSQL`: extend `enhancedEventsStep.joins` with one entry per session/user/page enrichment; extend `enhancedEventsStep.select.columns` with the corresponding qualified column references.
-5. **Shared item scaffold** in `_generateEnhancedEventsSQL`: emit `items_unnested` and `items_rebuilt` whenever `itemListAttribution` is configured OR at least one item-level enrichment exists. `items_unnested` does the unnest plus attribution windows when present; `items_rebuilt` adds enrichment LEFT JOINs and the `array_agg(...)` re-aggregation combining `replace(...)` for attribution fields with additive `, ... as col` clauses for enrichment columns (Q16, Q17). Rename the previous `item_list_attribution` / `item_list_data` / `_item_list_attribution_row_id` accordingly. Override `enhancedEventsStep.items` via the existing coalesce pattern.
+5. **Shared item scaffold** in `_generateEnhancedEventsSQL`: emit `items_unnested` and `items_rebuilt` whenever `itemListAttribution` is configured OR at least one item-level enrichment exists. `items_unnested` does the unnest plus attribution windows when present; `items_rebuilt` adds enrichment LEFT JOINs and the `array_agg(...)` re-aggregation combining `replace(...)` for attribution fields with additive `, ... as col` clauses for enrichment columns (Q16, Q17). The CTE renames (`item_list_attribution` / `item_list_data` / `_item_list_attribution_row_id` → `items_unnested` / `items_rebuilt` / `_item_row_id`) shipped separately in `0.9.0-dev.0`. Override `enhancedEventsStep.items` via the existing coalesce pattern.
 6. **Standard items field constant** in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js): add `GA4_STANDARD_ITEM_FIELDS` enumerating the GA4 items struct fields (Q17). Used by item-level enrichment validation.
 7. **Layer 2 validation + column-overlap classification** in `_generateEnhancedEventsSQL`: the runtime-derived reserved-name set already picks up the new `enrich_*` CTE names automatically (no code change needed). Event-level enrichment columns are routed to the `select.columns` map and added to the `excludedColumns` set passed to `selectOtherColumns` (Q13). Item-level enrichment columns are classified as REPLACE-or-ADD via `GA4_STANDARD_ITEM_FIELDS` and folded into the items struct construction (Q17). Enrichment-vs-enrichment column collisions throw at this point (Q13 / Q17).
 
@@ -456,7 +456,7 @@ The existing `itemListSteps` block is generalized into the shared `items_unneste
 - `items_unnested`: emitted whenever `itemListAttribution` OR any `level: 'item'` enrichment is configured. Unnests items from the `ga4EcommerceEvents` filter; adds the attribution `LAST_VALUE` window function when `itemListAttribution` is on.
 - `items_rebuilt`: emitted under the same condition. Adds one `LEFT JOIN enrich_<name> USING (joinKey)` per item-level enrichment, then `array_agg(select as struct item.* replace(...))` with one `replace` clause per attribution field (when on) and one per enrichment column.
 
-The most involved part of the implementation. The item-list-attribution code already produces the hard parts (the `LAST_VALUE` over a struct, the deterministic row ID, the coalesce override on `enhanced_events.items`); item-level enrichments are additive transformations inside the same shared scaffold. CTE renames (`item_list_attribution` / `item_list_data` / `_item_list_attribution_row_id`) are applied across the codebase as part of this change.
+The most involved part of the implementation. The item-list-attribution code already produces the hard parts (the `LAST_VALUE` over a struct, the deterministic row ID, the coalesce override on `enhanced_events.items`); item-level enrichments are additive transformations inside the same shared scaffold. The CTE renames that prepared this scaffold for multi-feature use shipped in `0.9.0-dev.0`.
 
 ## Files to Modify
 

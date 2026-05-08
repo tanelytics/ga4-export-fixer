@@ -197,8 +197,9 @@ const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) 
 
 /**
  * Generates a SQL expression for a deterministic hash-based row id used by the
- * item list attribution join. Only computed for events in `ecommerceEventsFilter`;
- * other events get NULL.
+ * shared items_unnested / items_rebuilt scaffold (item-list attribution and,
+ * eventually, item-level data enrichments). Only computed for events in
+ * `ecommerceEventsFilter`; other events get NULL.
  *
  * The row_number() window keeps the id stable across CTE re-evaluations:
  * BigQuery may inline the CTE and re-run the window per reference, so without
@@ -212,7 +213,7 @@ const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) 
  *        (e.g., "'purchase', 'add_to_cart'").
  * @returns {string} SQL expression that evaluates to the row id or NULL.
  */
-const itemListAttributionRowId = (ecommerceEventsFilter) => {
+const itemRowId = (ecommerceEventsFilter) => {
   return `if(
       event_name in (${ecommerceEventsFilter}),
       farm_fingerprint(concat(
@@ -257,6 +258,6 @@ module.exports = {
   isGa4ExportColumn,
   getGa4ExportType,
   itemListAttributionExpr,
-  itemListAttributionRowId,
+  itemRowId,
   ga4EcommerceEvents
 };
