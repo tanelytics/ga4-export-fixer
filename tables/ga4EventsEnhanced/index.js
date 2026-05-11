@@ -325,6 +325,35 @@ ${excludedEventsSQL}`,
     const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
             columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
 
+    // Map of every column already mapped before enrichment, qualified to its source CTE.
+    // Used to coalesce overlapping enrichment columns against the pre-existing value so a
+    // missed JOIN falls back to the original instead of emitting NULL.
+    // First writer wins on collisions (finalColumnOrder takes precedence over pass-throughs).
+    const preEnrichmentExpressions = {
+        ...finalColumnOrder,
+        ...itemListOverrides,
+    };
+    for (const col of Object.keys(eventDataStep.select.columns)) {
+        if (eventDataStep.select.columns[col] === undefined) continue;
+        if (col in preEnrichmentExpressions) continue;
+        preEnrichmentExpressions[col] = `event_data.${col}`;
+    }
+    for (const col of Object.keys(sessionDataStep.select.columns)) {
+        if (col in preEnrichmentExpressions) continue;
+        preEnrichmentExpressions[col] = `session_data.${col}`;
+    }
+
+    // Wrap overlapping enrichment columns in coalesce(enrich_<name>.<col>, <original>) so a
+    // missed JOIN falls back to the existing value. Purely additive columns (no overlap)
+    // pass through unchanged. See design_docs/planned/data-enrichments.md Q13.
+    const wrappedEnrichmentColumns = {};
+    for (const [col, enrichExpr] of Object.entries(enrichmentColumns)) {
+        const originalExpr = preEnrichmentExpressions[col];
+        wrappedEnrichmentColumns[col] = originalExpr
+            ? `coalesce(${enrichExpr}, ${originalExpr})`
+            : enrichExpr;
+    }
+
     // List all column names that have already been defined or should be left out
     // Used for the final pass-through: include the rest of the coulumns that haven't been explicitly listed yet
     const alreadyMapped = [
@@ -347,8 +376,8 @@ ${excludedEventsSQL}`,
                 // get the most important columns in the correct order
                 ...finalColumnOrder,
                 ...itemListOverrides,
-                // event-level enrichment columns: override matching explicit columns; new columns added.
-                ...enrichmentColumns,
+                // event-level enrichment columns: coalesce with the original when overlapping; otherwise add.
+                ...wrappedEnrichmentColumns,
                 // explicit pass-throughs for the rest of event_data and session_data
                 ...utils.buildQualifiedPassThroughs(eventDataStep, alreadyMapped),
                 ...utils.buildQualifiedPassThroughs(sessionDataStep, alreadyMapped),

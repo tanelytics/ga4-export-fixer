@@ -259,11 +259,11 @@ test('enrichment column is added to enhanced_events select list (qualified)', ()
         'enrichment column should appear qualified by enrich_<name> in select');
 });
 
-test('enrichment column overrides matching explicit promoted column', () => {
-    // page_title is promoted via eventParamsToColumns, so it appears as an explicit column on
-    // event_data. An enrichment column also named page_title should REPLACE it: the enrichment
-    // value wins in the enhanced_events SELECT, and the event_data pass-through must NOT also
-    // emit page_title (no double-selection).
+test('enrichment column overlapping a promoted column emits coalesce against the original', () => {
+    // page_title is promoted via eventParamsToColumns, so it lands as an event_data column.
+    // An enrichment with the same name overlaps it; the enhanced_events SELECT should emit
+    // coalesce(enrich_titles.page_title, event_data.page_title) so a missed JOIN falls back
+    // to the promoted value rather than emitting NULL.
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         eventParamsToColumns: [{ name: 'page_title', type: 'string' }],
         enrichments: [enrichment({
@@ -273,19 +273,18 @@ test('enrichment column overrides matching explicit promoted column', () => {
             columns: ['page_title'],
         })],
     }));
-    // The enrichment value should be present in the enhanced_events SELECT
-    assert.ok(sql.includes('enrich_titles.page_title as page_title'),
-        'enrichment value should be selected as page_title');
-    // The event_data pass-through must NOT emit page_title (would double-select with the
-    // promoted column inside event_data and the enrichment value in the outer SELECT)
+    // The coalesce expression should be present in the enhanced_events SELECT
+    assert.ok(sql.includes('coalesce(enrich_titles.page_title, event_data.page_title) as page_title'),
+        'overlapping enrichment column should emit coalesce(enrich.col, original) as col');
+    // The event_data pass-through must NOT emit page_title (it's covered by the coalesce)
     assert.ok(!sql.includes('event_data.page_title as page_title'),
         'event_data pass-through must not emit page_title (would double-select)');
 });
 
-test('enrichment column for a default GA4 column suppresses the pass-through and provides the enrichment value', () => {
+test('enrichment column for a default GA4 column emits coalesce against the event_data pass-through', () => {
     // 'app_info' is a default GA4 column emitted as a pass-through by event_data. An enrichment
-    // column with the same name should REPLACE it: enrich_app.app_info wins in the enhanced_events
-    // SELECT, and the event_data pass-through must NOT emit a duplicate app_info.
+    // with the same name overlaps it; the SELECT should emit
+    // coalesce(enrich_app.app_info, event_data.app_info) so missed JOINs keep the original value.
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment({
             name: 'app',
@@ -294,11 +293,9 @@ test('enrichment column for a default GA4 column suppresses the pass-through and
             columns: ['app_info'],
         })],
     }));
-    // The enrichment value should be selected
-    assert.ok(sql.includes('enrich_app.app_info as app_info'),
-        'enrichment value should be selected as app_info');
-    // The event_data pass-through must NOT emit app_info (would double-select with the GA4
-    // pass-through inside event_data and the enrichment value in the outer SELECT)
+    assert.ok(sql.includes('coalesce(enrich_app.app_info, event_data.app_info) as app_info'),
+        'overlapping enrichment column should emit coalesce(enrich.col, event_data.col) as col');
+    // The event_data pass-through must NOT emit app_info (it's covered by the coalesce)
     assert.ok(!sql.includes('event_data.app_info as app_info'),
         'event_data pass-through must not emit app_info (would double-select)');
 });
@@ -320,14 +317,37 @@ test('pure additive enrichment (column does not exist anywhere) just adds a new 
         assert.ok(!line.includes('custom_cohort_score'),
             `additive enrichment column must not appear in any wildcard EXCEPT list; got: ${line}`);
     }
+    // Purely additive columns are NOT wrapped in coalesce (no original to fall back to)
+    assert.ok(!sql.includes('coalesce(enrich_cohorts.custom_cohort_score'),
+        'purely additive enrichment column must not be wrapped in coalesce');
 });
 
-test('enrichment column overrides matching session_data column', () => {
-    // merged_user_id is an explicit column on session_data and is in finalColumnOrder. An
-    // enrichment with the same name should REPLACE it: the enrichment value wins via the
-    // enrichmentColumns spread overriding the finalColumnOrder mapping. Crucially, the
-    // event_data wildcard must NOT carry merged_user_id (it doesn't exist there) — that was
-    // the original bug for purely additive columns and applies equally to session_data overlaps.
+test('additive and overlapping enrichment columns in the same enrichment are handled independently', () => {
+    // Single enrichment with two columns: one matches a GA4 pass-through (app_info), one is
+    // purely additive (custom_score). The overlap should coalesce; the additive should not.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'mixed',
+            source: '`proj.ds.mixed`',
+            joinKey: 'user_pseudo_id',
+            columns: ['app_info', 'custom_score'],
+        })],
+    }));
+    // Overlapping column: coalesce
+    assert.ok(sql.includes('coalesce(enrich_mixed.app_info, event_data.app_info) as app_info'),
+        'overlapping column app_info should emit coalesce against event_data.app_info');
+    // Additive column: no coalesce, plain reference
+    assert.ok(sql.includes('enrich_mixed.custom_score as custom_score'),
+        'additive column custom_score should emit as plain enrich_mixed.custom_score');
+    assert.ok(!sql.includes('coalesce(enrich_mixed.custom_score'),
+        'additive column custom_score must not be wrapped in coalesce');
+});
+
+test('enrichment column overlapping a session_data column emits coalesce against session_data', () => {
+    // merged_user_id is an explicit column on session_data and is in finalColumnOrder
+    // (mapped to session_data.merged_user_id). An enrichment with the same name should emit
+    // coalesce(enrich_users.merged_user_id, session_data.merged_user_id) so a missed JOIN
+    // falls back to the package-computed merged_user_id.
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment({
             name: 'users',
@@ -336,26 +356,14 @@ test('enrichment column overrides matching session_data column', () => {
             columns: ['merged_user_id'],
         })],
     }));
-    // Override value lands in the SELECT exactly once (no double-selection from session_data)
-    const mergedUserIdSelectLines = sql.split('\n').filter(
-        l => /\bmerged_user_id as merged_user_id\b/.test(l)
-    );
-    assert.strictEqual(mergedUserIdSelectLines.length, 1,
-        `merged_user_id should appear exactly once in the SELECT; got: ${mergedUserIdSelectLines.length} times`);
-    assert.ok(mergedUserIdSelectLines[0].includes('enrich_users.merged_user_id as merged_user_id'),
-        `enrichment value should win for merged_user_id; got: ${mergedUserIdSelectLines[0]}`);
-    // event_data wildcard EXCEPT must NOT include merged_user_id (it doesn't exist there).
-    const eventWildcardLine = sql.split('\n').find(l => l.includes('event_data.* except'));
-    if (eventWildcardLine) {
-        assert.ok(!eventWildcardLine.includes('merged_user_id'),
-            `event_data.* except must NOT include merged_user_id; got: ${eventWildcardLine}`);
-    }
-    // session_data wildcard EXCEPT, if present, must include merged_user_id (suppress overlap).
-    const sessionWildcardLine = sql.split('\n').find(l => l.includes('session_data.* except'));
-    if (sessionWildcardLine) {
-        assert.ok(sessionWildcardLine.includes('merged_user_id'),
-            `session_data.* except clause should include merged_user_id; got: ${sessionWildcardLine}`);
-    }
+    assert.ok(sql.includes('coalesce(enrich_users.merged_user_id, session_data.merged_user_id) as merged_user_id'),
+        'overlapping enrichment column should emit coalesce against session_data.merged_user_id');
+    // event_data must NOT emit merged_user_id (it doesn't exist there)
+    assert.ok(!sql.includes('event_data.merged_user_id'),
+        'event_data must NOT reference merged_user_id (column does not exist on event_data)');
+    // session_data must NOT appear as a bare pass-through (it's covered by the coalesce)
+    assert.ok(!sql.includes('session_data.merged_user_id as merged_user_id'),
+        'session_data pass-through must not emit merged_user_id (would double-select)');
 });
 
 test('two enrichments writing the same column throws with both names', () => {
