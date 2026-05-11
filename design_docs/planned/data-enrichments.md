@@ -215,7 +215,7 @@ Validation follows the existing `eventParamsToColumns` pattern from [tables/ga4E
 Layer 1 / Layer 2 validation split (per [custom-ctes Q6](../implemented/custom-ctes.md)) applies:
 
 - **Layer 1 (config shape):** `enrichments` is array, each entry is a non-null object, `name` is non-empty unique string, `level` (when present) is one of the allowed values, `source` is a valid Dataform ref or backtick string, `joinKey` is a non-empty string OR a non-empty array of non-empty strings (Q18), `columns` is a non-empty array of strings.
-- **Layer 2 (collision & schema):** `enrich_<name>` doesn't collide with the runtime-derived reserved set or with user `customSteps` names. For `level: 'event'`, every `joinKey` column exists on `enhanced_events`; for `level: 'item'`, every `joinKey` column is a field on the `item` struct or `event_date`. Column-overlap behavior (replace existing or add new) is determined at SQL generation time per Q13 (event-level) and Q17 (item-level); enrichment-vs-enrichment column collisions throw.
+- **Layer 2 (collision & schema):** `enrich_<name>` doesn't collide with the runtime-derived reserved set or with user `customSteps` names. For `level: 'event'`, every `joinKey` column exists on `enhanced_events`; for `level: 'item'`, every `joinKey` column is a field on the `item` struct or `event_date`. Column-overlap behavior (coalesce-then-add or add) is determined at SQL generation time per Q13 (event-level) and Q17 (item-level); enrichment-vs-enrichment column collisions throw.
 
 ### Q9. Source format (RESOLVED — with optional expansion)
 
@@ -244,24 +244,23 @@ This aligns with the package's existing column-discipline philosophy — the col
 
 ### Q13. Column-name overlap behavior (RESOLVED)
 
-**Resolution:** when an event-level enrichment column name overlaps an existing column on `enhanced_events`, the enrichment value REPLACES the existing one. When there is no overlap, the column is ADDED. Replacement works uniformly whether the original column comes from the package's explicit column map (promoted via `eventParamsToColumns`, package-generated like `landing_page`, etc.) or from the `event_data.* except (...)` / `session_data.* except (...)` wildcards.
+**Resolution:** when an event-level enrichment column name overlaps an existing column on `enhanced_events`, the package emits `coalesce(enrich_<name>.<col>, <original_expr>) as <col>` so a missed JOIN falls back to the existing value rather than emitting NULL. When there is no overlap, the column is added as the plain `enrich_<name>.<col>`. Coalesce-then-add applies uniformly whether the original column comes from the package's explicit column map (promoted via `eventParamsToColumns`, package-generated like `landing_page`, etc.) or from `event_data` / `session_data` pass-throughs.
 
-**The use case.** Enrichment data is often intended to fix or supersede an existing column — for example, replacing a promoted `page_title` event parameter with a clean version sourced from a page-metadata table joined on `page_location`. Forcing every fix-up enrichment to use a different column name and require a downstream rename would defeat the point of the structured `enrichments` API.
+**The use case.** Enrichment data is most often intended to fix or supersede an existing column — for example, replacing a promoted `page_title` event parameter with a clean version sourced from a page-metadata table joined on `page_location`. Coalesce is the natural semantics for "fix the data when the mapping exists; otherwise keep the original" and aligns with how users typically think about enrichment joins. Always emitting NULL on a missed JOIN — the previous design — silently degrades the column's coverage and is rarely what the user actually wants.
 
-**Implementation.** For each event-level enrichment column, the package:
+**Implementation.** At SQL generation time the package:
 
-1. Adds the column name to the `excludedColumns` set passed to `selectOtherColumns` for both the `event_data.*` and `session_data.*` wildcards — removes the original column from the wildcard.
-2. Adds an entry to `enhancedEventsStep.select.columns` mapping the column name to `enrich_<name>.<col>` — the enrichment value.
-
-The combination handles three cases uniformly:
-
-- **No overlap:** the column is added as a new column from the enrichment; the wildcard exclusion is a no-op (it wasn't in the wildcard anyway).
-- **Overlap with an explicit column** (e.g. a promoted event parameter): the JS object overwrite in `select.columns` makes the enrichment value win; the wildcard exclusion is a no-op (promoted columns were already excluded).
-- **Overlap with a wildcard column** (a default GA4 column the package doesn't enumerate explicitly): the wildcard exclusion removes the original from the `*`; the new entry in `select.columns` provides the enrichment value.
+1. Computes a `preEnrichmentExpressions` map: every column already mapped to its source-qualified expression before enrichment is layered on (entries from `finalColumnOrder`, `itemListOverrides`, and pass-throughs from `event_data` / `session_data`).
+2. For each enrichment column `c`:
+   - If `c` is in `preEnrichmentExpressions`, emit `coalesce(enrich_<name>.${c}, ${preEnrichmentExpressions[c]}) as ${c}` into the outer `enhanced_events` SELECT — the coalesce-then-add case.
+   - Otherwise emit `enrich_<name>.${c} as ${c}` — the additive case.
+3. Adds `c` to `alreadyMapped` so the downstream pass-through builder skips the original column from `event_data.*` / `session_data.*` (preventing double-emission).
 
 **Enrichment-vs-enrichment overlap.** When two enrichments target the same column name, the package throws — overlap with package output is intentional (user is fixing a column), but overlap between two enrichments is almost certainly accidental. The error names both enrichments and the conflicting column.
 
-**Why this over throw-on-overlap.** A previous version of this resolution treated all overlaps as errors, forcing users to alias every potential conflict in source SQL even when the explicit intent was to replace. Replace-or-add matches the natural fix-up use case; the structured `enrichments` API is the right place for it, since users wanting strict additive-only behavior can pick column names that don't collide.
+**No opt-out.** There is no `replace: true` (or similar) flag to suppress the coalesce. If a user genuinely wants hard-replace semantics (NULL on missed JOIN), they pre-aggregate or sentinel-fill in their source SQL — and that's a corner case rare enough to not warrant API surface area. The data-enrichments feature is still pre-1.0 (`0.9.0-dev.*`); coalesce-by-default is the simplest API and the right default for the fix-the-data use case the feature was designed for.
+
+**Why this over hard-replace.** A previous version of this resolution had the enrichment value unconditionally REPLACE the existing column, emitting NULL when the JOIN missed. That silently degraded existing column coverage for any row not matched by the dim — a subtle correctness issue that surfaces only in production data. Coalesce-then-add preserves coverage by design.
 
 ### Q14. Item-level events filter (RESOLVED)
 
@@ -306,27 +305,29 @@ Multiple item-level enrichments add multiple `LEFT JOIN enrich_<name> USING (joi
 
 ### Q17. Item-level column overlap behavior and SQL syntax (RESOLVED)
 
-**Resolution:** for each item-level enrichment column, the package emits BigQuery's `replace(<expr> as <col>)` syntax when the column name matches a field in `GA4_STANDARD_ITEM_FIELDS`, and additive `, <expr> as <col>` syntax otherwise. Naming an enrichment column to match an existing item-struct field is the user's mechanism for replacing it — symmetric with the event-level replace-or-add behavior in [Q13](#q13-column-name-overlap-behavior-resolved).
+**Resolution:** for each item-level enrichment column, the package emits BigQuery's `replace(coalesce(<expr>, item.<col>) as <col>)` syntax when the column name matches a field in `GA4_STANDARD_ITEM_FIELDS`, and additive `, <expr> as <col>` syntax otherwise. The coalesce wrap inside `replace(...)` makes a missed item-level JOIN fall back to the existing item field value — symmetric with the event-level coalesce-then-add behavior in [Q13](#q13-column-name-overlap-behavior-resolved).
 
-**The use case.** Item-level enrichment is often intended to fix or supersede an existing item field — for example, correcting `item_category` values from a category-mapping table joined on `item_id`. Replace-or-add lets the user express this naturally by naming the enrichment column the same as the field being fixed.
+**The use case.** Item-level enrichment is most often intended to fix or supersede an existing item field — for example, correcting `item_category` values from a category-mapping table joined on `item_id`. Coalesce-then-add lets the user express this naturally by naming the enrichment column the same as the field being fixed; a row whose `item_id` doesn't match in the dim keeps its original `item.item_category` value instead of becoming NULL.
 
 **The underlying SQL constraint.** BigQuery's `select as struct item.* ...` syntax forces a per-column choice the package has to make at SQL-gen time:
 
 - `replace(<expr> as <existing_field>)` — overwrites a field that already exists in `item.*`. Errors at runtime if the field doesn't exist.
 - `, <expr> as <new_field>` — adds a new field. Errors at runtime if the field already exists.
 
-The two forms combine in a single struct construction, but the classification has to be correct upfront. Item-list-attribution uses `replace(...)` for the three fields it modifies (`item_list_name`, `item_list_id`, `item_list_index`); item-level enrichment uses the same `replace(...)` whenever the enrichment column name matches a standard item field, and additive syntax otherwise.
+The two forms combine in a single struct construction, but the classification has to be correct upfront. Item-list-attribution uses `replace(...)` for the three fields it modifies (`item_list_name`, `item_list_id`, `item_list_index`); item-level enrichment uses `replace(coalesce(<expr>, item.<col>) as <col>)` whenever the enrichment column name matches a standard item field, and additive syntax (no coalesce — no original to fall back to) otherwise.
 
 **Implementation:**
 
 - Add `GA4_STANDARD_ITEM_FIELDS` to [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js), enumerating the standard items struct (`item_id`, `item_name`, `item_brand`, `item_category`, `item_variant`, `item_list_name`, `item_list_id`, `item_list_index`, `price`, `quantity`, `affiliation`, `coupon`, `discount`, `item_revenue`, `promotion_id`, `promotion_name`, `creative_name`, `creative_slot`).
-- For each item-level enrichment column at SQL-gen time, classify as REPLACE (in the standard list — overwrites the existing item field) or ADD (not in the list — appends a new field).
-- The package emits a single `select as struct item.* replace(<all replace clauses>), <all add clauses>` per item-level rebuild, combining attribution `replace()` clauses (when active) with enrichment `replace()` clauses for fields in the standard list and additive clauses for everything else.
+- For each item-level enrichment column at SQL-gen time, classify as REPLACE-WITH-COALESCE (in the standard list — `replace(coalesce(<expr>, item.<col>) as <col>)`) or ADD (not in the list — appends a new field; no coalesce since there's no original to fall back to).
+- The package emits a single `select as struct item.* replace(<all replace clauses>), <all add clauses>` per item-level rebuild, combining attribution `replace()` clauses (when active) with enrichment coalesce-wrapped `replace()` clauses for fields in the standard list and additive clauses for everything else.
 - Users with customized item structs (extra fields not in the standard list) whose ADD clauses collide with their custom field will see a BigQuery "duplicate column" error at dry-run; they alias in source SQL to resolve.
 
 **Enrichment-vs-enrichment overlap.** When two item-level enrichments target the same column name, the package throws — same logic as event-level Q13. The error names both enrichments and the conflicting column.
 
-**Maintenance.** `GA4_STANDARD_ITEM_FIELDS` is small (~17 fields) and stable. GA4 occasionally adds standard item fields; the list updates with a minor package release. If a future GA4 addition matches a column name a user enrichment is currently adding additively, the next package release would change the SQL from ADD to REPLACE for that column — which is the intended behavior.
+**No opt-out** (mirror of Q13): coalesce-then-add applies uniformly with no per-enrichment flag to suppress it. Users wanting hard-replace semantics for item-level can sentinel-fill in source SQL.
+
+**Maintenance.** `GA4_STANDARD_ITEM_FIELDS` is small (~17 fields) and stable. GA4 occasionally adds standard item fields; the list updates with a minor package release. If a future GA4 addition matches a column name a user enrichment is currently adding additively, the next package release would change the SQL from ADD to REPLACE-WITH-COALESCE for that column — which is the intended behavior.
 
 ### Q18. Composite join keys (RESOLVED)
 
