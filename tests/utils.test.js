@@ -103,6 +103,124 @@ test('utility is source-schema-agnostic (works with arbitrary column names)', ()
 });
 
 // ---------------------------------------------------------------------------
+// buildEnrichments
+// ---------------------------------------------------------------------------
+
+console.log('\n2. buildEnrichments\n');
+
+test('empty input returns all-empty output', () => {
+    const result = utils.buildEnrichments([]);
+    assert.deepStrictEqual(result.steps, []);
+    assert.deepStrictEqual(result.joins, []);
+    assert.deepStrictEqual(result.columns, {});
+    assert.strictEqual(result.columnNames.size, 0);
+    assert.deepStrictEqual(result.columnOwner, {});
+});
+
+test('undefined input is treated as empty', () => {
+    const result = utils.buildEnrichments(undefined);
+    assert.deepStrictEqual(result.steps, []);
+});
+
+test('single event-level enrichment with backtick-FQN source generates one CTE, join, column', () => {
+    const result = utils.buildEnrichments([
+        { name: 'cohorts', level: 'event', source: '`p.d.cohorts`', joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
+    ]);
+    assert.deepStrictEqual(result.steps, [{
+        name: 'enrich_cohorts',
+        select: { columns: { user_pseudo_id: 'user_pseudo_id', cohort_label: 'cohort_label' } },
+        from: '`p.d.cohorts`',
+    }]);
+    assert.deepStrictEqual(result.joins, [{
+        type: 'left',
+        table: 'enrich_cohorts',
+        on: 'using(user_pseudo_id)',
+    }]);
+    assert.deepStrictEqual(result.columns, { cohort_label: 'enrich_cohorts.cohort_label' });
+    assert.ok(result.columnNames.has('cohort_label'));
+    assert.deepStrictEqual(result.columnOwner.cohort_label, { i: 0, name: 'cohorts' });
+});
+
+test('Dataform-ref-object source passes through verbatim into the source step', () => {
+    const refObj = { schema: 'analytics', name: 'cohorts' };
+    const result = utils.buildEnrichments([
+        { name: 'cohorts', level: 'event', source: refObj, joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
+    ]);
+    assert.strictEqual(result.steps[0].from, refObj,
+        'source ref object should be carried through unmodified');
+});
+
+test('composite joinKey selects multiple keys and compiles to using(col1, col2)', () => {
+    const result = utils.buildEnrichments([
+        { name: 'segments', level: 'event', source: '`p.d.t`', joinKey: ['event_date', 'user_pseudo_id'], columns: ['segment'] },
+    ]);
+    const sourceCols = result.steps[0].select.columns;
+    assert.ok('event_date' in sourceCols, 'event_date should be selected in source CTE');
+    assert.ok('user_pseudo_id' in sourceCols, 'user_pseudo_id should be selected in source CTE');
+    assert.ok('segment' in sourceCols, 'segment should be selected in source CTE');
+    assert.strictEqual(result.joins[0].on, 'using(event_date, user_pseudo_id)');
+});
+
+test('dedupe: true wraps source CTE with qualify row_number() over (partition by joinKey)', () => {
+    const result = utils.buildEnrichments([
+        { name: 'dim', level: 'event', source: '`p.d.t`', joinKey: 'id', columns: ['x'], dedupe: true },
+    ]);
+    assert.strictEqual(result.steps[0].qualify,
+        'row_number() over (partition by id) = 1');
+});
+
+test('dedupe omitted/false does not add qualify', () => {
+    const result = utils.buildEnrichments([
+        { name: 'dim', level: 'event', source: '`p.d.t`', joinKey: 'id', columns: ['x'] },
+    ]);
+    assert.ok(!('qualify' in result.steps[0]),
+        'qualify should not be set when dedupe is omitted');
+});
+
+test('multiple enrichments aggregate across all five output fields preserving entry order', () => {
+    const result = utils.buildEnrichments([
+        { name: 'a', level: 'event', source: '`p.d.t1`', joinKey: 'id', columns: ['x'] },
+        { name: 'b', level: 'event', source: '`p.d.t2`', joinKey: 'id', columns: ['y', 'z'] },
+    ]);
+    assert.strictEqual(result.steps.length, 2);
+    assert.strictEqual(result.steps[0].name, 'enrich_a');
+    assert.strictEqual(result.steps[1].name, 'enrich_b');
+    assert.strictEqual(result.joins.length, 2);
+    assert.deepStrictEqual(result.columns, {
+        x: 'enrich_a.x',
+        y: 'enrich_b.y',
+        z: 'enrich_b.z',
+    });
+    assert.strictEqual(result.columnNames.size, 3);
+    assert.deepStrictEqual(result.columnOwner.x, { i: 0, name: 'a' });
+    assert.deepStrictEqual(result.columnOwner.z, { i: 1, name: 'b' });
+});
+
+test('level: "item" throws with pointer to data-enrichments.md and entry index', () => {
+    assert.throws(
+        () => utils.buildEnrichments([
+            { name: 'p', level: 'item', source: '`p.d.t`', joinKey: 'item_id', columns: ['x'] },
+        ]),
+        /config\.enrichments\[0\] uses level: 'item', which is not yet supported in this version.*data-enrichments\.md/s
+    );
+});
+
+test('enrichment-vs-enrichment column collision throws with both names and the column', () => {
+    try {
+        utils.buildEnrichments([
+            { name: 'a', level: 'event', source: '`p.d.t1`', joinKey: 'id', columns: ['cohort'] },
+            { name: 'b', level: 'event', source: '`p.d.t2`', joinKey: 'id', columns: ['cohort'] },
+        ]);
+        assert.fail('should have thrown');
+    } catch (e) {
+        assert.ok(e.message.includes("'a'") && e.message.includes("'b'"),
+            `error should name both enrichments; got: ${e.message}`);
+        assert.ok(e.message.includes("'cohort'"),
+            `error should name the conflicting column; got: ${e.message}`);
+    }
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

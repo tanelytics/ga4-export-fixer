@@ -561,6 +561,87 @@ const buildPassThroughs = (explicitColumns, sourceColumns) => {
 
 
 /**
+ * Builds the per-enrichment CTE definitions, JOIN clauses, and column-name mappings for the
+ * declarative `enrichments` feature.
+ *
+ * Pure config-to-data mapping. No knowledge of downstream CTEs or specific table modules —
+ * intended to be called by any table module that exposes an `enrichments` config field.
+ *
+ * Encapsulates two generation-time throws:
+ *   - level: 'item' (not yet supported; deferred per design_docs/planned/data-enrichments.md Q15).
+ *   - Enrichment-vs-enrichment column collisions (two enrichments targeting the same column).
+ *
+ * @param {Array<Object>} enrichments - Validated enrichment entries. Each entry has fields:
+ *   { name, level, source, joinKey, columns, dedupe? } per data-enrichments.md Q8.
+ * @returns {Object} A struct with five fields:
+ *   - `steps` — array of queryBuilder source-CTE step definitions (one `enrich_<name>` per entry).
+ *   - `joins` — array of LEFT JOIN clauses to attach downstream (one per entry).
+ *   - `columns` — map of `{ <enrichmentColumn>: 'enrich_<name>.<col>' }` for spreading into a
+ *     downstream SELECT's `select.columns`.
+ *   - `columnNames` — Set of all enrichment column names (used by callers for overlap detection
+ *     against downstream CTEs).
+ *   - `columnOwner` — map of `{ <column>: { i, name } }` recording which enrichment owns each
+ *     column; preserved for diagnostics.
+ *
+ * @throws {Error} If any entry has `level: 'item'` (with a pointer to data-enrichments.md).
+ * @throws {Error} If two enrichments target the same column name (with both enrichment names).
+ *
+ * @example
+ *   const { steps, joins, columns, columnNames } = buildEnrichments(config.enrichments);
+ */
+const buildEnrichments = (enrichments) => {
+    const steps = [];
+    const joins = [];
+    const columns = {};
+    const columnNames = new Set();
+    const columnOwner = {};
+
+    for (const [i, e] of (enrichments ?? []).entries()) {
+        const level = e.level ?? 'event';
+        if (level === 'item') {
+            throw new Error(
+                `config.enrichments[${i}] uses level: 'item', which is not yet supported in this version. ` +
+                `Item-level enrichments will ship in a future release; see design_docs/planned/data-enrichments.md.`
+            );
+        }
+        const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
+        const cteName = `enrich_${e.name}`;
+
+        // Source CTE selects joinKey columns plus the requested columns. key === value
+        // shape skips the alias clause in queryBuilder's columnsToSQL.
+        const cteCols = {};
+        for (const k of joinKeys) cteCols[k] = k;
+        for (const c of e.columns) cteCols[c] = c;
+        const sourceStep = { name: cteName, select: { columns: cteCols }, from: e.source };
+        // Opt-in dedupe: which row wins is non-deterministic — users with strict needs
+        // pre-aggregate in their source SQL.
+        if (e.dedupe) {
+            sourceStep.qualify = `row_number() over (partition by ${joinKeys.join(', ')}) = 1`;
+        }
+        steps.push(sourceStep);
+
+        joins.push({ type: 'left', table: cteName, on: `using(${joinKeys.join(', ')})` });
+
+        for (const c of e.columns) {
+            if (columnNames.has(c)) {
+                const owner = columnOwner[c];
+                throw new Error(
+                    `config.enrichments[${i}] (name: '${e.name}') and config.enrichments[${owner.i}] ` +
+                    `(name: '${owner.name}') both target column '${c}'. ` +
+                    `Two enrichments cannot write the same column; rename one in source SQL or pick a different name.`
+                );
+            }
+            columns[c] = `${cteName}.${c}`;
+            columnNames.add(c);
+            columnOwner[c] = { i, name: e.name };
+        }
+    }
+
+    return { steps, joins, columns, columnNames, columnOwner };
+};
+
+
+/**
  * Processes a date input string and returns a corresponding SQL date casting expression,
  * or passes through BigQuery SQL statements as-is.
  *
@@ -636,6 +717,7 @@ module.exports = {
     setDataformContext,
     selectOtherColumns,
     buildPassThroughs,
+    buildEnrichments,
     processDate,
     getDatasetName
 };
