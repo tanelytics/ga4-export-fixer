@@ -522,6 +522,45 @@ const selectOtherColumns = (step, alreadyDefinedColumns = [], excludedColumns = 
 
 
 /**
+ * Builds a queryBuilder `select.columns` fragment that passes through every source column
+ * not already covered by an explicit columns object.
+ *
+ * A source column is considered "covered" — and skipped from pass-throughs — when it appears as:
+ *   - a KEY in `explicitColumns` (a transform, package promotion, or undefined-valued exclusion
+ *     sentinel like `{ event_dimensions: undefined }`), OR
+ *   - a VALUE in `explicitColumns` (a bare source-column identifier referenced by a value-side
+ *     rename, e.g. `{ user_traffic_source: 'traffic_source' }` covers 'traffic_source').
+ *
+ * Values that are SQL expressions, function calls, or non-strings never count as coverage —
+ * they reference the source column internally but the column itself is still available as a
+ * pass-through. (`.includes()` compares by strict equality, so 'extract(datetime from ...)'
+ * never matches a bare column name.)
+ *
+ * @param {Object} explicitColumns - A queryBuilder step's explicit `select.columns` entries.
+ * @param {Iterable<string>} sourceColumns - Column names available on the source schema.
+ * @returns {Object} A map of `{ column: column }` entries for every source column not covered.
+ *
+ * @example
+ *   buildPassThroughs(
+ *     { event_name: 'event_name', user_traffic_source: 'traffic_source' },
+ *     ['event_name', 'traffic_source', 'device', 'geo']
+ *   );
+ *   // → { device: 'device', geo: 'geo' }
+ */
+const buildPassThroughs = (explicitColumns, sourceColumns) => {
+    const explicitKeys = Object.keys(explicitColumns);
+    const explicitValues = Object.values(explicitColumns);
+    const passThroughs = {};
+    for (const column of sourceColumns) {
+        if (!explicitKeys.includes(column) && !explicitValues.includes(column)) {
+            passThroughs[column] = column;
+        }
+    }
+    return passThroughs;
+};
+
+
+/**
  * Processes a date input string and returns a corresponding SQL date casting expression,
  * or passes through BigQuery SQL statements as-is.
  *
@@ -596,6 +635,7 @@ module.exports = {
     isDataformTableReferenceObject,
     setDataformContext,
     selectOtherColumns,
+    buildPassThroughs,
     processDate,
     getDatasetName
 };

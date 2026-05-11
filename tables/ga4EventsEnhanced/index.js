@@ -238,23 +238,9 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
         entrances: helpers.unnestEventParam('entrances', 'int'),
         session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
     };
-    // Pass through every remaining GA4 export column unchanged. A column is "consumed" — and
-    // skipped from pass-throughs — when (a) it's a key in eventDataExplicitColumns (transform,
-    // package promotion, or user exclusion sentinel), OR (b) it's referenced as the bare source
-    // identifier of a value-side rename (e.g. user_traffic_source: 'traffic_source') so the
-    // pass-through wouldn't double-emit it.
-    const consumedColumns = new Set(Object.keys(eventDataExplicitColumns));
-    for (const value of Object.values(eventDataExplicitColumns)) {
-        if (typeof value === 'string' && helpers.isGa4ExportColumn(value)) {
-            consumedColumns.add(value);
-        }
-    }
-    const eventDataPassThroughs = {};
-    for (const column of helpers.ga4ExportColumns) {
-        if (!consumedColumns.has(column)) {
-            eventDataPassThroughs[column] = column;
-        }
-    }
+    // Pass through every GA4 export column not already covered by an explicit transform,
+    // promotion, exclusion sentinel, or value-side rename in eventDataExplicitColumns.
+    const eventDataPassThroughs = utils.buildPassThroughs(eventDataExplicitColumns, helpers.ga4ExportColumns);
     const eventDataStep = {
         name: 'event_data',
         select: {
