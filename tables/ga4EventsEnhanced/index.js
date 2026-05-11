@@ -205,31 +205,21 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
         // exclude default export columns that are not needed
         // do this first so that the columns defined later are not excluded
         ...getExcludedColumns(),
-        // date and time
         event_date: helpers.eventDate,
         event_datetime: `extract(datetime from timestamp_micros(${helpers.getEventTimestampMicros(mergedConfig.customTimestampParam)}) at time zone '${mergedConfig.timezone}')`,
-        event_timestamp: 'event_timestamp',
         event_custom_timestamp: mergedConfig.customTimestampParam ? helpers.getEventTimestampMicros(mergedConfig.customTimestampParam) : undefined,
-        // event name
-        event_name: 'event_name',
-        // identifiers
         session_id: helpers.sessionId,
-        user_pseudo_id: 'user_pseudo_id',
-        user_id: 'user_id',
-        // page
+        // page details
         page_location: helpers.unnestEventParam('page_location', 'string'),
         page: helpers.extractPageDetails(),
-        // event parameters and user properties
+        // promote event params to columns
         ...promotedEventParameters(),
         event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
-        user_properties: 'user_properties',
-        // traffic source
-        collected_traffic_source: 'collected_traffic_source',
-        session_traffic_source_last_click: 'session_traffic_source_last_click',
+        // rename traffic_source for clarity
         user_traffic_source: 'traffic_source',
         // ecommerce
         ecommerce: helpers.fixEcommerceStruct('ecommerce'),
-        items: 'items',
+        // assign a unique row id, used for handling item-level attribution and enrichment
         _item_row_id: itemListAttribution ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
         // flag if the data is "final" and is not expected to change anymore
         data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
