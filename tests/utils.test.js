@@ -221,6 +221,62 @@ test('enrichment-vs-enrichment column collision throws with both names and the c
 });
 
 // ---------------------------------------------------------------------------
+// buildQualifiedPassThroughs
+// ---------------------------------------------------------------------------
+
+console.log('\n3. buildQualifiedPassThroughs\n');
+
+test('empty step columns returns empty result', () => {
+    const step = { name: 'event_data', select: { columns: {} } };
+    const result = utils.buildQualifiedPassThroughs(step, []);
+    assert.deepStrictEqual(result, {});
+});
+
+test('all-covered step returns empty result', () => {
+    const step = { name: 'event_data', select: { columns: { a: 'a', b: 'b' } } };
+    const result = utils.buildQualifiedPassThroughs(step, ['a', 'b']);
+    assert.deepStrictEqual(result, {});
+});
+
+test('uncovered columns emitted as qualified entries; covered ones skipped', () => {
+    const step = { name: 'event_data', select: { columns: { a: 'a', b: 'b', c: 'c' } } };
+    const result = utils.buildQualifiedPassThroughs(step, ['b']);
+    assert.deepStrictEqual(result, {
+        a: 'event_data.a',
+        c: 'event_data.c',
+    });
+});
+
+test('undefined-valued entries (user-exclusion sentinels) are skipped', () => {
+    const step = { name: 'event_data', select: { columns: { a: 'a', b: undefined, c: 'c' } } };
+    const result = utils.buildQualifiedPassThroughs(step, []);
+    assert.deepStrictEqual(result, {
+        a: 'event_data.a',
+        c: 'event_data.c',
+    });
+});
+
+test('names in alreadyCovered that do not exist in the step are silently ignored', () => {
+    const step = { name: 'event_data', select: { columns: { a: 'a' } } };
+    // 'x' and 'y' aren't in the step — must not produce errors or affect output
+    const result = utils.buildQualifiedPassThroughs(step, ['x', 'y']);
+    assert.deepStrictEqual(result, { a: 'event_data.a' });
+});
+
+test('alreadyCovered accepts array and Set with identical results', () => {
+    const step = { name: 'event_data', select: { columns: { a: 'a', b: 'b', c: 'c' } } };
+    const fromArr = utils.buildQualifiedPassThroughs(step, ['b']);
+    const fromSet = utils.buildQualifiedPassThroughs(step, new Set(['b']));
+    assert.deepStrictEqual(fromArr, fromSet);
+});
+
+test('result preserves Object.entries iteration order', () => {
+    const step = { name: 'event_data', select: { columns: { z: 'z', a: 'a', m: 'm' } } };
+    const result = utils.buildQualifiedPassThroughs(step, []);
+    assert.deepStrictEqual(Object.keys(result), ['z', 'a', 'm']);
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

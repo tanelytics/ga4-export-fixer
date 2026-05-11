@@ -642,6 +642,38 @@ const buildEnrichments = (enrichments) => {
 
 
 /**
+ * Builds a qualified pass-through fragment for spreading into a downstream SELECT's
+ * `select.columns`. For each column in `step.select.columns` not already in `alreadyCovered`,
+ * emits an entry of the form `{ <col>: '<step.name>.<col>' }`.
+ *
+ * Columns whose values in `step.select.columns` are `undefined` (the user-exclusion sentinel
+ * shape from getExcludedColumns) are skipped. Names in `alreadyCovered` that don't exist in
+ * `step.select.columns` are silently ignored — the loop only iterates `step.select.columns`,
+ * so unknown names cause no harm. This is the safety property that lets callers pass
+ * "everything that might collide" without pre-filtering.
+ *
+ * @param {Object} step - A queryBuilder step with a `name` and `select.columns` object.
+ * @param {Iterable<string>} alreadyCovered - Column names already mapped elsewhere in the
+ *   downstream SELECT, plus any internal-only columns the downstream SELECT shouldn't re-emit.
+ * @returns {Object} A map of `{ <col>: '<step.name>.<col>' }` entries.
+ *
+ * @example
+ *   buildQualifiedPassThroughs(eventDataStep, ['event_date', 'session_id', 'entrances']);
+ *   // → { event_name: 'event_data.event_name', user_pseudo_id: 'event_data.user_pseudo_id', ... }
+ */
+const buildQualifiedPassThroughs = (step, alreadyCovered) => {
+    const covered = new Set(alreadyCovered);
+    const passThroughs = {};
+    for (const [col, expr] of Object.entries(step.select.columns)) {
+        if (expr === undefined) continue;
+        if (covered.has(col)) continue;
+        passThroughs[col] = `${step.name}.${col}`;
+    }
+    return passThroughs;
+};
+
+
+/**
  * Processes a date input string and returns a corresponding SQL date casting expression,
  * or passes through BigQuery SQL statements as-is.
  *
@@ -718,6 +750,7 @@ module.exports = {
     selectOtherColumns,
     buildPassThroughs,
     buildEnrichments,
+    buildQualifiedPassThroughs,
     processDate,
     getDatasetName
 };
