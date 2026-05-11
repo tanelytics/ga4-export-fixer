@@ -325,30 +325,22 @@ ${excludedEventsSQL}`,
     const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
             columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
 
-    // Map of every column already mapped before enrichment, qualified to its source CTE.
-    // Used to coalesce overlapping enrichment columns against the pre-existing value so a
-    // missed JOIN falls back to the original instead of emitting NULL.
-    // First writer wins on collisions (finalColumnOrder takes precedence over pass-throughs).
-    const preEnrichmentExpressions = {
-        ...finalColumnOrder,
-        ...itemListOverrides,
-    };
-    for (const col of Object.keys(eventDataStep.select.columns)) {
-        if (eventDataStep.select.columns[col] === undefined) continue;
-        if (col in preEnrichmentExpressions) continue;
-        preEnrichmentExpressions[col] = `event_data.${col}`;
-    }
-    for (const col of Object.keys(sessionDataStep.select.columns)) {
-        if (col in preEnrichmentExpressions) continue;
-        preEnrichmentExpressions[col] = `session_data.${col}`;
-    }
-
     // Wrap overlapping enrichment columns in coalesce(enrich_<name>.<col>, <original>) so a
     // missed JOIN falls back to the existing value. Purely additive columns (no overlap)
-    // pass through unchanged. See design_docs/planned/data-enrichments.md Q13.
+    // pass through unchanged. Source-of-original precedence matches the final SELECT's spread
+    // order: itemListOverrides first (overrides finalColumnOrder for `items`), then
+    // session_data (wins over event_data in getFinalColumnOrder when both have the column).
+    // See design_docs/planned/data-enrichments.md Q13.
     const wrappedEnrichmentColumns = {};
     for (const [col, enrichExpr] of Object.entries(enrichmentColumns)) {
-        const originalExpr = preEnrichmentExpressions[col];
+        let originalExpr;
+        if (col in itemListOverrides) {
+            originalExpr = itemListOverrides[col];
+        } else if (col in sessionDataStep.select.columns) {
+            originalExpr = `session_data.${col}`;
+        } else if (col in eventDataStep.select.columns && eventDataStep.select.columns[col] !== undefined) {
+            originalExpr = `event_data.${col}`;
+        }
         wrappedEnrichmentColumns[col] = originalExpr
             ? `coalesce(${enrichExpr}, ${originalExpr})`
             : enrichExpr;
