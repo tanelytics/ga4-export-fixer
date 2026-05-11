@@ -404,20 +404,14 @@ ${excludedEventsSQL}`,
     }
     const enrichmentExcludedColumns = [...enrichmentColumnNames];
 
-    // Only forward enrichment columns to each wildcard's EXCEPT input if they would actually
-    // appear in that wildcard's source CTE. Otherwise BigQuery rejects with "Column X in
-    // SELECT * EXCEPT list does not exist". event_data.* expands to its explicit columns plus
-    // GA4 export columns minus user-excluded ones; session_data.* expands only to its explicit
-    // columns. selectOtherColumns dedupes between internalExcept and externalExcept.
+    // Only forward enrichment columns to each wildcard's EXCEPT input if they actually exist
+    // in that wildcard's source CTE. Otherwise BigQuery rejects with "Column X in SELECT *
+    // EXCEPT list does not exist". After M1, Object.keys(step.select.columns) is the complete
+    // column set of both event_data and session_data — so the same predicate works for both.
     const eventDataExplicit = new Set(Object.keys(eventDataStep.select.columns));
     const sessionDataExplicit = new Set(Object.keys(sessionDataStep.select.columns));
-    const userExcluded = new Set(mergedConfig.excludedColumns);
-    const eventDataEnrichmentExcept = enrichmentExcludedColumns.filter(c =>
-        eventDataExplicit.has(c) || (helpers.isGa4ExportColumn(c) && !userExcluded.has(c))
-    );
-    const sessionDataEnrichmentExcept = enrichmentExcludedColumns.filter(c =>
-        sessionDataExplicit.has(c)
-    );
+    const eventDataEnrichmentExcept = enrichmentExcludedColumns.filter(c => eventDataExplicit.has(c));
+    const sessionDataEnrichmentExcept = enrichmentExcludedColumns.filter(c => sessionDataExplicit.has(c));
 
     // Join event_data and session_data, include additional logic
     // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
