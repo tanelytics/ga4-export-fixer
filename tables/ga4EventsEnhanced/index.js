@@ -197,51 +197,70 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
         return excludedColumns;
     };
 
-    // initial step: extract data from the export tables
+    // initial step: extract data from the export tables.
+    // Explicit columns first (transforms + package-promoted + user-excluded sentinels);
+    // then pass-through entries for every GA4 export column not already accounted for.
+    // After this, Object.keys(eventDataStep.select.columns) is the complete column set of event_data.
+    const eventDataExplicitColumns = {
+        // exclude default export columns that are not needed
+        // do this first so that the columns defined later are not excluded
+        ...getExcludedColumns(),
+        // date and time
+        event_date: helpers.eventDate,
+        event_datetime: `extract(datetime from timestamp_micros(${helpers.getEventTimestampMicros(mergedConfig.customTimestampParam)}) at time zone '${mergedConfig.timezone}')`,
+        event_timestamp: 'event_timestamp',
+        event_custom_timestamp: mergedConfig.customTimestampParam ? helpers.getEventTimestampMicros(mergedConfig.customTimestampParam) : undefined,
+        // event name
+        event_name: 'event_name',
+        // identifiers
+        session_id: helpers.sessionId,
+        user_pseudo_id: 'user_pseudo_id',
+        user_id: 'user_id',
+        // page
+        page_location: helpers.unnestEventParam('page_location', 'string'),
+        page: helpers.extractPageDetails(),
+        // event parameters and user properties
+        ...promotedEventParameters(),
+        event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
+        user_properties: 'user_properties',
+        // traffic source
+        collected_traffic_source: 'collected_traffic_source',
+        session_traffic_source_last_click: 'session_traffic_source_last_click',
+        user_traffic_source: 'traffic_source',
+        // ecommerce
+        ecommerce: helpers.fixEcommerceStruct('ecommerce'),
+        items: 'items',
+        _item_row_id: itemListAttribution ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
+        // flag if the data is "final" and is not expected to change anymore
+        data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
+        export_type: helpers.getGa4ExportType('_table_suffix'),
+        // prep columns for later steps
+        entrances: helpers.unnestEventParam('entrances', 'int'),
+        session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
+    };
+    // Pass through every remaining GA4 export column unchanged. A column is "consumed" — and
+    // skipped from pass-throughs — when (a) it's a key in eventDataExplicitColumns (transform,
+    // package promotion, or user exclusion sentinel), OR (b) it's referenced as the bare source
+    // identifier of a value-side rename (e.g. user_traffic_source: 'traffic_source') so the
+    // pass-through wouldn't double-emit it.
+    const consumedColumns = new Set(Object.keys(eventDataExplicitColumns));
+    for (const value of Object.values(eventDataExplicitColumns)) {
+        if (typeof value === 'string' && helpers.isGa4ExportColumn(value)) {
+            consumedColumns.add(value);
+        }
+    }
+    const eventDataPassThroughs = {};
+    for (const column of helpers.ga4ExportColumns) {
+        if (!consumedColumns.has(column)) {
+            eventDataPassThroughs[column] = column;
+        }
+    }
     const eventDataStep = {
         name: 'event_data',
         select: {
             columns: {
-                // exclude default export columns that are not needed
-                // do this first so that the columns defined later are not excluded
-                ...getExcludedColumns(),
-                // date and time
-                event_date: helpers.eventDate,
-                event_datetime: `extract(datetime from timestamp_micros(${helpers.getEventTimestampMicros(mergedConfig.customTimestampParam)}) at time zone '${mergedConfig.timezone}')`,
-                event_timestamp: 'event_timestamp',
-                event_custom_timestamp: mergedConfig.customTimestampParam ? helpers.getEventTimestampMicros(mergedConfig.customTimestampParam) : undefined,
-                // event name
-                event_name: 'event_name',
-                // identifiers
-                session_id: helpers.sessionId,
-                user_pseudo_id: 'user_pseudo_id',
-                user_id: 'user_id',
-                // page
-                page_location: helpers.unnestEventParam('page_location', 'string'),
-                page: helpers.extractPageDetails(),
-                // event parameters and user properties
-                ...promotedEventParameters(),
-                event_params: helpers.filterEventParams(mergedConfig.excludedEventParams, 'exclude'),
-                user_properties: 'user_properties',
-                // traffic source
-                collected_traffic_source: 'collected_traffic_source',
-                session_traffic_source_last_click: 'session_traffic_source_last_click',
-                user_traffic_source: 'traffic_source',
-                // ecommerce
-                ecommerce: helpers.fixEcommerceStruct('ecommerce'),
-                items: 'items',
-                _item_row_id: itemListAttribution ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
-                // flag if the data is "final" and is not expected to change anymore
-                data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
-                export_type: helpers.getGa4ExportType('_table_suffix'),
-                // prep columns for later steps
-                entrances: helpers.unnestEventParam('entrances', 'int'),
-                session_params_prep: mergedConfig.sessionParams.length > 0 ? helpers.filterEventParams(mergedConfig.sessionParams, 'include') : undefined,
-                // include all other columns from the export data
-                get '[sql]other_columns'() {
-                    const definedColumns = Object.keys(this);
-                    return `* except (${definedColumns.filter(column => helpers.isGa4ExportColumn(column)).join(', ')})`;
-                },
+                ...eventDataExplicitColumns,
+                ...eventDataPassThroughs,
             },
         },
         from: mergedConfig.sourceTable,

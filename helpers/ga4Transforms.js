@@ -95,50 +95,50 @@ const isFinalData = (detectionMethod, dayThreshold) => {
 };
 
 /**
- * Checks whether a given column name is part of the standard/expected GA4 BigQuery export columns.
+ * The standard GA4 BigQuery export top-level column names, based on the official schema.
  *
- * The list of recognized GA4 export columns is based on the official schema as of 2026-02-18.
- * This function can be used to filter or validate column names when processing GA4 data exports.
+ * list updated 2026-02-18
+ */
+const ga4ExportColumns = [
+  "event_date",
+  "event_timestamp",
+  "event_name",
+  "event_params",
+  "event_previous_timestamp",
+  "event_value_in_usd",
+  "event_bundle_sequence_id",
+  "event_server_timestamp_offset",
+  "user_id",
+  "user_pseudo_id",
+  "privacy_info",
+  "user_properties",
+  "user_first_touch_timestamp",
+  "user_ltv",
+  "device",
+  "geo",
+  "app_info",
+  "traffic_source",
+  "stream_id",
+  "platform",
+  "event_dimensions",
+  "ecommerce",
+  "items",
+  "collected_traffic_source",
+  "is_active_user",
+  "batch_event_index",
+  "batch_page_id",
+  "batch_ordering_id",
+  "session_traffic_source_last_click",
+  "publisher"
+];
+
+/**
+ * Checks whether a given column name is part of the standard GA4 BigQuery export columns.
  *
  * @param {string} columnName - The name of the column to check.
  * @returns {boolean} True if the column name is a GA4 export column, otherwise false.
  */
-const isGa4ExportColumn = (columnName) => {
-  // list updated 2026-02-18
-  const ga4ExportColumns = [
-    "event_date",
-    "event_timestamp",
-    "event_name",
-    "event_params",
-    "event_previous_timestamp",
-    "event_value_in_usd",
-    "event_bundle_sequence_id",
-    "event_server_timestamp_offset",
-    "user_id",
-    "user_pseudo_id",
-    "privacy_info",
-    "user_properties",
-    "user_first_touch_timestamp",
-    "user_ltv",
-    "device",
-    "geo",
-    "app_info",
-    "traffic_source",
-    "stream_id",
-    "platform",
-    "event_dimensions",
-    "ecommerce",
-    "items",
-    "collected_traffic_source",
-    "is_active_user",
-    "batch_event_index",
-    "batch_page_id",
-    "batch_ordering_id",
-    "session_traffic_source_last_click",
-    "publisher"
-  ];
-  return ga4ExportColumns.includes(columnName);
-};
+const isGa4ExportColumn = (columnName) => ga4ExportColumns.includes(columnName);
 
 /**
  * Generates a SQL CASE expression that determines the GA4 export type from a table suffix.
@@ -255,6 +255,7 @@ module.exports = {
   sessionId,
   fixEcommerceStruct,
   isFinalData,
+  ga4ExportColumns,
   isGa4ExportColumn,
   getGa4ExportType,
   itemListAttributionExpr,
