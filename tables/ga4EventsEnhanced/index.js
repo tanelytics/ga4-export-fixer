@@ -325,8 +325,8 @@ ${excludedEventsSQL}`,
     const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
             columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
 
-    // Build the set of columns the outer SELECT already maps explicitly (so wildcards skip them)
-    // plus internal-only columns that should never reach enhanced_events.
+    // List all column names that have already been defined or should be left out
+    // Used for the final pass-through: include the rest of the coulumns that haven't been explicitly listed yet
     const alreadyMapped = [
         ...Object.keys(finalColumnOrder),
         ...Object.keys(itemListOverrides),
@@ -370,7 +370,7 @@ ${excludedEventsSQL}`,
                 table: 'session_data',
                 on: 'using(session_id)'
             },
-            // Event-level enrichment joins go last so they apply on top of the package's own joins.
+            // The left joins for the enrichment ctes
             ...enrichmentJoins,
         ],
         where: helpers.incrementalDateFilter(mergedConfig)
@@ -384,10 +384,7 @@ ${excludedEventsSQL}`,
         enhancedEventsStep,
     ];
 
-    // Layer 2 validation: customSteps name must not collide with package step names.
-    // Reserved set is derived from packageSteps at runtime (single source of truth) — what
-    // is reserved depends on config (e.g. item_list_* exist only when itemListAttribution is on,
-    // and enrich_* names exist only when enrichments are configured).
+    // Ensure that the custom step names don't collide with the default or data enrichment step names
     const customSteps = mergedConfig.customSteps ?? [];
     if (customSteps.length > 0) {
         const reservedNames = new Set(packageSteps.map(s => s.name));
@@ -401,6 +398,7 @@ ${excludedEventsSQL}`,
         }
     }
 
+    // Include custom steps last in the list
     const steps = [...packageSteps, ...customSteps];
 
     return utils.queryBuilder(steps);
