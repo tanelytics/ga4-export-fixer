@@ -397,7 +397,7 @@ test('added column gets "Added by enrichment ..." description', () => {
         /^Added by enrichment 'cohorts' \(joined on user_pseudo_id from `proj\.ds\.user_cohorts`\)\.$/);
 });
 
-test('replaced promoted column gets "Replaced by enrichment ..." with original retained', () => {
+test('overlapping promoted column gets "Coalesced by enrichment ..." with original retained', () => {
     const desc = ga4EventsEnhanced.getColumnDescriptions(baseConfig({
         eventParamsToColumns: [{ name: 'page_title', type: 'string' }],
         enrichments: [enrichment({
@@ -408,7 +408,7 @@ test('replaced promoted column gets "Replaced by enrichment ..." with original r
         })],
     }));
     assert.match(desc.page_title,
-        /^Replaced by enrichment 'titles' \(joined on page_location from `proj\.ds\.title_overrides`\)\. Original: /);
+        /^Coalesced by enrichment 'titles' \(joined on page_location from `proj\.ds\.title_overrides`; falls back to original on missed JOIN\)\. Original: /);
     assert.ok(desc.page_title.includes("Promoted from event parameter 'page_title'"),
         `original promoted-param description should be preserved; got: ${desc.page_title}`);
 });

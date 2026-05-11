@@ -186,7 +186,7 @@ const getColumnDescriptions = (config, columnMetadata) => {
                         ? existing.description
                         : null;
                 const newDesc = existingText
-                    ? `Replaced by enrichment '${e.name}' (joined on ${joinKeyText} from ${sourceText}). Original: ${existingText}`
+                    ? `Coalesced by enrichment '${e.name}' (joined on ${joinKeyText} from ${sourceText}; falls back to original on missed JOIN). Original: ${existingText}`
                     : `Added by enrichment '${e.name}' (joined on ${joinKeyText} from ${sourceText}).`;
                 // If the original was a struct-shaped entry, preserve the structure but replace the description.
                 // Otherwise, set as a plain string.

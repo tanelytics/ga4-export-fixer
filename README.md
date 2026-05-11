@@ -537,10 +537,10 @@ For typical use cases this is the right tool; reach for `customSteps` only when 
 | `level` | `'event'` | No, defaults to `'event'` | Join grain. Currently only `'event'` is supported (item-level enrichments will arrive in a later release). |
 | `source` | Dataform ref / object / string | Yes | Source dim table. Inside an SQLX `js { }` block use `ref(...)`. From a `.js` definition file use a `{ schema, name }` ref object (resolved later via `ctx.ref()`) or a backtick-quoted ``` `project.dataset.table` ``` string for an external table. |
 | `joinKey` | string / string[] | Yes | Column name(s) on `enhanced_events` to join on. Composite keys (array) compile to `USING(col1, col2, ...)`. |
-| `columns` | string[] | Yes | Source columns to add to the output (excluding `joinKey`). Names matching existing columns REPLACE them. |
+| `columns` | string[] | Yes | Source columns to add to the output (excluding `joinKey`). Names matching existing columns are coalesced with the original (`coalesce(enrich.col, original)`) so missed JOINs fall back to the existing value. |
 | `dedupe` | boolean | No, defaults to `false` | When `true`, wraps the source CTE in `qualify row_number() over (partition by <joinKey>) = 1` for non-unique-key dim sources. Non-deterministic which row wins; for strict needs, pre-aggregate in source SQL. |
 
-**Replace-or-add semantics.** If an enrichment column name matches an existing column on `enhanced_events` (a column promoted via `eventParamsToColumns`, a package-generated column, or a default GA4 column from the export), the enrichment value REPLACES it. If there is no overlap, the column is added.
+**Coalesce-or-add semantics.** If an enrichment column name matches an existing column on `enhanced_events` (a column promoted via `eventParamsToColumns`, a package-generated column, or a default GA4 column from the export), the enrichment value is coalesced with the original: `coalesce(enrich_<name>.<col>, <original>) as <col>`. Rows where the JOIN matches get the enrichment value; rows where it misses fall back to the existing value rather than going NULL. If there is no overlap, the column is added as a plain `enrich_<name>.<col>`. There is no opt-out — for hard-replace semantics (NULL on missed JOIN), pre-aggregate or sentinel-fill in your source SQL.
 
 **Example** — attach user cohort labels by `user_pseudo_id` (Dataform-declared table referenced by `{ schema, name }`):
 
@@ -571,7 +571,7 @@ enrichments: [
 ],
 ```
 
-**Example** — fix a promoted event parameter via enrichment (replacement case):
+**Example** — fix a promoted event parameter via enrichment (coalesce case: enrichment value wins where the JOIN matches, original kept where it doesn't):
 
 ```javascript
 {
@@ -582,7 +582,7 @@ enrichments: [
             level: 'event',
             source: { schema: 'analytics', name: 'page_title_overrides' },
             joinKey: 'page_location',
-            columns: ['page_title'],   // overlaps the promoted column → replaces it
+            columns: ['page_title'],   // overlaps the promoted column → coalesce(enrich.page_title, event_data.page_title)
         },
     ],
 }
@@ -590,7 +590,7 @@ enrichments: [
 
 > **Note:** Each enrichment generates a CTE named `enrich_<name>` at the top of the pipeline. The `enrich_*` namespace is part of the reserved-names contract — `customSteps` cannot use these names. The active reserved set includes only the names of enrichments actually configured.
 
-> **Note:** Enrichment columns get auto-generated descriptions (`Added by enrichment '<name>' (joined on <joinKey> from <source>).` for new columns; `Replaced by enrichment '<name>' (...). Original: <description>` for replacements). User-supplied `dataformTableConfig.columns` overrides win — the auto-generated description is the default.
+> **Note:** Enrichment columns get auto-generated descriptions (`Added by enrichment '<name>' (joined on <joinKey> from <source>).` for new columns; `Coalesced by enrichment '<name>' (...; falls back to original on missed JOIN). Original: <description>` for overlapping columns). User-supplied `dataformTableConfig.columns` overrides win — the auto-generated description is the default.
 
 > **Note:** `joinKey` and `columns` entries must be plain SQL identifiers — inline aliases like `'id as user_id'` are rejected at validation time. If your dim source uses a different column name, alias it in an upstream Dataform view and point `source` at that view.
 
