@@ -320,64 +320,10 @@ ${excludedEventsSQL}`,
     } : {};
     const itemListExcludedColumns = itemListSteps ? ['_item_row_id'] : [];
 
-    // Build enrichment-source CTEs and gather event-level join/column data.
-    // Item-level enrichments throw "not yet supported" — they will arrive in a later release.
-    const enrichments = mergedConfig.enrichments ?? [];
-    const enrichmentSteps = [];
-    const enrichmentJoins = [];
-    const enrichmentColumns = {};         // column name → SQL expression for select.columns
-    const enrichmentColumnNames = new Set();  // column names for excludedColumns of wildcards
-    const enrichmentColumnOwner = {};     // column name → { i, name } for collision errors
-    for (const [i, e] of enrichments.entries()) {
-        const level = e.level ?? 'event';
-        if (level === 'item') {
-            throw new Error(
-                `config.enrichments[${i}] uses level: 'item', which is not yet supported in this version. ` +
-                `Item-level enrichments will ship in a future release; see design_docs/planned/data-enrichments.md.`
-            );
-        }
-        const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
-        const cteName = `enrich_${e.name}`;
-        // Source CTE selects joinKey columns plus the requested columns. key === value
-        // shape skips the alias clause in queryBuilder's columnsToSQL.
-        const cteCols = {};
-        for (const k of joinKeys) cteCols[k] = k;
-        for (const c of e.columns) cteCols[c] = c;
-        const sourceStep = {
-            name: cteName,
-            select: { columns: cteCols },
-            from: e.source,
-        };
-        // Opt-in dedupe: which row wins is non-deterministic — users with strict needs
-        // pre-aggregate in their source SQL.
-        if (e.dedupe) {
-            sourceStep.qualify = `row_number() over (partition by ${joinKeys.join(', ')}) = 1`;
-        }
-        enrichmentSteps.push(sourceStep);
-
-        enrichmentJoins.push({
-            type: 'left',
-            table: cteName,
-            on: `using(${joinKeys.join(', ')})`,
-        });
-
-        // Replace-or-add: each enrichment column overrides explicit select columns via JS object
-        // spread, AND joins the excludedColumns set so it suppresses overlap with the wildcard
-        // event_data.* / session_data.* expansions below.
-        for (const c of e.columns) {
-            if (enrichmentColumnNames.has(c)) {
-                const owner = enrichmentColumnOwner[c];
-                throw new Error(
-                    `config.enrichments[${i}] (name: '${e.name}') and config.enrichments[${owner.i}] ` +
-                    `(name: '${owner.name}') both target column '${c}'. ` +
-                    `Two enrichments cannot write the same column; rename one in source SQL or pick a different name.`
-                );
-            }
-            enrichmentColumns[c] = `${cteName}.${c}`;
-            enrichmentColumnNames.add(c);
-            enrichmentColumnOwner[c] = { i, name: e.name };
-        }
-    }
+    // Build enrichment-source CTEs and gather event-level join/column data. Item-level
+    // enrichments throw "not yet supported" inside the utility — they will arrive in a later release.
+    const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
+            columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
     const enrichmentExcludedColumns = [...enrichmentColumnNames];
 
     // Only forward enrichment columns to each wildcard's EXCEPT input if they actually exist
