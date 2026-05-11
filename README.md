@@ -198,7 +198,8 @@ Create a new **ga4_events_enhanced** table using a **.js** file in your reposito
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
-  sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT
+  // using hard-coded GA4 export path
+  sourceTable: '`project.analytics_12345.events_*`'
 };
 
 ga4EventsEnhanced.createTable(publish, config);
@@ -212,6 +213,7 @@ ga4EventsEnhanced.createTable(publish, config);
 const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
 const config = {
+  // GA4 export path declared, using the table reference object
   sourceTable: constants.GA4_TABLES.MY_GA4_EXPORT,
   // use dataformTableConfig to make changes to the default Dataform table configuration
   dataformTableConfig: {
@@ -290,7 +292,8 @@ js {
   const { ga4EventsEnhanced } = require('ga4-export-fixer');
 
   const config = {
-    sourceTable: ref(constants.GA4_TABLES.MY_GA4_EXPORT),
+    // using hard-coded GA4 export path
+    sourceTable: '`project.analytics_12345.events_*`',
     self: self(),
     incremental: incremental()
   };
