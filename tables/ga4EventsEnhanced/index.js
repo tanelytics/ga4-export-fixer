@@ -324,16 +324,19 @@ ${excludedEventsSQL}`,
     // enrichments throw "not yet supported" inside the utility — they will arrive in a later release.
     const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
             columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
-    const enrichmentExcludedColumns = [...enrichmentColumnNames];
 
-    // Only forward enrichment columns to each wildcard's EXCEPT input if they actually exist
-    // in that wildcard's source CTE. Otherwise BigQuery rejects with "Column X in SELECT *
-    // EXCEPT list does not exist". After M1, Object.keys(step.select.columns) is the complete
-    // column set of both event_data and session_data — so the same predicate works for both.
-    const eventDataExplicit = new Set(Object.keys(eventDataStep.select.columns));
-    const sessionDataExplicit = new Set(Object.keys(sessionDataStep.select.columns));
-    const eventDataEnrichmentExcept = enrichmentExcludedColumns.filter(c => eventDataExplicit.has(c));
-    const sessionDataEnrichmentExcept = enrichmentExcludedColumns.filter(c => sessionDataExplicit.has(c));
+    // Build the set of columns the outer SELECT already maps explicitly (so wildcards skip them)
+    // plus internal-only columns that should never reach enhanced_events.
+    const alreadyMapped = [
+        ...Object.keys(finalColumnOrder),
+        ...Object.keys(itemListOverrides),
+        ...enrichmentColumnNames,
+        'entrances',
+        mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
+        'data_is_final',
+        'export_type',
+        ...itemListExcludedColumns,
+    ];
 
     // Join event_data and session_data, include additional logic
     // Named 'enhanced_events' so user-supplied customSteps can reference it as a stable handle.
@@ -345,27 +348,10 @@ ${excludedEventsSQL}`,
                 ...finalColumnOrder,
                 ...itemListOverrides,
                 // event-level enrichment columns: override matching explicit columns; new columns added.
-                // Wildcard-column overlap is handled below via excludedColumns.
                 ...enrichmentColumns,
-                // get the rest of the event_data columns
-                '[sql]event_data': utils.selectOtherColumns(
-                    eventDataStep,
-                    Object.keys(finalColumnOrder),
-                    [
-                        'entrances',
-                        mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
-                        'data_is_final',
-                        'export_type',
-                        ...itemListExcludedColumns,
-                        ...eventDataEnrichmentExcept,
-                    ]
-                ),
-                // get the rest of the session_data columns
-                '[sql]session_data': utils.selectOtherColumns(
-                    sessionDataStep,
-                    Object.keys(finalColumnOrder),
-                    sessionDataEnrichmentExcept,
-                ),
+                // explicit pass-throughs for the rest of event_data and session_data
+                ...utils.buildQualifiedPassThroughs(eventDataStep, alreadyMapped),
+                ...utils.buildQualifiedPassThroughs(sessionDataStep, alreadyMapped),
                 // include additional columns
                 row_inserted_timestamp: 'current_timestamp()',
                 data_is_final: 'data_is_final',

@@ -261,9 +261,9 @@ test('enrichment column is added to enhanced_events select list (qualified)', ()
 
 test('enrichment column overrides matching explicit promoted column', () => {
     // page_title is promoted via eventParamsToColumns, so it appears as an explicit column on
-    // event_data and (via the wildcard in enhanced_events) on enhanced_events. An enrichment
-    // column also named page_title should REPLACE it: the enrichment value wins, and page_title
-    // gets added to the wildcard's except list so the original column isn't double-selected.
+    // event_data. An enrichment column also named page_title should REPLACE it: the enrichment
+    // value wins in the enhanced_events SELECT, and the event_data pass-through must NOT also
+    // emit page_title (no double-selection).
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         eventParamsToColumns: [{ name: 'page_title', type: 'string' }],
         enrichments: [enrichment({
@@ -276,17 +276,16 @@ test('enrichment column overrides matching explicit promoted column', () => {
     // The enrichment value should be present in the enhanced_events SELECT
     assert.ok(sql.includes('enrich_titles.page_title as page_title'),
         'enrichment value should be selected as page_title');
-    // The wildcard's except clause for event_data.* should include page_title so the original
-    // promoted column is suppressed (no duplicate page_title in the output)
-    const eventDataWildcardLine = sql.split('\n').find(l => l.includes('event_data.* except'));
-    assert.ok(eventDataWildcardLine && eventDataWildcardLine.includes('page_title'),
-        `event_data.* except clause should include page_title; got: ${eventDataWildcardLine}`);
+    // The event_data pass-through must NOT emit page_title (would double-select with the
+    // promoted column inside event_data and the enrichment value in the outer SELECT)
+    assert.ok(!sql.includes('event_data.page_title as page_title'),
+        'event_data pass-through must not emit page_title (would double-select)');
 });
 
-test('enrichment column for a wildcard column is excluded from event_data.* and provided by enrichment', () => {
-    // 'app_info' is a default GA4 column normally pulled in via event_data.*. An enrichment
-    // column with the same name should add it to the wildcard's except() list and provide
-    // the enrichment value instead.
+test('enrichment column for a default GA4 column suppresses the pass-through and provides the enrichment value', () => {
+    // 'app_info' is a default GA4 column emitted as a pass-through by event_data. An enrichment
+    // column with the same name should REPLACE it: enrich_app.app_info wins in the enhanced_events
+    // SELECT, and the event_data pass-through must NOT emit a duplicate app_info.
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment({
             name: 'app',
@@ -295,12 +294,13 @@ test('enrichment column for a wildcard column is excluded from event_data.* and 
             columns: ['app_info'],
         })],
     }));
-    // The except() clause for event_data.* should include app_info
-    const eventDataWildcardLine = sql.split('\n').find(l => l.includes('event_data.* except'));
-    assert.ok(eventDataWildcardLine && eventDataWildcardLine.includes('app_info'),
-        `event_data.* except clause should include app_info; got: ${eventDataWildcardLine}`);
     // The enrichment value should be selected
-    assert.ok(sql.includes('enrich_app.app_info as app_info'));
+    assert.ok(sql.includes('enrich_app.app_info as app_info'),
+        'enrichment value should be selected as app_info');
+    // The event_data pass-through must NOT emit app_info (would double-select with the GA4
+    // pass-through inside event_data and the enrichment value in the outer SELECT)
+    assert.ok(!sql.includes('event_data.app_info as app_info'),
+        'event_data pass-through must not emit app_info (would double-select)');
 });
 
 test('pure additive enrichment (column does not exist anywhere) just adds a new column', () => {
@@ -311,10 +311,11 @@ test('pure additive enrichment (column does not exist anywhere) just adds a new 
     }));
     assert.ok(sql.includes('enrich_cohorts.custom_cohort_score as custom_cohort_score'),
         'new enrichment column should appear as a fresh column');
-    // Regression: an additive enrichment column must NOT appear in any wildcard EXCEPT list,
+    // Regression: an additive enrichment column must NEVER appear in any wildcard EXCEPT list,
     // otherwise BigQuery rejects with "Column ... in SELECT * EXCEPT list does not exist".
+    // (After enhanced-events-explicit-columns shipped there are no wildcards in enhanced_events
+    // at all; this loop is defensive against any future code paths reintroducing them.)
     const exceptLines = sql.split('\n').filter(l => /\.\* except \(/.test(l));
-    assert.ok(exceptLines.length > 0, 'sanity: SQL should contain at least one wildcard except() clause');
     for (const line of exceptLines) {
         assert.ok(!line.includes('custom_cohort_score'),
             `additive enrichment column must not appear in any wildcard EXCEPT list; got: ${line}`);

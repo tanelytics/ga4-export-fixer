@@ -475,53 +475,6 @@ const mergeDataformTableConfigurations = (defaultConfig, inputConfig = {}) => {
 };
 
 /**
- * Generates a SQL selection string for a given query step, excluding columns already defined elsewhere
- * or columns that should be excluded.
- *
- * This utility is helpful when joining tables/CTEs to avoid selecting duplicate or already-present columns.
- * 
- * @param {Object} step - A queryBuilder structured step containing a `name` (CTE/table alias) and a `select.columns` object.
- * @param {string[]} [alreadyDefinedColumns=[]] - Columns that have already been defined and should be excluded from selection.
- * @param {string[]} [excludedColumns=[]] - Additional columns to explicitly exclude from selection.
- * @returns {string|undefined} A SQL select string (e.g. 'stepName.*' or 'stepName.* except (col1, col2)'), or undefined if all columns are excluded.
- */
-const selectOtherColumns = (step, alreadyDefinedColumns = [], excludedColumns = []) => {
-    const stepName = step.name;
-    const stepColumns = Object.keys(step.select.columns);
-
-    // Columns in step.select.columns that should be excluded (already-defined or explicitly listed)
-    const internalExcept = stepColumns.filter(
-        column => alreadyDefinedColumns.includes(column) || excludedColumns.includes(column)
-    );
-
-    // Columns in excludedColumns that aren't enumerated in step.select.columns. These are
-    // wildcard-sourced columns (e.g. default GA4 export columns coming through `event_data.*`
-    // inside event_data's own select). The caller knows what to exclude; trust them.
-    // BigQuery throws at dry-run if the column doesn't exist in the source — surfaces typos.
-    // Filter out undefined/null entries (callers can pass conditional values like
-    // `cond ? 'col' : undefined` for ergonomics).
-    const externalExcept = excludedColumns.filter(
-        c => typeof c === 'string' && c.length > 0 && !stepColumns.includes(c)
-    );
-
-    const allExcept = [...internalExcept, ...externalExcept];
-
-    // If nothing is excluded, select everything
-    if (allExcept.length === 0) {
-        return `${stepName}.*`;
-    }
-
-    // If every enumerated column is excluded and there are no external excepts to apply,
-    // there's nothing to select via the wildcard
-    if (internalExcept.length === stepColumns.length && externalExcept.length === 0) {
-        return;
-    }
-
-    return `${stepName}.* except (${allExcept.join(', ')})`;
-};
-
-
-/**
  * Builds a queryBuilder `select.columns` fragment that passes through every source column
  * not already covered by an explicit columns object.
  *
@@ -747,7 +700,6 @@ module.exports = {
     queryBuilder,
     isDataformTableReferenceObject,
     setDataformContext,
-    selectOtherColumns,
     buildPassThroughs,
     buildEnrichments,
     buildQualifiedPassThroughs,
