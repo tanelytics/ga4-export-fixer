@@ -290,18 +290,31 @@ ${excludedEventsSQL}`,
             where: `event_name in (${ecommerceEventsFilter})`,
         };
 
+        // Build the per-field expression map for the items struct. Seed with the canonical
+        // GA4 items-struct fields (each maps to `item.<col>`), then override the three
+        // item-list-attribution entries with their package-generated coalesce-with-passthrough
+        // expressions. Future sprints (item-level enrichments) layer their column overrides
+        // on top of this same map via the spread mechanic.
+        const preItemExpressions = {};
+        for (const f of helpers.ga4ItemStructFields) {
+            preItemExpressions[f] = `item.${f}`;
+        }
+        preItemExpressions.item_list_name = `coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)')`;
+        preItemExpressions.item_list_id = `coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)')`;
+        preItemExpressions.item_list_index = `coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index))`;
+
+        const itemStructClauses = Object.entries(preItemExpressions)
+            .map(([col, expr]) => `${expr} as ${col}`)
+            .join(',\n        ');
+
         const rebuiltStep = {
             name: 'items_rebuilt',
             select: {
                 columns: {
                     '_item_row_id': '_item_row_id',
-                    'items': `array_agg(
-      (select as struct item.* replace(
-        coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)') as item_list_name,
-        coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)') as item_list_id,
-        coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index)) as item_list_index
-      ))
-    )`,
+                    'items': `array_agg(struct(
+        ${itemStructClauses}
+      ))`,
                 },
             },
             from: 'items_unnested',
