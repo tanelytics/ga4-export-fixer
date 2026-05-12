@@ -45,95 +45,99 @@ The goal of the package is to **speed up development** when building data models
 </tr>
 <tr>
 <td valign="top">
+  <b>🧬 Data Enrichments</b><br>
+  Join external lookup data (cohorts, product master, etc.) at row level or ecommerce item level via <code>enrichments</code>
+</td>
+<td valign="top">
   <b>📐 Flexible Schema</b><br>
   Keeps the flexible structure of the original export with key fields promoted to columns for better query performance; partitioning &amp; clustering enabled
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🤖 AI Agent Ready</b><br>
   Extensive table &amp; column descriptions for AI agents and humans
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🔑 Session Identity Resolution</b><br>
   <code>user_id</code> resolved per session; <code>merged_user_id</code> coalesces with <code>user_pseudo_id</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>📡 Session Traffic Sources</b><br>
   <code>session_first_traffic_source</code> and <code>session_traffic_source_last_click</code> computed automatically, adjusting for sessions that span midnight
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>📍 Landing Page Detection</b><br>
   Derived per session from the first page where <code>entrances > 0</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🔗 Page URL Parsing</b><br>
   Parsed <code>hostname</code>, <code>path</code>, <code>query</code>, and <code>query_params</code> from <code>page_location</code>
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🛒 Ecommerce Data Fixes</b><br>
   Nullifies placeholder <code>transaction_id</code>; corrects <code>purchase_revenue</code> bugs
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🏷️ Item List Attribution</b><br>
   Attributes <code>item_list_name</code>, <code>item_list_id</code>, and <code>item_list_index</code> from item selection events to downstream ecommerce events
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>⚙️ Event Parameter Handling</b><br>
   Promote event params to columns; include or exclude by name
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>📊 Session Parameters</b><br>
   Promote selected event parameters as <code>session_params</code>
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>⏱️ Custom Timestamp</b><br>
   Use a custom event parameter as primary timestamp with automatic fallback
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🔒 Schema Lock</b><br>
   Lock table schema to a specific GA4 export date to prevent schema drift
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>✅ Data Freshness Tracking</b><br>
   <code>data_is_final</code> flag and <code>export_type</code> label on every row
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🔍 Data Quality Assertions</b><br>
   Built-in daily assertion reconciles sessions, events, and revenue between the enhanced table and raw export
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🔃 Selective Re-processing</b><br>
   Re-process a date range without full table rebuild using <code>incrementalStartOverride</code> and <code>incrementalEndOverride</code>
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>📑 Batch Processing</b><br>
   Process large exports in smaller batches via <code>numberOfDaysToProcess</code>
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🕐 Timezone-Aware Datetime</b><br>
   <code>event_datetime</code> converted to a configurable IANA timezone
 </td>
+</tr>
+<tr>
 <td valign="top">
   <b>🧩 Custom Processing Steps</b><br>
   Append user-defined CTEs via <code>customSteps</code> to derive new columns or join external tables
 </td>
-</tr>
-<tr>
 <td valign="top">
   <b>🛡️ Zero Dependencies</b><br>
   No additional external dependencies added to your Dataform repository
@@ -145,7 +149,6 @@ The goal of the package is to **speed up development** when building data models
 
 Features under consideration for future releases:
 
-- Data enrichment (item-level, session-level, row-level)
 - Aggregated tables (ga4_session, ga4_ecommerce...)
 - Web and app specific default configurations
 - Custom channel grouping
