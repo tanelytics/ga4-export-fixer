@@ -537,9 +537,9 @@ For typical use cases this is the right tool; reach for `customSteps` only when 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `name` | string | Yes | Used in the generated `enrich_<name>` CTE name. Unique within `enrichments`. |
-| `level` | `'event'` | No, defaults to `'event'` | Join grain. Currently only `'event'` is supported (item-level enrichments will arrive in a later release). |
+| `level` | `'event'` / `'item'` | No, defaults to `'event'` | Join grain. `'event'` joins external dim data onto each event row (any column on `enhanced_events` as the key). `'item'` joins external dim data onto each item inside the `items` array (any field on the items struct or any event_data column as the key). |
 | `source` | Dataform ref / object / string | Yes | Source dim table. Inside an SQLX `js { }` block use `ref(...)`. From a `.js` definition file use a `{ schema, name }` ref object (resolved later via `ctx.ref()`) or a backtick-quoted ``` `project.dataset.table` ``` string for an external table. |
-| `joinKey` | string / string[] | Yes | Column name(s) on `enhanced_events` to join on. Composite keys (array) compile to `USING(col1, col2, ...)`. |
+| `joinKey` | string / string[] | Yes | For `level: 'event'`: column name(s) on `enhanced_events`. For `level: 'item'`: field name(s) on the items struct (e.g. `'item_id'`) or column name(s) on `event_data` (e.g. `'user_pseudo_id'`). Composite keys (array) compile to `USING(col1, col2, ...)`. |
 | `columns` | string[] | Yes | Source columns to add to the output (excluding `joinKey`). Names matching existing columns are coalesced with the original (`coalesce(enrich.col, original)`) so missed JOINs fall back to the existing value. |
 | `dedupe` | boolean | No, defaults to `false` | When `true`, wraps the source CTE in `qualify row_number() over (partition by <joinKey>) = 1` for non-unique-key dim sources. Non-deterministic which row wins; for strict needs, pre-aggregate in source SQL. |
 
@@ -591,9 +591,25 @@ enrichments: [
 }
 ```
 
+**Example** — item-level enrichment: attach product master data to each item via `item_id`. The enrichment flows into the `items` array struct; `margin_bucket` is added as a new item-struct field, and `item_category` overlap-coalesces against the original. Item-level enrichment columns do NOT appear at the event grain — they live inside `items[].<col>`:
+
+```javascript
+enrichments: [
+    {
+        name: 'products',
+        level: 'item',
+        source: { schema: 'analytics', name: 'product_master' },
+        joinKey: 'item_id',                                  // joins on item.item_id
+        columns: ['margin_bucket', 'item_category'],         // margin_bucket is additive; item_category overlap-coalesces
+    },
+],
+```
+
+For `level: 'item'`, valid `joinKey` values are any field on the GA4 items struct (`item_id`, `item_category`, etc.) or any column on `event_data` (`user_pseudo_id`, `event_date`, etc.). An event-level and an item-level enrichment may share the same column name (e.g. both writing `cohort`) — the two columns target structurally distinct slots (`enhanced_events.cohort` at event grain vs `items[].cohort` inside the items array) and are not in collision.
+
 > **Note:** Each enrichment generates a CTE named `enrich_<name>` at the top of the pipeline. The `enrich_*` namespace is part of the reserved-names contract — `customSteps` cannot use these names. The active reserved set includes only the names of enrichments actually configured.
 
-> **Note:** Enrichment columns get auto-generated descriptions (`Added by enrichment '<name>' (joined on <joinKey> from <source>).` for new columns; `Coalesced by enrichment '<name>' (...; falls back to original on missed JOIN). Original: <description>` for overlapping columns). User-supplied `dataformTableConfig.columns` overrides win — the auto-generated description is the default.
+> **Note:** Event-level enrichment columns get auto-generated descriptions (`Added by enrichment '<name>' (joined on <joinKey> from <source>).` for new columns; `Coalesced by enrichment '<name>' (...; falls back to original on missed JOIN). Original: <description>` for overlapping columns). User-supplied `dataformTableConfig.columns` overrides win — the auto-generated description is the default. Item-level enrichment columns do not receive auto-generated descriptions (BigQuery does not surface per-field descriptions on STRUCT-array fields cleanly through Dataform's column-description mechanism).
 
 > **Note:** `joinKey` and `columns` entries must be plain SQL identifiers — inline aliases like `'id as user_id'` are rejected at validation time. If your dim source uses a different column name, alias it in an upstream Dataform view and point `source` at that view.
 

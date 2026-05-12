@@ -178,12 +178,185 @@ test('dedupe with composite joinKey partitions by all keys', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Item-level enrichments (end-to-end tests added in M2 of Sprint B2)
+// 4. Item-level enrichments — end-to-end
 // ---------------------------------------------------------------------------
-// The Sprint A "not yet supported" deferral throws are gone — level: 'item' is now
-// first-class. End-to-end tests covering item-level routing, joinKey validation,
-// items_rebuilt struct integration, and the conditional LAST_VALUE window in
-// items_unnested are added by M2 of the item-level-enrichments sprint.
+
+console.log('\n4. Item-level enrichments — end-to-end\n');
+
+test('item-level enrichment activates the items scaffold (no itemListAttribution needed)', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    assert.ok(sql.includes('items_unnested as ('),
+        'items_unnested CTE should be emitted when an item-level enrichment is configured');
+    assert.ok(sql.includes('items_rebuilt as ('),
+        'items_rebuilt CTE should be emitted when an item-level enrichment is configured');
+});
+
+test('items_unnested omits the LAST_VALUE window when only item enrichments are active', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    assert.ok(!sql.includes('last_value('),
+        'LAST_VALUE attribution window should NOT appear when itemListAttribution is not configured');
+    assert.ok(!sql.includes('_item_list_attr'),
+        '_item_list_attr column should NOT be selected in items_unnested when only item enrichments are active');
+});
+
+test('items_unnested keeps LAST_VALUE window when itemListAttribution is configured alongside item enrichments', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        itemListAttribution: { lookbackType: 'SESSION' },
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    assert.ok(sql.includes('last_value('),
+        'LAST_VALUE attribution window should appear when itemListAttribution is configured');
+    assert.ok(sql.includes('_item_list_attr'),
+        '_item_list_attr column should be selected when attribution is active');
+});
+
+test('item-level enrichment LEFT JOIN added to items_rebuilt with USING(joinKey)', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    // Extract items_rebuilt block; verify it has the LEFT JOIN
+    const itemsRebuiltBlock = sql.match(/items_rebuilt as \([\s\S]*?\)\s*(,|$)/)[0];
+    assert.ok(itemsRebuiltBlock.includes('left join'),
+        `items_rebuilt should have a LEFT JOIN for the item-level enrichment; got: ${itemsRebuiltBlock}`);
+    assert.ok(itemsRebuiltBlock.includes('enrich_products'),
+        'LEFT JOIN target should be enrich_products');
+    assert.ok(itemsRebuiltBlock.includes('using(item_id)'),
+        'JOIN should use USING(item_id)');
+});
+
+test('additive item-level enrichment column appears as an additional struct field', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    assert.ok(sql.includes('enrich_products.margin_bucket as margin_bucket'),
+        'additive item-level enrichment column should appear in the items struct as enrich_X.col as col');
+});
+
+test('item-level enrichment overlapping a standard field emits coalesce against item-struct field', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'category_fixes',
+            level: 'item',
+            source: '`proj.ds.cat`',
+            joinKey: 'item_id',
+            columns: ['item_category'],
+        })],
+    }));
+    // The struct should have `coalesce(enrich_category_fixes.item_category, item_category) as item_category`.
+    // After Sprint B1's flatten, item_category is a top-level column on items_unnested,
+    // so the original expression in preItemExpressions is bare `item_category` (no `item.` prefix).
+    assert.ok(sql.includes('coalesce(enrich_category_fixes.item_category, item_category) as item_category'),
+        'overlapping item-level column should emit coalesce(enrich.col, original) as col in the struct');
+});
+
+test('item-level enrichment with composite joinKey carries both keys', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'date_products',
+            level: 'item',
+            source: '`proj.ds.dp`',
+            joinKey: ['event_date', 'item_id'],
+            columns: ['daily_price_bucket'],
+        })],
+    }));
+    const itemsRebuiltBlock = sql.match(/items_rebuilt as \([\s\S]*?\)\s*(,|$)/)[0];
+    assert.ok(itemsRebuiltBlock.includes('using(event_date, item_id)'),
+        'composite joinKey should compile to USING(event_date, item_id)');
+});
+
+test('item-level enrichment with event_data joinKey extends items_unnested.select.columns', () => {
+    // user_pseudo_id is on event_data but not a standard items-struct field; the package
+    // must add it as a top-level column on items_unnested so the JOIN can USING() it.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'user_products',
+            level: 'item',
+            source: '`proj.ds.up`',
+            joinKey: 'user_pseudo_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    // Extract items_unnested block; verify it selects user_pseudo_id
+    const itemsUnnestedBlock = sql.match(/items_unnested as \([\s\S]*?\)\s*,/)[0];
+    assert.ok(/^\s+user_pseudo_id,?\s*$/m.test(itemsUnnestedBlock),
+        `items_unnested should select user_pseudo_id as a top-level column; got: ${itemsUnnestedBlock}`);
+    // And items_rebuilt joins on it
+    const itemsRebuiltBlock = sql.match(/items_rebuilt as \([\s\S]*?\)\s*(,|$)/)[0];
+    assert.ok(itemsRebuiltBlock.includes('using(user_pseudo_id)'),
+        'items_rebuilt JOIN should use USING(user_pseudo_id)');
+});
+
+test('item-level joinKey that is neither item-struct field nor event_data column throws', () => {
+    assert.throws(
+        () => ga4EventsEnhanced.generateSql(baseConfig({
+            enrichments: [enrichment({
+                name: 'bad',
+                level: 'item',
+                source: '`proj.ds.bad`',
+                joinKey: 'totally_made_up_column',
+                columns: ['x'],
+            })],
+        })),
+        /uses item-level joinKey 'totally_made_up_column'.*neither a field on the GA4 items struct.*nor a column on event_data/s
+    );
+});
+
+test('item-level enrichment columns do NOT propagate to enhanced_events.select.columns', () => {
+    // Item-level columns live inside items[], not at the event grain. The outer SELECT
+    // must not emit `margin_bucket` as a top-level column on enhanced_events.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    // The only `as margin_bucket` should be inside the items_rebuilt struct construction;
+    // the outer SELECT must not have a top-level margin_bucket column.
+    // Extract the outer SELECT (after the last CTE close, before the WHERE).
+    const lines = sql.split('\n');
+    const outerSelectStart = lines.findIndex(l => /^\)\s*$/.test(l));
+    const outerSelectEnd = lines.findIndex((l, i) => i > outerSelectStart && /^from$/.test(l));
+    const outerSelectBlock = lines.slice(outerSelectStart, outerSelectEnd).join('\n');
+    assert.ok(!outerSelectBlock.includes('as margin_bucket'),
+        `enhanced_events outer SELECT must NOT include margin_bucket as a top-level column; got: ${outerSelectBlock}`);
+});
 
 // ---------------------------------------------------------------------------
 // 5. Event-level join integration + replace-or-add
