@@ -173,8 +173,8 @@ const getColumnDescriptions = (config, columnMetadata) => {
     // Item-level enrichments are not yet supported and throw at SQL gen time — skip here.
     if (config && Array.isArray(config.enrichments) && config.enrichments.length > 0) {
         config.enrichments.forEach(e => {
-            const level = e.level ?? 'event';
-            if (level !== 'event') return;
+            const level = e.level ?? 'row';
+            if (level !== 'row') return;
             const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
             const joinKeyText = joinKeys.join(', ');
             const sourceText = renderEnrichmentSource(e.source);

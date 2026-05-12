@@ -69,8 +69,9 @@ const ga4EventsEnhancedConfig = {
     // each entry is a queryBuilder step (raw {name, query} or structured {name, select, from, ...})
     customSteps: [],
     // declarative external-data enrichments joined into the pipeline
-    // each entry: { name, level: 'event' | 'item', source, joinKey, columns, dedupe? }
-    // 'item' level is accepted at config time but throws at SQL gen — not yet implemented
+    // each entry: { name, source, joinKey, columns, level?, dedupe? }
+    // `level` is optional — defaults to 'row' (one row of the enclosing table per join match).
+    // 'item' targets the items[] array (GA4-specific, ecommerce events only).
     enrichments: [],
 };
 

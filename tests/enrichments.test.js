@@ -43,7 +43,7 @@ const baseConfig = (overrides = {}) => ({
 
 const enrichment = (overrides = {}) => ({
     name: 'cohorts',
-    level: 'event',
+    level: 'row',
     source: '`proj.ds.user_cohorts`',
     joinKey: 'user_pseudo_id',
     columns: ['cohort_label'],
@@ -480,7 +480,7 @@ test('item-level enrichment columns do NOT propagate to enhanced_events.select.c
 
 console.log('\n5. Event-level join integration + replace-or-add\n');
 
-test('event-level enrichment adds LEFT JOIN to enhanced_events with USING(joinKey)', () => {
+test('row-level enrichment adds LEFT JOIN to enhanced_events with USING(joinKey)', () => {
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment()],
     }));

@@ -1193,7 +1193,7 @@ console.log('\nN+1. enrichments config-shape validation\n');
 
 const validEnrichment = (overrides = {}) => ({
     name: 'cohorts',
-    level: 'event',
+    level: 'row',
     source: '`proj.ds.user_cohorts`',
     joinKey: 'user_pseudo_id',
     columns: ['cohort_label'],
@@ -1210,6 +1210,11 @@ test('accepts empty enrichments array', () => {
 
 test('accepts a valid enrichment', () => {
     validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [validEnrichment()] }));
+});
+
+test('accepts entry with level omitted (defaults to row)', () => {
+    const { level, ...noLevel } = validEnrichment();
+    validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [noLevel] }));
 });
 
 test('accepts level: "item"', () => {
@@ -1294,7 +1299,7 @@ test('rejects invalid level value', () => {
         () => validateEnhancedEventsConfig(validEnhancedConfig({
             enrichments: [validEnrichment({ level: 'session' })],
         })),
-        /config\.enrichments\[0\]\.level must be one of: event, item/
+        /config\.enrichments\[0\]\.level must be one of: row, item/
     );
 });
 

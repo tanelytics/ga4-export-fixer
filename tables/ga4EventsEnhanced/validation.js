@@ -234,7 +234,7 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
         if (!Array.isArray(config.enrichments)) {
             throw new Error(`config.enrichments must be an array. Received: ${JSON.stringify(config.enrichments)}`);
         }
-        const validLevels = ['event', 'item'];
+        const validLevels = ['row', 'item'];
         const seenNames = new Set();
         for (let i = 0; i < config.enrichments.length; i++) {
             const entry = config.enrichments[i];

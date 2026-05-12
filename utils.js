@@ -515,25 +515,27 @@ const buildPassThroughs = (explicitColumns, sourceColumns) => {
 
 /**
  * Builds the per-enrichment CTE definitions, JOIN clauses, and column-name mappings for the
- * declarative `enrichments` feature. Routes event-level and item-level entries through
+ * declarative `enrichments` feature. Routes row-level and item-level entries through
  * separate output channels so the caller can attach them to different downstream CTEs.
  *
  * Pure config-to-data mapping. No knowledge of downstream CTEs or specific table modules —
  * intended to be called by any table module that exposes an `enrichments` config field.
  *
  * Encapsulates one generation-time throw:
- *   - Same-level enrichment-vs-enrichment column collisions (two event-level enrichments or
+ *   - Same-level enrichment-vs-enrichment column collisions (two row-level enrichments or
  *     two item-level enrichments targeting the same column). Cross-level same-name is allowed —
- *     the two columns target structurally distinct slots (`enhanced_events.<col>` vs
+ *     the two columns target structurally distinct slots (e.g. `enhanced_events.<col>` vs
  *     `items[].<col>`).
  *
  * @param {Array<Object>} enrichments - Validated enrichment entries. Each entry has fields:
- *   { name, level, source, joinKey, columns, dedupe? }. `level` is 'event' (default) or 'item'.
+ *   { name, source, joinKey, columns, level?, dedupe? }. `level` is 'row' (default) or 'item'.
+ *   'row' means one row of the enclosing table per join match; 'item' targets a nested array
+ *   (currently only the GA4 items[] array).
  * @returns {Object} A struct with four fields:
  *   - `steps` — array of queryBuilder source-CTE step definitions (one `enrich_<name>` per
  *     entry, regardless of level — all source CTEs go to the top of the pipeline).
- *   - `event` — { joins, columns, columnNames } for event-level enrichments. Caller attaches
- *     `joins` to the event-grained downstream CTE (e.g. `enhanced_events`) and spreads `columns`
+ *   - `row` — { joins, columns, columnNames } for row-level enrichments. Caller attaches
+ *     `joins` to the row-grained downstream CTE (e.g. `enhanced_events`) and spreads `columns`
  *     into that CTE's `select.columns`.
  *   - `item` — { joins, columns, columnNames } for item-level enrichments. Caller attaches
  *     `joins` to the item-grained downstream CTE (e.g. `items_rebuilt`) and folds `columns`
@@ -545,20 +547,20 @@ const buildPassThroughs = (explicitColumns, sourceColumns) => {
  *   enrichment names and the conflicting column in the error message).
  *
  * @example
- *   const { steps, event, item } = buildEnrichments(config.enrichments);
- *   // event.joins → attach to enhanced_events; event.columns → spread into enhanced_events
+ *   const { steps, row, item } = buildEnrichments(config.enrichments);
+ *   // row.joins → attach to enhanced_events; row.columns → spread into enhanced_events
  *   // item.joins → attach to items_rebuilt; item.columns → fold into items struct
  */
 const buildEnrichments = (enrichments) => {
     const steps = [];
     const channels = {
-        event: { joins: [], columns: {}, columnNames: new Set() },
+        row: { joins: [], columns: {}, columnNames: new Set() },
         item: { joins: [], columns: {}, columnNames: new Set() },
     };
     const columnOwner = {};
 
     for (const [i, e] of (enrichments ?? []).entries()) {
-        const level = e.level ?? 'event';
+        const level = e.level ?? 'row';
         const channel = channels[level];
         const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
         const cteName = `enrich_${e.name}`;
@@ -598,7 +600,7 @@ const buildEnrichments = (enrichments) => {
         }
     }
 
-    return { steps, event: channels.event, item: channels.item, columnOwner };
+    return { steps, row: channels.row, item: channels.item, columnOwner };
 };
 
 
