@@ -316,8 +316,8 @@ ${excludedEventsSQL}`,
 
         // Carry up any event_data joinKey columns used by item-level enrichments so the
         // USING(...) clause in items_rebuilt can bind against top-level identifiers.
-        // Skip ones already in the base columns above (e.g. event_date is always carried).
-        const baseColumnNames = new Set(['_item_row_id', 'event_name', 'event_date', ...Object.keys(itemFieldColumns)]);
+        // Skip ones already in the base columns above
+        const baseColumnNames = new Set(['_item_row_id', 'event_name', ...Object.keys(itemFieldColumns)]);
         const extraJoinKeyColumns = {};
         for (const c of itemJoinKeysFromEventData) {
             if (!baseColumnNames.has(c)) {
@@ -331,8 +331,6 @@ ${excludedEventsSQL}`,
         const unnestedSelectColumns = {
             '_item_row_id': '_item_row_id',
             'event_name': 'event_name',
-            // event_date is carried forward for ability to use it in data enrichment joins
-            'event_date': 'event_date',
             ...itemFieldColumns,
             ...extraJoinKeyColumns,
         };
