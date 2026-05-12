@@ -414,10 +414,13 @@ ${excludedEventsSQL}`,
 
     const finalColumnOrder = getFinalColumnOrder(eventDataStep, sessionDataStep);
 
-    // When the items scaffold is active, override the items column and exclude _item_row_id
-    // COALESCE handles events without items (not in ecommerce filter) where the LEFT JOIN returns NULL
+    // When the items scaffold is active, override the items column and exclude _item_row_id.
+    // ifnull(..., []) preserves the empty-array shape for events that have no items_rebuilt
+    // match (non-ecommerce events, or ecommerce events with empty items arrays). The empty
+    // array literal is type-inferred from items_rebuilt.items, which includes any item-level
+    // enrichment columns — so additive enrichments don't cause a struct-schema mismatch.
     const itemListOverrides = itemListSteps ? {
-        items: 'coalesce(items_rebuilt.items, event_data.items)',
+        items: 'ifnull(items_rebuilt.items, [])',
     } : {};
     const itemListExcludedColumns = itemListSteps ? ['_item_row_id'] : [];
 

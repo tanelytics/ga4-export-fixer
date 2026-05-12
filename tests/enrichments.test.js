@@ -267,6 +267,34 @@ test('item-list attribution suppresses LAST_VALUE for refund and unconsented eve
         `attribution expression should wrap LAST_VALUE in if(event_name = 'refund' or user_pseudo_id is null, null, ...); got: ${sql}`);
 });
 
+test('items column uses ifnull(items_rebuilt.items, []) when items scaffold is active', () => {
+    // Regression: previously coalesce(items_rebuilt.items, event_data.items) failed at BigQuery
+    // when an item-level enrichment added a column — the two array<struct> schemas didn't unify.
+    // ifnull(items_rebuilt.items, []) type-infers [] from items_rebuilt's schema, sidestepping
+    // the issue while preserving the empty-array shape for events with no items_rebuilt match.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    assert.ok(sql.includes('ifnull(items_rebuilt.items, []) as items'),
+        'items column should be ifnull(items_rebuilt.items, []) when the items scaffold is active');
+    assert.ok(!sql.includes('coalesce(items_rebuilt.items, event_data.items)'),
+        'must NOT emit the old coalesce(items_rebuilt.items, event_data.items) form');
+});
+
+test('items column uses ifnull(items_rebuilt.items, []) for itemListAttribution-only configs too', () => {
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        itemListAttribution: { lookbackType: 'SESSION' },
+    }));
+    assert.ok(sql.includes('ifnull(items_rebuilt.items, []) as items'),
+        'items column should be ifnull(items_rebuilt.items, []) for attribution-only configs as well');
+});
+
 test('_item_row_id uses ifnull(user_pseudo_id, \'\') so unconsented events get a non-null row id', () => {
     // Regression: without this, unconsented events' _item_row_id is NULL (CONCAT NULL-propagation),
     // causing the items_rebuilt LEFT JOIN to miss and item-level enrichments not to apply.
