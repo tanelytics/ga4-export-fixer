@@ -134,6 +134,57 @@ test('helpers.ga4ExportColumns is exported and non-empty', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 2. helpers.ga4ItemStructFields — standard GA4 items-struct field list
+// ---------------------------------------------------------------------------
+
+console.log('\n2. helpers.ga4ItemStructFields\n');
+
+test('helpers.ga4ItemStructFields is exported as a non-empty array', () => {
+    assert.ok(Array.isArray(helpers.ga4ItemStructFields),
+        'helpers.ga4ItemStructFields should be an array');
+    assert.ok(helpers.ga4ItemStructFields.length > 0,
+        'helpers.ga4ItemStructFields should not be empty');
+});
+
+test('helpers.ga4ItemStructFields contains expected standard fields', () => {
+    // Sample of fields the package relies on for items_rebuilt struct construction
+    const expected = [
+        'item_id', 'item_name', 'item_brand', 'item_variant', 'item_category',
+        'item_category2', 'item_category5',
+        'price_in_usd', 'price', 'quantity',
+        'item_revenue_in_usd', 'item_revenue', 'item_refund_in_usd', 'item_refund',
+        'coupon', 'affiliation', 'location_id',
+        'item_list_id', 'item_list_name', 'item_list_index',
+        'promotion_id', 'promotion_name', 'creative_name', 'creative_slot',
+        'item_params',
+    ];
+    for (const f of expected) {
+        assert.ok(helpers.ga4ItemStructFields.includes(f),
+            `helpers.ga4ItemStructFields should include "${f}"`);
+    }
+});
+
+test('helpers.ga4ItemStructFields preserves GA4 source order (item_id first, item_params last)', () => {
+    assert.strictEqual(helpers.ga4ItemStructFields[0], 'item_id',
+        'first field should be item_id');
+    assert.strictEqual(helpers.ga4ItemStructFields[helpers.ga4ItemStructFields.length - 1], 'item_params',
+        'last field should be item_params (the nested REPEATED RECORD)');
+});
+
+test('helpers.isGa4ItemStructField returns true for known fields and false for unknown', () => {
+    assert.strictEqual(helpers.isGa4ItemStructField('item_id'), true,
+        'item_id should be recognized');
+    assert.strictEqual(helpers.isGa4ItemStructField('item_params'), true,
+        'item_params should be recognized');
+    assert.strictEqual(helpers.isGa4ItemStructField('item_category3'), true,
+        'item_category3 should be recognized');
+    assert.strictEqual(helpers.isGa4ItemStructField('not_a_real_field'), false,
+        'unknown fields should return false');
+    assert.strictEqual(helpers.isGa4ItemStructField(''), false,
+        'empty string should return false');
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

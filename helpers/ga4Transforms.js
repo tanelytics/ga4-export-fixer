@@ -141,6 +141,55 @@ const ga4ExportColumns = [
 const isGa4ExportColumn = (columnName) => ga4ExportColumns.includes(columnName);
 
 /**
+ * The standard GA4 BigQuery export items-struct field names, based on the official schema.
+ * Listed in GA4's source order — `items_rebuilt`'s explicit struct construction emits fields
+ * in this order, and consumers may reasonably depend on the items-struct schema field order
+ * matching GA4's own.
+ *
+ * `item_params` is a nested REPEATED RECORD and projects through as a single struct entry
+ * (no per-key handling).
+ *
+ * list updated 2026-05-12
+ */
+const ga4ItemStructFields = [
+  "item_id",
+  "item_name",
+  "item_brand",
+  "item_variant",
+  "item_category",
+  "item_category2",
+  "item_category3",
+  "item_category4",
+  "item_category5",
+  "price_in_usd",
+  "price",
+  "quantity",
+  "item_revenue_in_usd",
+  "item_revenue",
+  "item_refund_in_usd",
+  "item_refund",
+  "coupon",
+  "affiliation",
+  "location_id",
+  "item_list_id",
+  "item_list_name",
+  "item_list_index",
+  "promotion_id",
+  "promotion_name",
+  "creative_name",
+  "creative_slot",
+  "item_params"
+];
+
+/**
+ * Checks whether a given field name is part of the standard GA4 BigQuery export items struct.
+ *
+ * @param {string} fieldName - The name of the field to check.
+ * @returns {boolean} True if the field name is a standard items-struct field, otherwise false.
+ */
+const isGa4ItemStructField = (fieldName) => ga4ItemStructFields.includes(fieldName);
+
+/**
  * Generates a SQL CASE expression that determines the GA4 export type from a table suffix.
  *
  * Returns 'intraday' for suffixes like 'intraday_%', 'fresh' for 'fresh_%',
@@ -257,6 +306,8 @@ module.exports = {
   isFinalData,
   ga4ExportColumns,
   isGa4ExportColumn,
+  ga4ItemStructFields,
+  isGa4ItemStructField,
   getGa4ExportType,
   itemListAttributionExpr,
   itemRowId,
