@@ -235,9 +235,11 @@ const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) 
     frameBounds = `range between ${lookbackMicros} preceding and current row`;
   }
 
-  // Refund events occur outside the selection-driven journey window — propagating
-  // item_list_* attribution into them would misattribute. Suppress attribution on refund rows.
-  return `if(event_name = 'refund', null, last_value(
+  // Suppress attribution for:
+  //   - refund events (outside the selection-driven journey window)
+  //   - unconsented events (user_pseudo_id is NULL) — attribution requires a visitor
+  //     identity to stitch select_* events to later receivers within the same visitor.
+  return `if(event_name = 'refund' or user_pseudo_id is null, null, last_value(
       if(${selectEvents}, ${structExpr}, null) ignore nulls
     ) over(
       partition by ${partitionBy}
@@ -260,6 +262,10 @@ const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) 
  * the rows are interchangeable, so arbitrary row number assignment between them
  * produces the same result.
  *
+ * Unconsented events (user_pseudo_id is NULL) use an empty-string sentinel inside
+ * concat — without it, CONCAT NULL-propagates and the row_id becomes NULL, which
+ * would prevent enrichments from applying to such events.
+ *
  * @param {string} ecommerceEventsFilter - Comma-separated, quoted list of event names
  *        (e.g., "'purchase', 'add_to_cart'").
  * @returns {string} SQL expression that evaluates to the row id or NULL.
@@ -268,7 +274,7 @@ const itemRowId = (ecommerceEventsFilter) => {
   return `if(
       event_name in (${ecommerceEventsFilter}),
       farm_fingerprint(concat(
-        user_pseudo_id,
+        ifnull(user_pseudo_id, ''),
         cast(event_timestamp as string),
         event_name,
         to_json_string(items),
