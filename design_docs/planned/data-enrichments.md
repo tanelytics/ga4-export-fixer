@@ -283,51 +283,69 @@ When item-level enrichments and `itemListAttribution` are configured together, t
 **Resolution:**
 
 - **CTEs are shared.** Item-level enrichments and item-list-attribution use the same two-CTE scaffold; the package doesn't generate a separate scaffold per item-level enrichment.
+- **Activation rule.** The scaffold is emitted when either `itemListAttribution` is configured *or* at least one enrichment with `level: 'item'` is present. When neither is configured, both CTEs are omitted entirely.
 - **CTE names** (renamed in `0.9.0-dev.0` to reflect their multi-feature role; previously `item_list_attribution` / `item_list_data`):
   - `items_unnested` (one row per item per event; window functions for attribution applied here when configured; carries `event_date` so date-grained item joins work — see Q18)
   - `items_rebuilt` (re-aggregation with `array_agg(select as struct item.* replace(...))`; enrichment joins applied here)
   - The internal `_item_row_id` join column (renamed from `_item_list_attribution_row_id` for the same reason). Underscored, package-private.
 - **Item-level enrichment joins always happen in the last item CTE** (`items_rebuilt`). The LEFT JOIN with `enrich_<name>` is added alongside the `array_agg` re-aggregation; the unnest CTE just produces one row per item without enrichment-specific work.
-- **The two-CTE structure is preserved across all configurations** — even when only item-level enrichments are configured (without `itemListAttribution`), the package still emits both CTEs. Consistent structure beats a slightly leaner enrichment-only path; `items_unnested` is just a plain unnest in that case.
+- **Conditional window function in `items_unnested`.** The `LAST_VALUE` attribution window is emitted only when `itemListAttribution` is configured. When only item enrichments are active, `items_unnested` is a plain `unnest(items)` — no window, no `event_params` access for the attribution. Keeps the generated SQL minimal for the enrichment-only case.
 
 **SQL pattern by configuration:**
 
 | Configuration | `items_unnested` does | `items_rebuilt` does |
 |---|---|---|
 | Neither enabled | not emitted | not emitted |
-| Only `itemListAttribution` | unnest + `LAST_VALUE` attribution window | re-aggregate; `replace(...)` for the three attribution fields |
-| Only item enrichment | unnest | LEFT JOIN `enrich_<name>`; re-aggregate with `replace(...)` for enrichment columns whose names match existing item fields and additive `, ... as col` for new fields (Q17) |
-| Both | unnest + `LAST_VALUE` attribution window | LEFT JOIN `enrich_<name>`; re-aggregate combining attribution `replace(...)` with enrichment `replace(...)` (for overlap) and additive clauses (for new fields) |
+| Only `itemListAttribution` | unnest + `LAST_VALUE` attribution window | re-aggregate; `array_agg(struct(<every standard item field, with the 3 attribution entries overridden by coalesce-with-passthrough expressions>))` |
+| Only item enrichment | unnest (no window) | LEFT JOIN `enrich_<name>`; re-aggregate; `array_agg(struct(<every standard item field, with overlapping enrichment columns wrapped in coalesce, and additive enrichment columns appended>))` |
+| Both | unnest + `LAST_VALUE` attribution window | LEFT JOIN `enrich_<name>`; re-aggregate; `array_agg(struct(<every standard item field, with attribution overrides AND enrichment overlap-coalesce AND additive enrichment fields>))` |
 
-Multiple item-level enrichments add multiple `LEFT JOIN enrich_<name> USING (joinKey)` clauses to `items_rebuilt`, with each enrichment's columns folded into the same `array_agg(select as struct item.* replace(...), ...)` block. Each enrichment column is classified as REPLACE or ADD per Q17 based on whether its name is in `GA4_STANDARD_ITEM_FIELDS`.
+Multiple item-level enrichments add multiple `LEFT JOIN enrich_<name> USING (joinKey)` clauses to `items_rebuilt`. Their columns flow through the same spread mechanic per Q17 — overlap on standard fields coalesces against the existing value; additive columns get appended as additional struct entries. No `replace(...)` syntax; no REPLACE-vs-ADD per-column classification. The shared `preItemExpressions` map handles attribution and enrichment overrides uniformly. See the [enrichment-cte-generation-item-level](enrichment-cte-generation-item-level.md) sprint for the utility shape and call-site logic.
 
 **Backwards-compat note.** The CTE renames (`item_list_attribution` / `item_list_data` → `items_unnested` / `items_rebuilt`, plus `_item_list_attribution_row_id` → `_item_row_id`) shipped in `0.9.0-dev.0` as a prep sprint ahead of this feature (see [items-cte-prep-sprint.md](items-cte-prep-sprint.md)). They are breaking changes for users referencing these names from `customSteps`; the minor version bump under 0.x semver signals the break per the existing convention from [query-builder-v2](../implemented/query-builder-v2.md). The reserved-names contract in `customSteps` documentation and AGENTS.md was updated at the same time.
 
-### Q17. Item-level column overlap behavior and SQL syntax (RESOLVED)
+### Q17. Item-level struct construction and overlap behavior (RESOLVED)
 
-**Resolution:** for each item-level enrichment column, the package emits BigQuery's `replace(coalesce(<expr>, item.<col>) as <col>)` syntax when the column name matches a field in `GA4_STANDARD_ITEM_FIELDS`, and additive `, <expr> as <col>` syntax otherwise. The coalesce wrap inside `replace(...)` makes a missed item-level JOIN fall back to the existing item field value — symmetric with the event-level coalesce-then-add behavior in [Q13](#q13-column-name-overlap-behavior-resolved).
+**Resolution:** `items_rebuilt` constructs its items struct via BigQuery's `struct(<expr> as col, ...)` constructor with every standard item field listed explicitly from `helpers.ga4ItemStructFields`. Item-list-attribution and item-level enrichment both contribute by overriding entries in the standard field map — the same overlap-with-coalesce mechanic that `enhanced_events` uses for event-level columns. No `select as struct item.* replace(...)` wildcard, no per-column REPLACE-vs-ADDITIVE classification.
 
-**The use case.** Item-level enrichment is most often intended to fix or supersede an existing item field — for example, correcting `item_category` values from a category-mapping table joined on `item_id`. Coalesce-then-add lets the user express this naturally by naming the enrichment column the same as the field being fixed; a row whose `item_id` doesn't match in the dim keeps its original `item.item_category` value instead of becoming NULL.
+This is symmetric with [Q13](#q13-column-name-overlap-behavior-resolved) for the event level and consistent with the package's "no wildcards in generated SQL" property that the `enhanced-events-explicit-columns` refactor established.
 
-**The underlying SQL constraint.** BigQuery's `select as struct item.* ...` syntax forces a per-column choice the package has to make at SQL-gen time:
+**The use case.** Item-level enrichment is most often intended to fix or supersede an existing item field — for example, correcting `item_category` values from a category-mapping table joined on `item_id`. With explicit listing, this is identical to the event-level pattern: the enrichment column shares a name with a pre-existing one, and a coalesce wrap inside the field expression makes a missed JOIN fall back to the original item value.
 
-- `replace(<expr> as <existing_field>)` — overwrites a field that already exists in `item.*`. Errors at runtime if the field doesn't exist.
-- `, <expr> as <new_field>` — adds a new field. Errors at runtime if the field already exists.
+**Implementation.** The `items_rebuilt` step builds its struct from a `preItemExpressions` map (the items-side analog of `preEnrichmentExpressions` used by `enhanced_events`):
 
-The two forms combine in a single struct construction, but the classification has to be correct upfront. Item-list-attribution uses `replace(...)` for the three fields it modifies (`item_list_name`, `item_list_id`, `item_list_index`); item-level enrichment uses `replace(coalesce(<expr>, item.<col>) as <col>)` whenever the enrichment column name matches a standard item field, and additive syntax (no coalesce — no original to fall back to) otherwise.
+1. Initialize from `helpers.ga4ItemStructFields`: each entry maps `<col>` → `item.<col>`.
+2. If `itemListAttribution` is configured, override the three attribution entries (`item_list_name`, `item_list_id`, `item_list_index`) with their package-generated coalesce-with-passthrough expressions.
+3. For each item-level enrichment column from `utils.buildEnrichments`'s `item.columns` output:
+   - If the column name is already in `preItemExpressions` (overlap): produce `coalesce(<enrichExpr>, <originalExpr>)` and overwrite.
+   - Otherwise (additive): produce a plain `<enrichExpr>` entry.
+4. The final struct is `struct(<expr1> as <col1>, <expr2> as <col2>, ...)` with every entry from the assembled map.
 
-**Implementation:**
+This eliminates the BigQuery `replace(...)` syntax from the package's generated SQL entirely. The same mechanic handles attribution overrides, enrichment overlap-coalesce, and additive enrichment fields uniformly.
 
-- Add `GA4_STANDARD_ITEM_FIELDS` to [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js), enumerating the standard items struct (`item_id`, `item_name`, `item_brand`, `item_category`, `item_variant`, `item_list_name`, `item_list_id`, `item_list_index`, `price`, `quantity`, `affiliation`, `coupon`, `discount`, `item_revenue`, `promotion_id`, `promotion_name`, `creative_name`, `creative_slot`).
-- For each item-level enrichment column at SQL-gen time, classify as REPLACE-WITH-COALESCE (in the standard list — `replace(coalesce(<expr>, item.<col>) as <col>)`) or ADD (not in the list — appends a new field; no coalesce since there's no original to fall back to).
-- The package emits a single `select as struct item.* replace(<all replace clauses>), <all add clauses>` per item-level rebuild, combining attribution `replace()` clauses (when active) with enrichment coalesce-wrapped `replace()` clauses for fields in the standard list and additive clauses for everything else.
-- Users with customized item structs (extra fields not in the standard list) whose ADD clauses collide with their custom field will see a BigQuery "duplicate column" error at dry-run; they alias in source SQL to resolve.
+**Helpers needed:** Add `helpers.ga4ItemStructFields` to [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js), enumerating the standard items struct in GA4's source order:
 
-**Enrichment-vs-enrichment overlap.** When two item-level enrichments target the same column name, the package throws — same logic as event-level Q13. The error names both enrichments and the conflicting column.
+```
+item_id, item_name, item_brand, item_variant, item_category,
+item_category2, item_category3, item_category4, item_category5,
+price_in_usd, price, quantity,
+item_revenue_in_usd, item_revenue,
+item_refund_in_usd, item_refund,
+coupon, affiliation, location_id,
+item_list_id, item_list_name, item_list_index,
+promotion_id, promotion_name, creative_name, creative_slot,
+item_params
+```
 
-**No opt-out** (mirror of Q13): coalesce-then-add applies uniformly with no per-enrichment flag to suppress it. Users wanting hard-replace semantics for item-level can sentinel-fill in source SQL.
+Sibling of `helpers.ga4ExportColumns`. Used to seed `preItemExpressions`. Source order matters because `items_rebuilt`'s explicit `struct(...)` construction emits fields in the order they're listed, and consumers may reasonably depend on the items-struct field order matching GA4's own schema. `item_params` is a nested `REPEATED RECORD` and projects through unchanged (`item.item_params as item_params`) — same pass-through pattern as `event_params` at the event level.
 
-**Maintenance.** `GA4_STANDARD_ITEM_FIELDS` is small (~17 fields) and stable. GA4 occasionally adds standard item fields; the list updates with a minor package release. If a future GA4 addition matches a column name a user enrichment is currently adding additively, the next package release would change the SQL from ADD to REPLACE-WITH-COALESCE for that column — which is the intended behavior.
+**Enrichment-vs-enrichment overlap.** When two item-level enrichments target the same column name, the package throws — same logic as event-level Q13. Detected inside `utils.buildEnrichments` (where the event-level collision throw also lives). The error names both enrichments and the conflicting column.
+
+**No opt-out** (mirror of Q13): coalesce-then-add applies uniformly with no per-enrichment flag to suppress it.
+
+**Cross-level same-name collision** between an event-level and an item-level enrichment with the same column name is NOT an error — see the resolution in [enrichment-cte-generation-item-level.md](enrichment-cte-generation-item-level.md) Q1. The two columns target structurally distinct slots (`enhanced_events.<col>` vs `items[].<col>`).
+
+**Maintenance.** `helpers.ga4ItemStructFields` becomes load-bearing — every field listed there is what `items_rebuilt` emits. New GA4 item fields are picked up when this list is updated, same cadence and discipline as `helpers.ga4ExportColumns`. `items_rebuilt` no longer relies on `item.* replace(...)` to silently propagate unknown fields, so the list must be kept current with GA4 schema additions. This is the same trade-off the package already accepted for top-level columns in [event-data-explicit-columns](../implemented/event-data-explicit-columns.md).
 
 ### Q18. Composite join keys (RESOLVED)
 
@@ -411,8 +429,8 @@ The change is contained — most of the work is in [tables/ga4EventsEnhanced/ind
 3. **Source-CTE generation** in `_generateEnhancedEventsSQL`: build one `enrich_<name>` step per enrichment entry, prepend to `packageSteps`.
 4. **Flat-key join integration** in `_generateEnhancedEventsSQL`: extend `enhancedEventsStep.joins` with one entry per session/user/page enrichment; extend `enhancedEventsStep.select.columns` with the corresponding qualified column references.
 5. **Shared item scaffold** in `_generateEnhancedEventsSQL`: emit `items_unnested` and `items_rebuilt` whenever `itemListAttribution` is configured OR at least one item-level enrichment exists. `items_unnested` does the unnest plus attribution windows when present; `items_rebuilt` adds enrichment LEFT JOINs and the `array_agg(...)` re-aggregation combining `replace(...)` for attribution fields with additive `, ... as col` clauses for enrichment columns (Q16, Q17). The CTE renames (`item_list_attribution` / `item_list_data` / `_item_list_attribution_row_id` → `items_unnested` / `items_rebuilt` / `_item_row_id`) shipped separately in `0.9.0-dev.0`. Override `enhancedEventsStep.items` via the existing coalesce pattern.
-6. **Standard items field constant** in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js): add `GA4_STANDARD_ITEM_FIELDS` enumerating the GA4 items struct fields (Q17). Used by item-level enrichment validation.
-7. **Layer 2 validation + column-overlap classification** in `_generateEnhancedEventsSQL`: the runtime-derived reserved-name set already picks up the new `enrich_*` CTE names automatically (no code change needed). Event-level enrichment columns are routed to the `select.columns` map and added to the `excludedColumns` set passed to `selectOtherColumns` (Q13). Item-level enrichment columns are classified as REPLACE-or-ADD via `GA4_STANDARD_ITEM_FIELDS` and folded into the items struct construction (Q17). Enrichment-vs-enrichment column collisions throw at this point (Q13 / Q17).
+6. **Standard items field constant** in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js): add `helpers.ga4ItemStructFields` enumerating the GA4 items struct fields (Q17). Used by item-level enrichment validation.
+7. **Layer 2 validation + column-overlap classification** in `_generateEnhancedEventsSQL`: the runtime-derived reserved-name set already picks up the new `enrich_*` CTE names automatically (no code change needed). Event-level enrichment columns are routed to the `select.columns` map and added to the `excludedColumns` set passed to `selectOtherColumns` (Q13). Item-level enrichment columns are classified as REPLACE-or-ADD via `helpers.ga4ItemStructFields` and folded into the items struct construction (Q17). Enrichment-vs-enrichment column collisions throw at this point (Q13 / Q17).
 
 ### Source CTE generation (sketch)
 
@@ -495,15 +513,19 @@ Ships the structurally distinct item-level case: `level: 'item'` enrichments tha
 
 **In scope:**
 
-- `GA4_STANDARD_ITEM_FIELDS` constant in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js) (Q17)
-- Item-level join integration in `items_rebuilt` — adds LEFT JOINs inside the existing scaffold (Q16 application)
-- Replace-or-add column-overlap classification using the standard-fields constant (Q17)
-- Item-level auto-descriptions (Q19, item-level extension)
-- Removal of Phase 1's "not yet supported" guard
+- Extend `utils.buildEnrichments` to route event-level and item-level entries through separate output channels — nested return shape `{ steps, event: { joins, columns, columnNames }, item: { joins, columns, columnNames }, columnOwner }`. `item.columns` is a `{ col: 'expr' }` map (same shape as `event.columns`). See the [enrichment-cte-generation-item-level](enrichment-cte-generation-item-level.md) design doc for the API extension.
+- `helpers.ga4ItemStructFields` constant in [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js) (Q17)
+- **Refactor `items_rebuilt` to explicit `struct(...)` construction** — replaces the existing `array_agg(select as struct item.* replace(...))` wildcard with an explicit per-field listing seeded by `helpers.ga4ItemStructFields`. Eliminates the last wildcard from the package's generated SQL. The item-list-attribution and item-level enrichment features both flow through the same `preItemExpressions` spread mechanic (Q17).
+- Item-level join integration in `items_rebuilt` — LEFT JOINs added alongside the explicit struct construction (Q16 application)
+- Coalesce-on-overlap for item-level (Q17) — uniform with event-level Q13
+- Conditional `items_unnested` body — drop the `LAST_VALUE` attribution window when only item enrichments are active (no `itemListAttribution`)
+- Item-level joinKey validation at the call site (Q3 of the item-level sprint) — validates against `eventDataStep.select.columns` ∪ `helpers.ga4ItemStructFields`; dynamically extends `items_unnested.select.columns` to carry up joinKey columns
+- Item-level auto-descriptions: deferred (Q19 / item-level Q2)
+- Removal of Phase 1's "not yet supported" guard inside `utils.buildEnrichments`
 
-**Q&As covered:** Q2 (item-level slice), Q4 (item-level slice), Q14, Q15 (item level), Q17, Q19 (item-level extension).
+**Q&As covered:** Q2 (item-level slice), Q4 (item-level slice), Q14, Q15 (item level), Q16 (activation rule + explicit struct), Q17 (rewritten for explicit construction), Q19 (item-level deferral).
 
-**Builds on Phase 1:** all source-CTE generation, validation infrastructure, configuration plumbing, and event-level testing patterns are already in place. Phase 2's diff is contained to the items-array path.
+**Builds on Phase 1:** all source-CTE generation, validation infrastructure, configuration plumbing, and event-level testing patterns are already in place. Phase 2's diff bundles two coupled changes — the new item-level feature plus the `items_rebuilt` refactor that aligns it with the rest of the package's explicit-listing direction.
 
 ## Files to Modify
 
@@ -512,7 +534,7 @@ Ships the structurally distinct item-level case: `level: 'item'` enrichments tha
 | [tables/ga4EventsEnhanced/index.js](../../tables/ga4EventsEnhanced/index.js) | Generate enrichment-source CTEs; extend `enhancedEventsStep.joins` and `select.columns`; refactor item-list scaffold into shared `items_unnested` / `items_rebuilt` (Q16) supporting item-level enrichments; replace-or-add classification for event-level (Q13) and item-level (Q17); auto-generate column descriptions for enrichment columns (Q19) | ~+130 / -10 |
 | [tables/ga4EventsEnhanced/validation.js](../../tables/ga4EventsEnhanced/validation.js) | Layer 1 `enrichments` shape validation | ~+50 |
 | [tables/ga4EventsEnhanced/config.js](../../tables/ga4EventsEnhanced/config.js) | Default `enrichments: []` | ~+1 |
-| [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js) | Add `GA4_STANDARD_ITEM_FIELDS` constant (Q17); rename `itemListAttribution*` helpers in line with the CTE renames if applicable | ~+30 |
+| [helpers/ga4Transforms.js](../../helpers/ga4Transforms.js) | Add `helpers.ga4ItemStructFields` constant (Q17); rename `itemListAttribution*` helpers in line with the CTE renames if applicable | ~+30 |
 | [tests/ga4EventsEnhanced.test.js](../../tests/ga4EventsEnhanced.test.js) | New test cases: each level, multiple enrichments, item-level scaffold | ~+60 (BigQuery dry-run) |
 | New `tests/enrichments.test.js` | Pure-Node tests: pipeline shape, source CTE generation, join integration, validation paths, conditional scaffold, item-level collision detection | ~+220 |
 | [tests/inputValidation.test.js](../../tests/inputValidation.test.js) | Layer 1 validation cases | ~+50 |
@@ -609,7 +631,7 @@ enrichments: [
 ],
 ```
 
-`item_category` is in `GA4_STANDARD_ITEM_FIELDS`, so the package emits `replace(enrich_category_fixes.item_category as item_category)` inside the `array_agg(select as struct item.* ...)` re-aggregation. The corrected values from `item_category_overrides` overwrite the original `item_category` on each item; everything else in the items struct is preserved (per Q17).
+`item_category` is in `helpers.ga4ItemStructFields`, so the package emits `replace(enrich_category_fixes.item_category as item_category)` inside the `array_agg(select as struct item.* ...)` re-aggregation. The corrected values from `item_category_overrides` overwrite the original `item_category` on each item; everything else in the items struct is preserved (per Q17).
 
 ### Example 6: Fix a promoted `page_title` event parameter
 
@@ -688,7 +710,7 @@ The `customSteps` query references `cohort_label` (added by the enrichment) as i
 | Shared item-CTE scaffold breaks existing item-list-attribution behavior | Med | The two-CTE shape is preserved; existing item-list-attribution dry-run tests cover the attribution-only case unchanged (modulo CTE renames). New tests cover enrichment-only and combined attribution + enrichment cases. CTE renames (`item_list_*` → `items_*`) ship with v0.9.0 as a documented breaking change. |
 | Enrichment silently replaces an existing column the user didn't realize had a matching name | Med | Q13 / Q17 — replace-or-add is the intended behavior, but the user can still be surprised. Document clearly in the `enrichments` config field description: any enrichment column whose name matches an existing column REPLACES it. Users wanting strictly additive behavior pick column names that don't collide. The naming convention (`enrich_<name>` CTE prefix) makes it easy to scan generated SQL and see what each enrichment contributes. |
 | Two enrichments target the same column name | Low | Q13 / Q17 — throw at SQL-gen time with a clear error naming both enrichments and the column. |
-| `GA4_STANDARD_ITEM_FIELDS` constant goes stale when GA4 adds new standard item fields | Low | Small static list (~17 fields) maintained in `helpers/ga4Transforms.js`; updates with a minor package release. If a future GA4 addition matches a column name a user enrichment is currently adding additively, the next package release would change the SQL from ADD to REPLACE — which is the intended behavior. |
+| `helpers.ga4ItemStructFields` constant goes stale when GA4 adds new standard item fields | Low | Small static list (~17 fields) maintained in `helpers/ga4Transforms.js`; updates with a minor package release. If a future GA4 addition matches a column name a user enrichment is currently adding additively, the next package release would change the SQL from ADD to REPLACE — which is the intended behavior. |
 | `page.path` joining surprises users (struct field, can't `USING` directly) | Low | Document explicitly. Users pre-flatten in source SQL. |
 | `enrich_*` namespace collides with a future internal CTE name | Low | The runtime-derived reserved set picks up `enrich_*` names from `enrichments` config; future internal names just need to avoid the `enrich_` prefix. AGENTS already documents the stable-contract convention. |
 | Config validation grows large | Low | Mirror the existing `eventParamsToColumns` validation block. ~50 LOC is consistent with similar fields. |
