@@ -523,13 +523,12 @@ const buildPassThroughs = (explicitColumns, sourceColumns) => {
  *
  * Encapsulates one generation-time throw:
  *   - Same-level enrichment-vs-enrichment column collisions (two event-level enrichments or
- *     two item-level enrichments targeting the same column). Cross-level same-name is allowed
- *     per enrichment-cte-generation-item-level.md Q1 — the two columns target structurally
- *     distinct slots (`enhanced_events.<col>` vs `items[].<col>`).
+ *     two item-level enrichments targeting the same column). Cross-level same-name is allowed —
+ *     the two columns target structurally distinct slots (`enhanced_events.<col>` vs
+ *     `items[].<col>`).
  *
  * @param {Array<Object>} enrichments - Validated enrichment entries. Each entry has fields:
- *   { name, level, source, joinKey, columns, dedupe? } per data-enrichments.md Q8.
- *   `level` is 'event' (default) or 'item'.
+ *   { name, level, source, joinKey, columns, dedupe? }. `level` is 'event' (default) or 'item'.
  * @returns {Object} A struct with four fields:
  *   - `steps` — array of queryBuilder source-CTE step definitions (one `enrich_<name>` per
  *     entry, regardless of level — all source CTEs go to the top of the pipeline).

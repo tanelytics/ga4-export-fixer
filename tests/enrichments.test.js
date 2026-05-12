@@ -5,12 +5,12 @@
  * - Source-CTE generation (Dataform ref + backtick string sources)
  * - Composite join keys
  * - Opt-in dedupe via qualify row_number()
- * - Item-level deferral throw (not yet supported)
  * - Event-level join integration + replace-or-add semantics
+ * - Item-level routing into items_rebuilt + coalesce-on-overlap
  * - Auto-generated column descriptions
- * - Reserved-name collision with package step names (Layer 2)
+ * - Reserved-name collision with package step names
  *
- * Layer 1 config-shape validation lives in tests/inputValidation.test.js.
+ * Config-shape validation lives in tests/inputValidation.test.js.
  *
  * Pure Node.js — no BigQuery or Dataform runtime needed.
  */
@@ -277,8 +277,8 @@ test('item-level enrichment overlapping a standard field emits coalesce against 
         })],
     }));
     // The struct should have `coalesce(enrich_category_fixes.item_category, item_category) as item_category`.
-    // After Sprint B1's flatten, item_category is a top-level column on items_unnested,
-    // so the original expression in preItemExpressions is bare `item_category` (no `item.` prefix).
+    // item_category is a top-level column on items_unnested, so the original expression in
+    // preItemExpressions is bare `item_category` (no `item.` prefix).
     assert.ok(sql.includes('coalesce(enrich_category_fixes.item_category, item_category) as item_category'),
         'overlapping item-level column should emit coalesce(enrich.col, original) as col in the struct');
 });
@@ -580,10 +580,10 @@ test('user-supplied dataformTableConfig.columns wins over auto-generated descrip
 });
 
 test('item-level enrichment columns are skipped in column descriptions', () => {
-    // Per design doc Q19 / Sprint B Q2: auto-descriptions for item-level enrichment columns
-    // are deferred (BigQuery doesn't expose per-field descriptions for STRUCT-array fields
-    // cleanly through Dataform's column-description mechanism). Item-level columns simply
-    // produce no top-level descriptions; the column-description path skips them.
+    // Auto-descriptions for item-level enrichment columns are not generated — BigQuery
+    // doesn't expose per-field descriptions for STRUCT-array fields cleanly through
+    // Dataform's column-description mechanism. Item-level columns produce no top-level
+    // descriptions; the column-description path skips them.
     const desc = ga4EventsEnhanced.getColumnDescriptions(baseConfig({
         enrichments: [enrichment({
             name: 'products',
@@ -599,7 +599,7 @@ test('item-level enrichment columns are skipped in column descriptions', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Reserved-name collision (Layer 2 — runtime-derived set)
+// 7. Reserved-name collision (runtime-derived set)
 // ---------------------------------------------------------------------------
 
 console.log('\n5. Reserved-name collision\n');

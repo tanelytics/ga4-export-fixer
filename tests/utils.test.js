@@ -234,8 +234,8 @@ test('mixed event + item enrichments route to their respective channels', () => 
 });
 
 test('cross-level same-name (event-level + item-level same column) does NOT throw', () => {
-    // Per design doc Q1: event-level cohort lives on enhanced_events; item-level cohort
-    // lives inside items[]. Distinct output slots — not a collision.
+    // Event-level cohort lives on enhanced_events; item-level cohort lives inside items[].
+    // Distinct output slots — not a collision.
     const result = utils.buildEnrichments([
         { name: 'event_cohorts', level: 'event', source: '`p.d.ec`', joinKey: 'user_pseudo_id', columns: ['cohort'] },
         { name: 'item_cohorts', level: 'item', source: '`p.d.ic`', joinKey: 'item_id', columns: ['cohort'] },

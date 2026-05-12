@@ -1105,12 +1105,12 @@ test('accepts valid config with skipDataformContextFields', () => {
 });
 
 // ---------------------------------------------------------------------------
-// customSteps — Layer 1 config-shape validation
-// (Layer 2 collision check is in tests/customSteps.test.js since it requires
-//  generateSql to derive the package's reserved-name set at runtime.)
+// customSteps — config-shape validation
+// (Reserved-name collision check is in tests/customSteps.test.js since it
+//  requires generateSql to derive the package's reserved-name set at runtime.)
 // ---------------------------------------------------------------------------
 
-console.log('\nN. customSteps Layer 1 validation\n');
+console.log('\nN. customSteps config-shape validation\n');
 
 test('accepts undefined customSteps', () => {
     validateEnhancedEventsConfig(validEnhancedConfig({ customSteps: undefined }));
@@ -1184,13 +1184,12 @@ test('rejects duplicate names within customSteps', () => {
 });
 
 // ---------------------------------------------------------------------------
-// enrichments — Layer 1 config-shape validation
-// (Layer 2 collision check + item-level deferral live in tests/enrichments.test.js
-//  since they require generateSql to derive the package's reserved-name set
-//  and surface the deferral throw at SQL generation time.)
+// enrichments — config-shape validation
+// (Reserved-name collision check lives in tests/enrichments.test.js since it
+//  requires generateSql to derive the package's reserved-name set at runtime.)
 // ---------------------------------------------------------------------------
 
-console.log('\nN+1. enrichments Layer 1 validation\n');
+console.log('\nN+1. enrichments config-shape validation\n');
 
 const validEnrichment = (overrides = {}) => ({
     name: 'cohorts',
@@ -1213,7 +1212,7 @@ test('accepts a valid enrichment', () => {
     validateEnhancedEventsConfig(validEnhancedConfig({ enrichments: [validEnrichment()] }));
 });
 
-test('accepts level: "item" (deferred to SQL gen, not Layer 1)', () => {
+test('accepts level: "item"', () => {
     validateEnhancedEventsConfig(validEnhancedConfig({
         enrichments: [validEnrichment({ level: 'item', joinKey: 'item_id' })],
     }));

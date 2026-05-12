@@ -268,11 +268,10 @@ ${excludedEventsSQL}`,
     const { steps: enrichmentSteps, event: eventEnrichments, item: itemEnrichments }
         = utils.buildEnrichments(mergedConfig.enrichments);
 
-    // Validate item-level joinKey columns (Layer 2; per design doc Q3 of
-    // enrichment-cte-generation-item-level.md). Item-struct fields are already top-level
-    // columns on items_unnested after Sprint B1's flatten — no dynamic extension needed
-    // for them. Event_data joinKey columns need to be added to items_unnested.select.columns
-    // so the JOIN inside items_rebuilt can USING(...) on top-level identifiers.
+    // Validate item-level joinKey columns and collect any event_data columns that need to
+    // be carried up to items_unnested as top-level columns (so the LEFT JOIN inside
+    // items_rebuilt can USING(...) on them). Item-struct fields are already top-level on
+    // items_unnested and need no extension.
     const itemJoinKeysFromEventData = new Set();
     for (const [i, e] of (mergedConfig.enrichments ?? []).entries()) {
         const level = e.level ?? 'event';
@@ -280,7 +279,7 @@ ${excludedEventsSQL}`,
         const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
         for (const c of joinKeys) {
             if (helpers.ga4ItemStructFields.includes(c)) {
-                // Already a top-level column in items_unnested after the flatten.
+                // Already a top-level column on items_unnested.
             } else if (c in eventDataStep.select.columns && eventDataStep.select.columns[c] !== undefined) {
                 itemJoinKeysFromEventData.add(c);
             } else {
@@ -296,7 +295,7 @@ ${excludedEventsSQL}`,
 
     // Shared item-array CTEs:
     // 1. items_unnested: unnest items from ecommerce events; LAST_VALUE attribution window
-    //    is emitted only when itemListAttribution is configured (per Q16 activation rule).
+    //    is emitted only when itemListAttribution is configured.
     // 2. items_rebuilt: re-aggregate items via explicit struct(...) construction;
     //    LEFT JOIN enrich_<name> for each item-level enrichment.
     // Activation: emitted when EITHER itemListAttribution is configured OR at least one
@@ -369,7 +368,7 @@ ${excludedEventsSQL}`,
 
         // Wrap overlapping item-level enrichment columns in coalesce(<enrichExpr>, <originalExpr>)
         // so a missed JOIN falls back to the existing item field value. Purely additive
-        // columns (no overlap) pass through unchanged. See data-enrichments.md Q17.
+        // columns (no overlap) pass through unchanged.
         const wrappedItemEnrichmentColumns = {};
         for (const [col, enrichExpr] of Object.entries(itemEnrichments.columns)) {
             const originalExpr = preItemExpressions[col];
@@ -400,8 +399,8 @@ ${excludedEventsSQL}`,
             'group by': '_item_row_id',
         };
         // Item-level enrichment joins (only attach when present). Each enrichment's LEFT JOIN
-        // binds against top-level columns on items_unnested (item-struct fields after the B1
-        // flatten, or event_data joinKey columns carried up via extraJoinKeyColumns above).
+        // binds against top-level columns on items_unnested (item-struct fields, or event_data
+        // joinKey columns carried up via extraJoinKeyColumns above).
         if (itemEnrichmentsActive) {
             rebuiltStep.joins = itemEnrichments.joins;
         }
@@ -423,7 +422,6 @@ ${excludedEventsSQL}`,
     // pass through unchanged. Source-of-original precedence matches the final SELECT's spread
     // order: itemListOverrides first (overrides finalColumnOrder for `items`), then
     // session_data (wins over event_data in getFinalColumnOrder when both have the column).
-    // See design_docs/planned/data-enrichments.md Q13.
     const wrappedEventEnrichmentColumns = {};
     for (const [col, enrichExpr] of Object.entries(eventEnrichments.columns)) {
         let originalExpr;

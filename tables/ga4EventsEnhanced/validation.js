@@ -201,11 +201,11 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
         }
     }
 
-    // customSteps - optional array of queryBuilder step objects appended to the pipeline
-    // Layer 1 (config shape): array, objects with non-empty name, no duplicates within customSteps.
+    // customSteps - optional array of queryBuilder step objects appended to the pipeline.
+    // Config-shape checks only: array, objects with non-empty name, no duplicates within customSteps.
     // Step-shape validation (clause keys, etc.) deferred to queryBuilder.
-    // Collision-with-package-names check deferred to _generateEnhancedEventsSQL (Layer 2),
-    // since the reserved set is config-dependent (e.g. item_list_* only exist when itemListAttribution is on).
+    // Collision-with-package-names check deferred to _generateEnhancedEventsSQL, since the
+    // reserved set is config-dependent (e.g. item_list_* only exist when itemListAttribution is on).
     if (config.customSteps !== undefined) {
         if (!Array.isArray(config.customSteps)) {
             throw new Error(`config.customSteps must be an array. Received: ${JSON.stringify(config.customSteps)}`);
@@ -227,9 +227,9 @@ const validateEnhancedEventsConfig = (config, options = {}) => {
     }
 
     // enrichments - optional array of declarative external-data enrichment specs.
-    // This block performs Layer 1 (config-shape) checks. Layer 2 checks (reserved-name collision
-    // + item-level deferral throw) live in _generateEnhancedEventsSQL — the reserved set is
-    // config-dependent and the item-level deferral throws there once the SQL is built.
+    // Config-shape checks only. Reserved-name collision and item-level joinKey resolution
+    // happen in _generateEnhancedEventsSQL, where the reserved set and item-level join targets
+    // are derived from the resolved config.
     if (config.enrichments !== undefined) {
         if (!Array.isArray(config.enrichments)) {
             throw new Error(`config.enrichments must be an array. Received: ${JSON.stringify(config.enrichments)}`);

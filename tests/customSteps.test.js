@@ -2,11 +2,11 @@
  * Tests for the customSteps pipeline feature in tables/ga4EventsEnhanced.
  *
  * Covers:
- * - Layer 2 collision check (runtime-derived reserved set, including conditional reservation)
+ * - Reserved-name collision check (runtime-derived set, including conditional reservation)
  * - Pipeline shape with custom steps (empty, one raw, one structured, multiple, mixed)
  * - The renamed `final` -> `enhanced_events` step
  *
- * Layer 1 config-shape validation lives in tests/inputValidation.test.js.
+ * Config-shape validation lives in tests/inputValidation.test.js.
  *
  * Pure Node.js — no BigQuery or Dataform runtime needed.
  */
@@ -142,10 +142,10 @@ test('mixed raw and structured customSteps coexist in one pipeline', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Layer 2 collision check (runtime-derived reserved set)
+// 3. Reserved-name collision check (runtime-derived set)
 // ---------------------------------------------------------------------------
 
-console.log('\n3. Layer 2 collision check\n');
+console.log('\n3. Reserved-name collision check\n');
 
 test('collision: name `event_data` always reserved → throws', () => {
     assert.throws(
