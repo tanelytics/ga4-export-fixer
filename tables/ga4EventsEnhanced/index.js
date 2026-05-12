@@ -162,7 +162,17 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
 
     // item list attribution config
     const itemListAttribution = mergedConfig.itemListAttribution;
-    const ecommerceEventsFilter = itemListAttribution
+
+    // Build enrichment-source CTEs and gather per-level join/column data. The utility routes
+    // event-level and item-level entries through separate output channels. Done up here so the
+    // items-scaffold activation state is known before building event_data (which needs
+    // _item_row_id when the scaffold is active for any reason).
+    const { steps: enrichmentSteps, event: eventEnrichments, item: itemEnrichments }
+        = utils.buildEnrichments(mergedConfig.enrichments);
+    const itemEnrichmentsActive = itemEnrichments.joins.length > 0;
+    const itemsScaffoldActive = !!itemListAttribution || itemEnrichmentsActive;
+
+    const ecommerceEventsFilter = itemsScaffoldActive
         ? helpers.ga4EcommerceEvents.filter(e => e !== 'refund').map(e => `'${e}'`).join(', ')
         : null;
 
@@ -220,7 +230,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
         // ecommerce
         ecommerce: helpers.fixEcommerceStruct('ecommerce'),
         // assign a unique row id, used for handling item-level attribution and enrichment
-        _item_row_id: itemListAttribution ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
+        _item_row_id: itemsScaffoldActive ? helpers.itemRowId(ecommerceEventsFilter) : undefined,
         // flag if the data is "final" and is not expected to change anymore
         data_is_final: helpers.isFinalData(mergedConfig.dataIsFinal.detectionMethod, mergedConfig.dataIsFinal.dayThreshold),
         export_type: helpers.getGa4ExportType('_table_suffix'),
@@ -263,11 +273,6 @@ ${excludedEventsSQL}`,
         'group by': 'session_id',
     };
 
-    // Build enrichment-source CTEs and gather per-level join/column data. The utility routes
-    // event-level and item-level entries through separate output channels.
-    const { steps: enrichmentSteps, event: eventEnrichments, item: itemEnrichments }
-        = utils.buildEnrichments(mergedConfig.enrichments);
-
     // Validate item-level joinKey columns and collect any event_data columns that need to
     // be carried up to items_unnested as top-level columns (so the LEFT JOIN inside
     // items_rebuilt can USING(...) on them). Item-struct fields are already top-level on
@@ -300,8 +305,6 @@ ${excludedEventsSQL}`,
     //    LEFT JOIN enrich_<name> for each item-level enrichment.
     // Activation: emitted when EITHER itemListAttribution is configured OR at least one
     // item-level enrichment is present.
-    const itemEnrichmentsActive = itemEnrichments.joins.length > 0;
-    const itemsScaffoldActive = !!itemListAttribution || itemEnrichmentsActive;
     const itemListSteps = itemsScaffoldActive ? (() => {
         const passthroughEvents = `event_name in ('view_item_list', 'select_item', 'view_promotion', 'select_promotion')`;
 

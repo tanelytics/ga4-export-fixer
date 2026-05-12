@@ -199,6 +199,29 @@ test('item-level enrichment activates the items scaffold (no itemListAttribution
         'items_rebuilt CTE should be emitted when an item-level enrichment is configured');
 });
 
+test('item-level-enrichment-only config wires up _item_row_id and ecommerce filter', () => {
+    // Regression: when only item enrichments activate the scaffold (no itemListAttribution),
+    // event_data must still emit _item_row_id, and items_unnested must filter on the real
+    // ecommerce event-name list — not `event_name in (null)`.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'products',
+            level: 'item',
+            source: '`proj.ds.products`',
+            joinKey: 'item_id',
+            columns: ['margin_bucket'],
+        })],
+    }));
+    // _item_row_id is generated on event_data via helpers.itemRowId (farm_fingerprint(...) as _item_row_id)
+    assert.ok(/farm_fingerprint\([\s\S]*?\)[\s\S]*?as _item_row_id/.test(sql),
+        'event_data should generate _item_row_id via farm_fingerprint when only item enrichments are active');
+    // items_unnested WHERE filters on the real ecommerce event list, not on null
+    assert.ok(sql.includes("event_name in ('view_item_list',"),
+        'items_unnested.where should filter on the ecommerce event list when only item enrichments are active');
+    assert.ok(!sql.includes('event_name in (null)'),
+        'items_unnested.where must NOT be event_name in (null)');
+});
+
 test('items_unnested omits the LAST_VALUE window when only item enrichments are active', () => {
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment({
