@@ -111,9 +111,12 @@ console.log('\n2. buildEnrichments\n');
 test('empty input returns all-empty output', () => {
     const result = utils.buildEnrichments([]);
     assert.deepStrictEqual(result.steps, []);
-    assert.deepStrictEqual(result.joins, []);
-    assert.deepStrictEqual(result.columns, {});
-    assert.strictEqual(result.columnNames.size, 0);
+    assert.deepStrictEqual(result.event.joins, []);
+    assert.deepStrictEqual(result.event.columns, {});
+    assert.strictEqual(result.event.columnNames.size, 0);
+    assert.deepStrictEqual(result.item.joins, []);
+    assert.deepStrictEqual(result.item.columns, {});
+    assert.strictEqual(result.item.columnNames.size, 0);
     assert.deepStrictEqual(result.columnOwner, {});
 });
 
@@ -122,7 +125,7 @@ test('undefined input is treated as empty', () => {
     assert.deepStrictEqual(result.steps, []);
 });
 
-test('single event-level enrichment with backtick-FQN source generates one CTE, join, column', () => {
+test('single event-level enrichment with backtick-FQN source generates one CTE, join, column on the event channel', () => {
     const result = utils.buildEnrichments([
         { name: 'cohorts', level: 'event', source: '`p.d.cohorts`', joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
     ]);
@@ -131,14 +134,17 @@ test('single event-level enrichment with backtick-FQN source generates one CTE, 
         select: { columns: { user_pseudo_id: 'user_pseudo_id', cohort_label: 'cohort_label' } },
         from: '`p.d.cohorts`',
     }]);
-    assert.deepStrictEqual(result.joins, [{
+    assert.deepStrictEqual(result.event.joins, [{
         type: 'left',
         table: 'enrich_cohorts',
         on: 'using(user_pseudo_id)',
     }]);
-    assert.deepStrictEqual(result.columns, { cohort_label: 'enrich_cohorts.cohort_label' });
-    assert.ok(result.columnNames.has('cohort_label'));
-    assert.deepStrictEqual(result.columnOwner.cohort_label, { i: 0, name: 'cohorts' });
+    assert.deepStrictEqual(result.event.columns, { cohort_label: 'enrich_cohorts.cohort_label' });
+    assert.ok(result.event.columnNames.has('cohort_label'));
+    assert.deepStrictEqual(result.columnOwner.cohort_label, { i: 0, name: 'cohorts', level: 'event' });
+    // Item channel is empty
+    assert.strictEqual(result.item.joins.length, 0);
+    assert.strictEqual(result.item.columnNames.size, 0);
 });
 
 test('Dataform-ref-object source passes through verbatim into the source step', () => {
@@ -158,7 +164,7 @@ test('composite joinKey selects multiple keys and compiles to using(col1, col2)'
     assert.ok('event_date' in sourceCols, 'event_date should be selected in source CTE');
     assert.ok('user_pseudo_id' in sourceCols, 'user_pseudo_id should be selected in source CTE');
     assert.ok('segment' in sourceCols, 'segment should be selected in source CTE');
-    assert.strictEqual(result.joins[0].on, 'using(event_date, user_pseudo_id)');
+    assert.strictEqual(result.event.joins[0].on, 'using(event_date, user_pseudo_id)');
 });
 
 test('dedupe: true wraps source CTE with qualify row_number() over (partition by joinKey)', () => {
@@ -177,7 +183,7 @@ test('dedupe omitted/false does not add qualify', () => {
         'qualify should not be set when dedupe is omitted');
 });
 
-test('multiple enrichments aggregate across all five output fields preserving entry order', () => {
+test('multiple event-level enrichments aggregate on the event channel preserving entry order', () => {
     const result = utils.buildEnrichments([
         { name: 'a', level: 'event', source: '`p.d.t1`', joinKey: 'id', columns: ['x'] },
         { name: 'b', level: 'event', source: '`p.d.t2`', joinKey: 'id', columns: ['y', 'z'] },
@@ -185,24 +191,76 @@ test('multiple enrichments aggregate across all five output fields preserving en
     assert.strictEqual(result.steps.length, 2);
     assert.strictEqual(result.steps[0].name, 'enrich_a');
     assert.strictEqual(result.steps[1].name, 'enrich_b');
-    assert.strictEqual(result.joins.length, 2);
-    assert.deepStrictEqual(result.columns, {
+    assert.strictEqual(result.event.joins.length, 2);
+    assert.deepStrictEqual(result.event.columns, {
         x: 'enrich_a.x',
         y: 'enrich_b.y',
         z: 'enrich_b.z',
     });
-    assert.strictEqual(result.columnNames.size, 3);
-    assert.deepStrictEqual(result.columnOwner.x, { i: 0, name: 'a' });
-    assert.deepStrictEqual(result.columnOwner.z, { i: 1, name: 'b' });
+    assert.strictEqual(result.event.columnNames.size, 3);
+    assert.deepStrictEqual(result.columnOwner.x, { i: 0, name: 'a', level: 'event' });
+    assert.deepStrictEqual(result.columnOwner.z, { i: 1, name: 'b', level: 'event' });
 });
 
-test('level: "item" throws with pointer to data-enrichments.md and entry index', () => {
-    assert.throws(
-        () => utils.buildEnrichments([
-            { name: 'p', level: 'item', source: '`p.d.t`', joinKey: 'item_id', columns: ['x'] },
-        ]),
-        /config\.enrichments\[0\] uses level: 'item', which is not yet supported in this version.*data-enrichments\.md/s
-    );
+test('item-level enrichment routes to the item channel; event channel remains empty', () => {
+    const result = utils.buildEnrichments([
+        { name: 'products', level: 'item', source: '`p.d.products`', joinKey: 'item_id', columns: ['margin_bucket'] },
+    ]);
+    assert.strictEqual(result.steps.length, 1, 'one source CTE is emitted regardless of level');
+    assert.strictEqual(result.steps[0].name, 'enrich_products');
+    assert.deepStrictEqual(result.item.joins, [{
+        type: 'left',
+        table: 'enrich_products',
+        on: 'using(item_id)',
+    }]);
+    assert.deepStrictEqual(result.item.columns, { margin_bucket: 'enrich_products.margin_bucket' });
+    assert.ok(result.item.columnNames.has('margin_bucket'));
+    assert.deepStrictEqual(result.columnOwner.margin_bucket, { i: 0, name: 'products', level: 'item' });
+    // Event channel is empty for this purely item-level enrichment
+    assert.strictEqual(result.event.joins.length, 0);
+    assert.strictEqual(result.event.columnNames.size, 0);
+});
+
+test('mixed event + item enrichments route to their respective channels', () => {
+    const result = utils.buildEnrichments([
+        { name: 'cohorts', level: 'event', source: '`p.d.c`', joinKey: 'user_pseudo_id', columns: ['cohort_label'] },
+        { name: 'products', level: 'item', source: '`p.d.p`', joinKey: 'item_id', columns: ['margin_bucket'] },
+    ]);
+    assert.strictEqual(result.steps.length, 2);
+    assert.strictEqual(result.event.joins.length, 1);
+    assert.strictEqual(result.item.joins.length, 1);
+    assert.deepStrictEqual(result.event.columns, { cohort_label: 'enrich_cohorts.cohort_label' });
+    assert.deepStrictEqual(result.item.columns, { margin_bucket: 'enrich_products.margin_bucket' });
+});
+
+test('cross-level same-name (event-level + item-level same column) does NOT throw', () => {
+    // Per design doc Q1: event-level cohort lives on enhanced_events; item-level cohort
+    // lives inside items[]. Distinct output slots — not a collision.
+    const result = utils.buildEnrichments([
+        { name: 'event_cohorts', level: 'event', source: '`p.d.ec`', joinKey: 'user_pseudo_id', columns: ['cohort'] },
+        { name: 'item_cohorts', level: 'item', source: '`p.d.ic`', joinKey: 'item_id', columns: ['cohort'] },
+    ]);
+    assert.deepStrictEqual(result.event.columns, { cohort: 'enrich_event_cohorts.cohort' });
+    assert.deepStrictEqual(result.item.columns, { cohort: 'enrich_item_cohorts.cohort' });
+    // columnOwner keyed by name; second writer wins but level distinguishes them.
+    assert.deepStrictEqual(result.columnOwner.cohort, { i: 1, name: 'item_cohorts', level: 'item' });
+});
+
+test('same-level item-vs-item collision throws with both names, column, and level', () => {
+    try {
+        utils.buildEnrichments([
+            { name: 'a', level: 'item', source: '`p.d.t1`', joinKey: 'item_id', columns: ['margin'] },
+            { name: 'b', level: 'item', source: '`p.d.t2`', joinKey: 'item_id', columns: ['margin'] },
+        ]);
+        assert.fail('should have thrown');
+    } catch (e) {
+        assert.ok(e.message.includes("'a'") && e.message.includes("'b'"),
+            `error should name both enrichments; got: ${e.message}`);
+        assert.ok(e.message.includes("'margin'"),
+            `error should name the conflicting column; got: ${e.message}`);
+        assert.ok(e.message.includes("level 'item'"),
+            `error should mention level; got: ${e.message}`);
+    }
 });
 
 test('enrichment-vs-enrichment column collision throws with both names and the column', () => {

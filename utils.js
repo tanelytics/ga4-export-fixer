@@ -515,48 +515,52 @@ const buildPassThroughs = (explicitColumns, sourceColumns) => {
 
 /**
  * Builds the per-enrichment CTE definitions, JOIN clauses, and column-name mappings for the
- * declarative `enrichments` feature.
+ * declarative `enrichments` feature. Routes event-level and item-level entries through
+ * separate output channels so the caller can attach them to different downstream CTEs.
  *
  * Pure config-to-data mapping. No knowledge of downstream CTEs or specific table modules —
  * intended to be called by any table module that exposes an `enrichments` config field.
  *
- * Encapsulates two generation-time throws:
- *   - level: 'item' (not yet supported; deferred per design_docs/planned/data-enrichments.md Q15).
- *   - Enrichment-vs-enrichment column collisions (two enrichments targeting the same column).
+ * Encapsulates one generation-time throw:
+ *   - Same-level enrichment-vs-enrichment column collisions (two event-level enrichments or
+ *     two item-level enrichments targeting the same column). Cross-level same-name is allowed
+ *     per enrichment-cte-generation-item-level.md Q1 — the two columns target structurally
+ *     distinct slots (`enhanced_events.<col>` vs `items[].<col>`).
  *
  * @param {Array<Object>} enrichments - Validated enrichment entries. Each entry has fields:
  *   { name, level, source, joinKey, columns, dedupe? } per data-enrichments.md Q8.
- * @returns {Object} A struct with five fields:
- *   - `steps` — array of queryBuilder source-CTE step definitions (one `enrich_<name>` per entry).
- *   - `joins` — array of LEFT JOIN clauses to attach downstream (one per entry).
- *   - `columns` — map of `{ <enrichmentColumn>: 'enrich_<name>.<col>' }` for spreading into a
- *     downstream SELECT's `select.columns`.
- *   - `columnNames` — Set of all enrichment column names (used by callers for overlap detection
- *     against downstream CTEs).
- *   - `columnOwner` — map of `{ <column>: { i, name } }` recording which enrichment owns each
- *     column; preserved for diagnostics.
+ *   `level` is 'event' (default) or 'item'.
+ * @returns {Object} A struct with four fields:
+ *   - `steps` — array of queryBuilder source-CTE step definitions (one `enrich_<name>` per
+ *     entry, regardless of level — all source CTEs go to the top of the pipeline).
+ *   - `event` — { joins, columns, columnNames } for event-level enrichments. Caller attaches
+ *     `joins` to the event-grained downstream CTE (e.g. `enhanced_events`) and spreads `columns`
+ *     into that CTE's `select.columns`.
+ *   - `item` — { joins, columns, columnNames } for item-level enrichments. Caller attaches
+ *     `joins` to the item-grained downstream CTE (e.g. `items_rebuilt`) and folds `columns`
+ *     into that CTE's struct construction.
+ *   - `columnOwner` — map of `{ <column>: { i, name, level } }` recording which enrichment
+ *     owns each column. The `level` field distinguishes cross-level same-name entries.
  *
- * @throws {Error} If any entry has `level: 'item'` (with a pointer to data-enrichments.md).
- * @throws {Error} If two enrichments target the same column name (with both enrichment names).
+ * @throws {Error} If two same-level enrichments target the same column name (with both
+ *   enrichment names and the conflicting column in the error message).
  *
  * @example
- *   const { steps, joins, columns, columnNames } = buildEnrichments(config.enrichments);
+ *   const { steps, event, item } = buildEnrichments(config.enrichments);
+ *   // event.joins → attach to enhanced_events; event.columns → spread into enhanced_events
+ *   // item.joins → attach to items_rebuilt; item.columns → fold into items struct
  */
 const buildEnrichments = (enrichments) => {
     const steps = [];
-    const joins = [];
-    const columns = {};
-    const columnNames = new Set();
+    const channels = {
+        event: { joins: [], columns: {}, columnNames: new Set() },
+        item: { joins: [], columns: {}, columnNames: new Set() },
+    };
     const columnOwner = {};
 
     for (const [i, e] of (enrichments ?? []).entries()) {
         const level = e.level ?? 'event';
-        if (level === 'item') {
-            throw new Error(
-                `config.enrichments[${i}] uses level: 'item', which is not yet supported in this version. ` +
-                `Item-level enrichments will ship in a future release; see design_docs/planned/data-enrichments.md.`
-            );
-        }
+        const channel = channels[level];
         const joinKeys = Array.isArray(e.joinKey) ? e.joinKey : [e.joinKey];
         const cteName = `enrich_${e.name}`;
 
@@ -573,24 +577,29 @@ const buildEnrichments = (enrichments) => {
         }
         steps.push(sourceStep);
 
-        joins.push({ type: 'left', table: cteName, on: `using(${joinKeys.join(', ')})` });
+        channel.joins.push({ type: 'left', table: cteName, on: `using(${joinKeys.join(', ')})` });
 
         for (const c of e.columns) {
-            if (columnNames.has(c)) {
+            // Same-level collision throw. Cross-level same-name is allowed because the two
+            // columns target structurally distinct output slots (event_data vs items[]).
+            if (channel.columnNames.has(c)) {
                 const owner = columnOwner[c];
                 throw new Error(
                     `config.enrichments[${i}] (name: '${e.name}') and config.enrichments[${owner.i}] ` +
-                    `(name: '${owner.name}') both target column '${c}'. ` +
-                    `Two enrichments cannot write the same column; rename one in source SQL or pick a different name.`
+                    `(name: '${owner.name}') both target column '${c}' at level '${level}'. ` +
+                    `Two enrichments cannot write the same column at the same level; rename one in source SQL or pick a different name.`
                 );
             }
-            columns[c] = `${cteName}.${c}`;
-            columnNames.add(c);
-            columnOwner[c] = { i, name: e.name };
+            channel.columns[c] = `${cteName}.${c}`;
+            channel.columnNames.add(c);
+            // columnOwner is keyed by column name; if the same name appears at different
+            // levels, the second-writer entry wins, but we record level so diagnostics
+            // distinguish them. Same-level collisions throw above before reaching here.
+            columnOwner[c] = { i, name: e.name, level };
         }
     }
 
-    return { steps, joins, columns, columnNames, columnOwner };
+    return { steps, event: channels.event, item: channels.item, columnOwner };
 };
 
 

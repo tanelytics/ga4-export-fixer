@@ -178,54 +178,12 @@ test('dedupe with composite joinKey partitions by all keys', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Item-level deferral
+// 4. Item-level enrichments (end-to-end tests added in M2 of Sprint B2)
 // ---------------------------------------------------------------------------
-
-console.log('\n4. Item-level deferral\n');
-
-test('level: "item" throws "not yet supported" with design-doc pointer', () => {
-    try {
-        ga4EventsEnhanced.generateSql(baseConfig({
-            enrichments: [enrichment({
-                level: 'item',
-                joinKey: 'item_id',
-                source: '`proj.ds.products`',
-                columns: ['margin_bucket'],
-            })],
-        }));
-        assert.fail('should have thrown');
-    } catch (e) {
-        assert.ok(e.message.includes("level: 'item'"),
-            `error should mention item level; got: ${e.message}`);
-        assert.ok(e.message.includes('not yet supported'),
-            `error should say not yet supported; got: ${e.message}`);
-        assert.ok(e.message.includes('data-enrichments.md'),
-            `error should point at the design doc; got: ${e.message}`);
-        assert.ok(e.message.includes('config.enrichments[0]'),
-            `error should identify the offending entry; got: ${e.message}`);
-    }
-});
-
-test('item-level deferral identifies the index when multiple enrichments are configured', () => {
-    try {
-        ga4EventsEnhanced.generateSql(baseConfig({
-            enrichments: [
-                enrichment({ name: 'cohorts' }),
-                enrichment({
-                    name: 'products',
-                    level: 'item',
-                    joinKey: 'item_id',
-                    source: '`proj.ds.products`',
-                    columns: ['margin_bucket'],
-                }),
-            ],
-        }));
-        assert.fail('should have thrown');
-    } catch (e) {
-        assert.ok(e.message.includes('config.enrichments[1]'),
-            `error should identify index 1; got: ${e.message}`);
-    }
-});
+// The Sprint A "not yet supported" deferral throws are gone — level: 'item' is now
+// first-class. End-to-end tests covering item-level routing, joinKey validation,
+// items_rebuilt struct integration, and the conditional LAST_VALUE window in
+// items_unnested are added by M2 of the item-level-enrichments sprint.
 
 // ---------------------------------------------------------------------------
 // 5. Event-level join integration + replace-or-add
@@ -449,9 +407,10 @@ test('user-supplied dataformTableConfig.columns wins over auto-generated descrip
 });
 
 test('item-level enrichment columns are skipped in column descriptions', () => {
-    // Item-level enrichments throw at SQL gen but should NOT throw during description generation,
-    // since the description path runs before generateSql. They simply produce no descriptions
-    // until item-level support is added in a later release.
+    // Per design doc Q19 / Sprint B Q2: auto-descriptions for item-level enrichment columns
+    // are deferred (BigQuery doesn't expose per-field descriptions for STRUCT-array fields
+    // cleanly through Dataform's column-description mechanism). Item-level columns simply
+    // produce no top-level descriptions; the column-description path skips them.
     const desc = ga4EventsEnhanced.getColumnDescriptions(baseConfig({
         enrichments: [enrichment({
             name: 'products',

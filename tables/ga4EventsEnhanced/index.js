@@ -343,19 +343,19 @@ ${excludedEventsSQL}`,
     } : {};
     const itemListExcludedColumns = itemListSteps ? ['_item_row_id'] : [];
 
-    // Build enrichment-source CTEs and gather event-level join/column data. Item-level
-    // enrichments throw "not yet supported" inside the utility — they will arrive in a later release.
-    const { steps: enrichmentSteps, joins: enrichmentJoins, columns: enrichmentColumns,
-            columnNames: enrichmentColumnNames } = utils.buildEnrichments(mergedConfig.enrichments);
+    // Build enrichment-source CTEs and gather per-level join/column data. The utility routes
+    // event-level and item-level entries through separate output channels.
+    const { steps: enrichmentSteps, event: eventEnrichments, item: itemEnrichments }
+        = utils.buildEnrichments(mergedConfig.enrichments);
 
-    // Wrap overlapping enrichment columns in coalesce(enrich_<name>.<col>, <original>) so a
-    // missed JOIN falls back to the existing value. Purely additive columns (no overlap)
+    // Wrap overlapping event-level enrichment columns in coalesce(enrich_<name>.<col>, <original>)
+    // so a missed JOIN falls back to the existing value. Purely additive columns (no overlap)
     // pass through unchanged. Source-of-original precedence matches the final SELECT's spread
     // order: itemListOverrides first (overrides finalColumnOrder for `items`), then
     // session_data (wins over event_data in getFinalColumnOrder when both have the column).
     // See design_docs/planned/data-enrichments.md Q13.
-    const wrappedEnrichmentColumns = {};
-    for (const [col, enrichExpr] of Object.entries(enrichmentColumns)) {
+    const wrappedEventEnrichmentColumns = {};
+    for (const [col, enrichExpr] of Object.entries(eventEnrichments.columns)) {
         let originalExpr;
         if (col in itemListOverrides) {
             originalExpr = itemListOverrides[col];
@@ -364,7 +364,7 @@ ${excludedEventsSQL}`,
         } else if (col in eventDataStep.select.columns && eventDataStep.select.columns[col] !== undefined) {
             originalExpr = `event_data.${col}`;
         }
-        wrappedEnrichmentColumns[col] = originalExpr
+        wrappedEventEnrichmentColumns[col] = originalExpr
             ? `coalesce(${enrichExpr}, ${originalExpr})`
             : enrichExpr;
     }
@@ -374,7 +374,7 @@ ${excludedEventsSQL}`,
     const alreadyMapped = [
         ...Object.keys(finalColumnOrder),
         ...Object.keys(itemListOverrides),
-        ...enrichmentColumnNames,
+        ...eventEnrichments.columnNames,
         'entrances',
         mergedConfig.sessionParams.length > 0 ? 'session_params_prep' : undefined,
         'data_is_final',
@@ -392,7 +392,7 @@ ${excludedEventsSQL}`,
                 ...finalColumnOrder,
                 ...itemListOverrides,
                 // event-level enrichment columns: coalesce with the original when overlapping; otherwise add.
-                ...wrappedEnrichmentColumns,
+                ...wrappedEventEnrichmentColumns,
                 // explicit pass-throughs for the rest of event_data and session_data
                 ...utils.buildQualifiedPassThroughs(eventDataStep, alreadyMapped),
                 ...utils.buildQualifiedPassThroughs(sessionDataStep, alreadyMapped),
@@ -414,8 +414,8 @@ ${excludedEventsSQL}`,
                 table: 'session_data',
                 on: 'using(session_id)'
             },
-            // The left joins for the enrichment ctes
-            ...enrichmentJoins,
+            // The left joins for the event-level enrichment ctes
+            ...eventEnrichments.joins,
         ],
         where: helpers.incrementalDateFilter(mergedConfig)
     };
