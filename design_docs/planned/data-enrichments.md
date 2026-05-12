@@ -312,9 +312,11 @@ This is symmetric with [Q13](#q13-column-name-overlap-behavior-resolved) for the
 
 **The use case.** Item-level enrichment is most often intended to fix or supersede an existing item field — for example, correcting `item_category` values from a category-mapping table joined on `item_id`. With explicit listing, this is identical to the event-level pattern: the enrichment column shares a name with a pre-existing one, and a coalesce wrap inside the field expression makes a missed JOIN fall back to the original item value.
 
-**Implementation.** The `items_rebuilt` step builds its struct from a `preItemExpressions` map (the items-side analog of `preEnrichmentExpressions` used by `enhanced_events`):
+**Implementation.** `items_unnested` flattens the item struct — every field from `helpers.ga4ItemStructFields` is selected as a top-level column on `items_unnested` (`item.<col> as <col>`). This makes downstream JOINs straightforward (`USING(item_id)` binds against a top-level identifier) and lets `items_rebuilt` reference fields as bare column names.
 
-1. Initialize from `helpers.ga4ItemStructFields`: each entry maps `<col>` → `item.<col>`.
+The `items_rebuilt` step builds its struct from a `preItemExpressions` map (the items-side analog of `preEnrichmentExpressions` used by `enhanced_events`):
+
+1. Initialize from `helpers.ga4ItemStructFields`: each entry maps `<col>` → `<col>` (bare top-level reference, because `items_unnested` has flattened the struct).
 2. If `itemListAttribution` is configured, override the three attribution entries (`item_list_name`, `item_list_id`, `item_list_index`) with their package-generated coalesce-with-passthrough expressions.
 3. For each item-level enrichment column from `utils.buildEnrichments`'s `item.columns` output:
    - If the column name is already in `preItemExpressions` (overlap): produce `coalesce(<enrichExpr>, <originalExpr>)` and overwrite.
@@ -337,7 +339,7 @@ promotion_id, promotion_name, creative_name, creative_slot,
 item_params
 ```
 
-Sibling of `helpers.ga4ExportColumns`. Used to seed `preItemExpressions`. Source order matters because `items_rebuilt`'s explicit `struct(...)` construction emits fields in the order they're listed, and consumers may reasonably depend on the items-struct field order matching GA4's own schema. `item_params` is a nested `REPEATED RECORD` and projects through unchanged (`item.item_params as item_params`) — same pass-through pattern as `event_params` at the event level.
+Sibling of `helpers.ga4ExportColumns`. Used both to seed `items_unnested.select.columns` (as `<col>: 'item.<col>'` entries — the flatten) AND to seed `preItemExpressions` (as `<col>: '<col>'` entries — bare top-level references for the struct construction). Source order matters because `items_rebuilt`'s explicit `struct(...)` construction emits fields in the order they're listed, and consumers may reasonably depend on the items-struct field order matching GA4's own schema. `item_params` is a nested `REPEATED RECORD` and projects through unchanged via the flatten — same pass-through pattern as `event_params` at the event level.
 
 **Enrichment-vs-enrichment overlap.** When two item-level enrichments target the same column name, the package throws — same logic as event-level Q13. Detected inside `utils.buildEnrichments` (where the event-level collision throw also lives). The error names both enrichments and the conflicting column.
 

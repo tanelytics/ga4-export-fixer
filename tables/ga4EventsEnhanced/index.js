@@ -274,6 +274,15 @@ ${excludedEventsSQL}`,
         );
         const passthroughEvents = `event_name in ('view_item_list', 'select_item', 'view_promotion', 'select_promotion')`;
 
+        // Flatten the item struct: every standard items-struct field is selected as a
+        // top-level column of items_unnested. This makes downstream joins simpler
+        // (LEFT JOIN ... USING(item_id) works without aliasing tricks) and lets items_rebuilt
+        // reference fields as bare column names instead of `item.<col>`.
+        const itemFieldColumns = {};
+        for (const f of helpers.ga4ItemStructFields) {
+            itemFieldColumns[f] = `item.${f}`;
+        }
+
         const unnestedStep = {
             name: 'items_unnested',
             select: {
@@ -282,7 +291,7 @@ ${excludedEventsSQL}`,
                     'event_name': 'event_name',
                     // event_date is carried forward for ability to use it in data enrichment joins
                     'event_date': 'event_date',
-                    'item': 'item',
+                    ...itemFieldColumns,
                     '_item_list_attr': attrExpr,
                 },
             },
@@ -291,17 +300,18 @@ ${excludedEventsSQL}`,
         };
 
         // Build the per-field expression map for the items struct. Seed with the canonical
-        // GA4 items-struct fields (each maps to `item.<col>`), then override the three
-        // item-list-attribution entries with their package-generated coalesce-with-passthrough
-        // expressions. Future sprints (item-level enrichments) layer their column overrides
-        // on top of this same map via the spread mechanic.
+        // GA4 items-struct fields — each references the matching top-level column on
+        // items_unnested (no `item.` prefix because the unnest CTE has flattened them).
+        // Then override the three item-list-attribution entries with their package-generated
+        // coalesce-with-passthrough expressions. Future sprints (item-level enrichments)
+        // layer their column overrides on top of this same map via the spread mechanic.
         const preItemExpressions = {};
         for (const f of helpers.ga4ItemStructFields) {
-            preItemExpressions[f] = `item.${f}`;
+            preItemExpressions[f] = f;
         }
-        preItemExpressions.item_list_name = `coalesce(if(${passthroughEvents}, item.item_list_name, _item_list_attr.item_list_name), '(not set)')`;
-        preItemExpressions.item_list_id = `coalesce(if(${passthroughEvents}, item.item_list_id, _item_list_attr.item_list_id), '(not set)')`;
-        preItemExpressions.item_list_index = `coalesce(if(${passthroughEvents}, item.item_list_index, _item_list_attr.item_list_index))`;
+        preItemExpressions.item_list_name = `coalesce(if(${passthroughEvents}, item_list_name, _item_list_attr.item_list_name), '(not set)')`;
+        preItemExpressions.item_list_id = `coalesce(if(${passthroughEvents}, item_list_id, _item_list_attr.item_list_id), '(not set)')`;
+        preItemExpressions.item_list_index = `coalesce(if(${passthroughEvents}, item_list_index, _item_list_attr.item_list_index))`;
 
         const itemStructClauses = Object.entries(preItemExpressions)
             .map(([col, expr]) => `${expr} as ${col}`)

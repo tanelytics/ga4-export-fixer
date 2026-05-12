@@ -2,7 +2,9 @@
 
 ## Summary
 
-Ships Phase 2 of the data-enrichments feature per [data-enrichments.md](data-enrichments.md): the item-level slice. Extends `utils.buildEnrichments` to a nested return shape that routes event-level and item-level entries through separate output channels; removes the `level: 'item'` "not yet supported" throw; adds item-level joinKey validation and dynamic `items_unnested` extension; routes item-level enrichment columns through the `preItemExpressions` spread mechanic established in Sprint B1. With this sprint, item-level enrichments are first-class — users can declaratively join product master / SKU / category-mapping data into the `items` struct via the same `enrichments` config API used for event-level data.
+Ships Phase 2 of the data-enrichments feature per [data-enrichments.md](data-enrichments.md): the item-level slice. Extends `utils.buildEnrichments` to a nested return shape that routes event-level and item-level entries through separate output channels; removes the `level: 'item'` "not yet supported" throw; adds item-level joinKey validation and (for event-data joinKey columns only) dynamic `items_unnested` extension; routes item-level enrichment columns through the `preItemExpressions` spread mechanic established in Sprint B1. With this sprint, item-level enrichments are first-class — users can declaratively join product master / SKU / category-mapping data into the `items` struct via the same `enrichments` config API used for event-level data.
+
+**Note on items_unnested:** Sprint B1 flattened the item struct in `items_unnested` — every standard items-struct field from `helpers.ga4ItemStructFields` is selected as a top-level column. So item-struct joinKey values (`item_id`, `item_category`, etc.) are already top-level identifiers in `items_unnested`; no dynamic extension is needed for them. Only event_data joinKey columns (like `user_pseudo_id`) need to be added dynamically to `items_unnested.select.columns`.
 
 **Duration:** Single session (~1.5 hours)
 **Dependencies:** Sprint B1 ([items-rebuilt-explicit-struct-sprint.md](items-rebuilt-explicit-struct-sprint.md)) ships first — establishes the `preItemExpressions` mechanic and `helpers.ga4ItemStructFields` that this sprint extends.
@@ -85,11 +87,11 @@ Two milestones with M1 → M2 dependency. M1 extends the utility and adapts the 
 
 2. **Conditional `LAST_VALUE` window in `items_unnested`** — when `itemListAttribution` is configured, emit the window function and the `_item_list_attr` struct; when only item enrichments are active, skip both.
 
-3. **Item-level joinKey validation + dynamic `items_unnested.select.columns` extension** (Layer 2; lives at the call site per design doc Q3):
+3. **Item-level joinKey validation** (Layer 2; lives at the call site per design doc Q3):
    - For each item-level enrichment's joinKey column `c`:
-     - If `c` is in `eventDataStep.select.columns` (with non-undefined value): valid. Add `<c>: '<c>'` to `items_unnested.select.columns` (skip if already present).
-     - Else if `c` is in `helpers.ga4ItemStructFields`: valid. Add `<c>: 'item.<c>'` to `items_unnested.select.columns` (skip if already present).
-     - Else: throw with a clear error message identifying the enrichment, the invalid joinKey, and the two valid sources (event_data columns + items-struct fields).
+     - If `c` is in `helpers.ga4ItemStructFields`: valid. Already a top-level column in `items_unnested` after Sprint B1's flatten — nothing to add.
+     - Else if `c` is in `eventDataStep.select.columns` (with non-undefined value): valid. Add `<c>: '<c>'` to `items_unnested.select.columns` (skip if already present) so it can be used in `USING(...)`.
+     - Else: throw with a clear error message identifying the enrichment, the invalid joinKey, and the two valid sources (items-struct fields + event_data columns).
 
 4. **Item-level joins in `items_rebuilt`** — append `itemEnrichments.joins` to `items_rebuilt.joins`.
 
@@ -99,8 +101,8 @@ Two milestones with M1 → M2 dependency. M1 extends the utility and adapts the 
    - Render as `array_agg(struct(<expr> as col, ...))`.
 
 6. **New end-to-end tests** in [tests/enrichments.test.js](../../tests/enrichments.test.js):
-   - Item-level enrichment with `joinKey: 'item_id'` and additive column: column appears as an additive struct entry; `items_unnested` exposes `item_id` (via `item.item_id`); JOIN uses `using(item_id)`.
-   - Item-level enrichment overlapping a standard field (`item_category`): emits `coalesce(<expr>, item.item_category) as item_category` in the struct.
+   - Item-level enrichment with `joinKey: 'item_id'` and additive column: column appears as an additive struct entry; JOIN uses `using(item_id)` against `items_unnested.item_id` (top-level after B1 flatten).
+   - Item-level enrichment overlapping a standard field (`item_category`): emits `coalesce(<expr>, item_category) as item_category` in the struct (the original `item_category` is a top-level column on `items_unnested`).
    - Item-level enrichment with `joinKey: ['event_date', 'item_id']` composite: `items_unnested` exposes both keys; JOIN uses `using(event_date, item_id)`.
    - Item-level enrichment with `joinKey: 'user_pseudo_id'` (event_data column): `items_unnested` exposes `user_pseudo_id`; JOIN uses `using(user_pseudo_id)`.
    - Item-level joinKey that's neither in event_data nor `ga4ItemStructFields`: throws with a clear message.
