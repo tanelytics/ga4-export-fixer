@@ -357,14 +357,17 @@ ${excludedEventsSQL}`,
         // items_unnested. When itemListAttribution is configured, override the three
         // attribution entries with their package-generated coalesce-with-passthrough
         // expressions. Item-level enrichment columns layer on top via the spread below.
+        // References are qualified with `items_unnested.` so that overlapping item-level
+        // enrichments (which JOIN against enrich_<name> CTEs that may share column names)
+        // do not produce ambiguous bare-column references.
         const preItemExpressions = {};
         for (const f of helpers.ga4ItemStructFields) {
-            preItemExpressions[f] = f;
+            preItemExpressions[f] = `items_unnested.${f}`;
         }
         if (itemListAttribution) {
-            preItemExpressions.item_list_name = `coalesce(if(${passthroughEvents}, item_list_name, _item_list_attr.item_list_name), '(not set)')`;
-            preItemExpressions.item_list_id = `coalesce(if(${passthroughEvents}, item_list_id, _item_list_attr.item_list_id), '(not set)')`;
-            preItemExpressions.item_list_index = `coalesce(if(${passthroughEvents}, item_list_index, _item_list_attr.item_list_index))`;
+            preItemExpressions.item_list_name = `coalesce(if(${passthroughEvents}, items_unnested.item_list_name, _item_list_attr.item_list_name), '(not set)')`;
+            preItemExpressions.item_list_id = `coalesce(if(${passthroughEvents}, items_unnested.item_list_id, _item_list_attr.item_list_id), '(not set)')`;
+            preItemExpressions.item_list_index = `coalesce(if(${passthroughEvents}, items_unnested.item_list_index, _item_list_attr.item_list_index))`;
         }
 
         // Wrap overlapping item-level enrichment columns in coalesce(<enrichExpr>, <originalExpr>)

@@ -309,11 +309,48 @@ test('item-level enrichment overlapping a standard field emits coalesce against 
             columns: ['item_category'],
         })],
     }));
-    // The struct should have `coalesce(enrich_category_fixes.item_category, item_category) as item_category`.
-    // item_category is a top-level column on items_unnested, so the original expression in
-    // preItemExpressions is bare `item_category` (no `item.` prefix).
-    assert.ok(sql.includes('coalesce(enrich_category_fixes.item_category, item_category) as item_category'),
-        'overlapping item-level column should emit coalesce(enrich.col, original) as col in the struct');
+    // The struct should have `coalesce(enrich_category_fixes.item_category, items_unnested.item_category) as item_category`.
+    // The original side is qualified with items_unnested so the bare column reference isn't
+    // ambiguous against enrich_category_fixes (which also has item_category after the JOIN).
+    assert.ok(sql.includes('coalesce(enrich_category_fixes.item_category, items_unnested.item_category) as item_category'),
+        'overlapping item-level column should emit coalesce(enrich.col, items_unnested.col) as col in the struct');
+});
+
+test('item-level enrichment overlapping affiliation emits qualified coalesce (regression: ambiguous column)', () => {
+    // Regression: previously emitted `coalesce(enrich_items.affiliation, affiliation)`, which
+    // BigQuery rejected with "Column name affiliation is ambiguous" because enrich_items also
+    // has an affiliation column after the LEFT JOIN.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        enrichments: [enrichment({
+            name: 'items',
+            level: 'item',
+            source: '`proj.ds.items_extra`',
+            joinKey: 'item_id',
+            columns: ['affiliation'],
+        })],
+    }));
+    assert.ok(sql.includes('coalesce(enrich_items.affiliation, items_unnested.affiliation) as affiliation'),
+        'overlapping affiliation enrichment should qualify the original side as items_unnested.affiliation');
+    assert.ok(!/coalesce\(enrich_items\.affiliation,\s*affiliation\)/.test(sql),
+        'must NOT emit the ambiguous bare form coalesce(enrich_items.affiliation, affiliation)');
+});
+
+test('attribution override + enrichment overlap on item_list_id qualifies the bare reference inside the override', () => {
+    // When itemListAttribution is on AND item_list_id is also enriched, the attribution
+    // override expression's bare `item_list_id` inside the if(...) branch must be qualified
+    // as items_unnested.item_list_id to avoid the same ambiguity.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        itemListAttribution: { lookbackType: 'SESSION' },
+        enrichments: [enrichment({
+            name: 'list_fix',
+            level: 'item',
+            source: '`proj.ds.list`',
+            joinKey: 'item_id',
+            columns: ['item_list_id'],
+        })],
+    }));
+    assert.ok(sql.includes('items_unnested.item_list_id'),
+        'override expression for item_list_id should reference items_unnested.item_list_id (not bare)');
 });
 
 test('item-level enrichment with composite joinKey carries both keys', () => {
