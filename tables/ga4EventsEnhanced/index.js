@@ -173,7 +173,7 @@ const _generateEnhancedEventsSQL = (mergedConfig) => {
     const itemsScaffoldActive = !!itemListAttribution || itemEnrichmentsActive;
 
     const ecommerceEventsFilter = itemsScaffoldActive
-        ? helpers.ga4EcommerceEvents.filter(e => e !== 'refund').map(e => `'${e}'`).join(', ')
+        ? helpers.ga4EcommerceEvents.map(e => `'${e}'`).join(', ')
         : null;
 
     // auto-adjust bufferDays for time-based item list attribution lookback

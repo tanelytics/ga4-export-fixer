@@ -235,13 +235,15 @@ const itemListAttributionExpr = (lookbackType, timestampColumn, lookbackTimeMs) 
     frameBounds = `range between ${lookbackMicros} preceding and current row`;
   }
 
-  return `last_value(
+  // Refund events occur outside the selection-driven journey window — propagating
+  // item_list_* attribution into them would misattribute. Suppress attribution on refund rows.
+  return `if(event_name = 'refund', null, last_value(
       if(${selectEvents}, ${structExpr}, null) ignore nulls
     ) over(
       partition by ${partitionBy}
       order by ${timestampColumn} asc
       ${frameBounds}
-    )`;
+    ))`;
 };
 
 /**

@@ -255,6 +255,16 @@ test('items_unnested keeps LAST_VALUE window when itemListAttribution is configu
         '_item_list_attr column should be selected when attribution is active');
 });
 
+test('item-list attribution suppresses LAST_VALUE for refund event rows', () => {
+    // Refund events flow through items_unnested for enrichment purposes, but their
+    // item_list_* should NOT receive attribution from earlier select_item/select_promotion.
+    const sql = ga4EventsEnhanced.generateSql(baseConfig({
+        itemListAttribution: { lookbackType: 'SESSION' },
+    }));
+    assert.ok(/if\(\s*event_name = 'refund',\s*null,\s*last_value\(/.test(sql),
+        `attribution expression should wrap LAST_VALUE in if(event_name = 'refund', null, ...); got: ${sql}`);
+});
+
 test('item-level enrichment LEFT JOIN added to items_rebuilt with USING(joinKey)', () => {
     const sql = ga4EventsEnhanced.generateSql(baseConfig({
         enrichments: [enrichment({
