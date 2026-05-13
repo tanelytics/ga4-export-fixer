@@ -150,6 +150,7 @@ The goal of the package is to **speed up development** when building data models
 Features under consideration for future releases:
 
 - Aggregated tables (ga4_session, ga4_ecommerce...)
+- Roll-ups for creating a single ga4_events_enhanced table from multiple source exports
 - Web and app specific default configurations
 - Custom channel grouping
 - Custom traffic source attribution
