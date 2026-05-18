@@ -16,6 +16,7 @@ The goal of the package is to **speed up development** when building data models
 
 ## Table of Contents
 <!-- TOC -->
+- [Blog Posts](#blog-posts)
 - [Main Features](#main-features)
 - [Planned Features](#planned-features)
 - [Installation](#installation)
@@ -29,6 +30,10 @@ The goal of the package is to **speed up development** when building data models
   - [Helpers](#helpers)
 - [License](#license)
 <!-- /TOC -->
+
+## Blog Posts
+
+- [ga4-export-fixer: Getting started in Dataform](https://tanelytics.com/ga4-export-fixer-getting-started-in-dataform/)
 
 ## Main Features
 
